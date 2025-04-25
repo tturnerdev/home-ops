@@ -4,5 +4,6 @@ kind: Kustomization
 namespace: media
 components:
   - ../../components/common
+  - ../../components/repos/app-template
 resources:
   - ./sonarr/ks.yaml
