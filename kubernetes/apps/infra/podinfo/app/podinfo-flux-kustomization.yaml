@@ -1,0 +1,19 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: podinfo
+  namespace: default
+spec:
+  interval: 1m
+  url: https://stefanprodan.github.io/podinfo
+  secretRef:
+    name: example-user
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-user
+  namespace: default
+stringData:
+  username: example
+  password: "123456"
