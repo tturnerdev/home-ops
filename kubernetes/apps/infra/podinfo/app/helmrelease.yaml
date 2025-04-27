@@ -6,14 +6,3 @@ metadata:
 spec:
   interval: 1m
   url: https://stefanprodan.github.io/podinfo
-  secretRef:
-    name: example-user
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: example-user
-  namespace: infra
-stringData:
-  username: example
-  password: "123456"
