@@ -55,7 +55,7 @@ tasks:
     prompt: Any conflicting files in the kubernetes directory will be overwritten... continue?
     cmds:
       - task: validate-schemas
-      - task: render-configs
+      # - task: render-configs
       - task: encrypt-secrets
       - task: validate-kubernetes-config
       - task: validate-talos-config
