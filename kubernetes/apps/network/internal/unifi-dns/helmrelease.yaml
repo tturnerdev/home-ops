@@ -69,12 +69,14 @@ spec:
           initialDelaySeconds: 10
           timeoutSeconds: 5
     extraArgs:
+      - --events
       - --ignore-ingress-tls-spec
-    triggerLoopOnEvent: true
+      - --ingress-class=external
+    # triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]
-    txtOwnerId: main
-    txtPrefix: k8s.main.
+    txtPrefix: k8s.
+    txtOwnerId: default
     domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
       enabled: true
