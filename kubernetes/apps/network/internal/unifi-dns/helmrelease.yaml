@@ -38,6 +38,7 @@ spec:
       retries: 3
   values:
     fullnameOverride: *app
+    logLevel: &logLevel debug
     provider:
       name: webhook
       webhook:
@@ -60,6 +61,8 @@ spec:
               secretKeyRef:
                 name: *secret
                 key: *name
+          - name: LOG_LEVEL
+            value: *logLevel
         livenessProbe:
           httpGet:
             path: /healthz
