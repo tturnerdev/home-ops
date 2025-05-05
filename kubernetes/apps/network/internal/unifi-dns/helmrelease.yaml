@@ -79,7 +79,6 @@ spec:
       - --events
       - --ignore-ingress-tls-spec
       - --ingress-class=external
-      #test
     # triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]
