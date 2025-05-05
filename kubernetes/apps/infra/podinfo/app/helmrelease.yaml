@@ -26,7 +26,6 @@ spec:
   values:
     ingress:
       app:
-      # test
         className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
