@@ -76,10 +76,8 @@ spec:
           initialDelaySeconds: 10
           timeoutSeconds: 5
     extraArgs:
-      - --events
       - --ignore-ingress-tls-spec
       - --ingress-class=external
-      #test
     # triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]
