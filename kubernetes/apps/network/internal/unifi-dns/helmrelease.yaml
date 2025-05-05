@@ -80,7 +80,7 @@ spec:
       - --ignore-ingress-tls-spec
       - --ingress-class=external
       #test
-    # triggerLoopOnEvent: true
+    triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]
     txtPrefix: k8s.
