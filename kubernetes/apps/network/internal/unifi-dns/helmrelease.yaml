@@ -78,7 +78,6 @@ spec:
     extraArgs:
       - --events
       - --ignore-ingress-tls-spec
-      - --ingress-class=external
       - --ingress-class=internal
     # triggerLoopOnEvent: true
     policy: sync
