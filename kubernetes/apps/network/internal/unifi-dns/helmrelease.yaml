@@ -76,6 +76,7 @@ spec:
           initialDelaySeconds: 10
           timeoutSeconds: 5
     extraArgs:
+      - --events
       - --ignore-ingress-tls-spec
       - --ingress-class=external
     # triggerLoopOnEvent: true
