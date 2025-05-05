@@ -127,7 +127,19 @@ spec:
               - path: /
                 service:
                   identifier: app
-                  port: 9898
+                  port: 9899
+    tls:
+      enabled: true
+      # the name of the secret used to mount the certificate key pair
+      secretName:
+      # the path where the certificate key pair will be mounted
+      certPath: /data/cert
+      # the port used to host the tls endpoint on the service
+      port: 9899
+      # the port used to bind the tls port to the host
+      # NOTE: requires privileged container with NET_BIND_SERVICE capability -- this is useful for testing
+      # in local clusters such as kind without port forwarding
+      hostPort:
 
 
 
