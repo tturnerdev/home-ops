@@ -78,8 +78,8 @@ spec:
     extraArgs:
       - --events
       - --ignore-ingress-tls-spec
-      - --ingress-class=external
       - --ingress-class=internal
+      - --ingress-class=external
     # triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]
