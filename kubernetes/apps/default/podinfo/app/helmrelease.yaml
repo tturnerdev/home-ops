@@ -116,6 +116,16 @@ spec:
     #         path: /metrics
     #         interval: 1m
     #         scrapeTimeout: 10s
+    service:
+      enabled: true
+      annotations: {}
+      type: ClusterIP
+      metricsPort: 9797
+      httpPort: 9898
+      externalPort: 9898
+      grpcPort: 9999
+      grpcService: podinfo
+      nodePort: 31198
     ingress:
       app:
         className: external
