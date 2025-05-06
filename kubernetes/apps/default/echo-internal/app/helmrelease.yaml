@@ -21,7 +21,7 @@ spec:
       namespace: network
   values:
     controllers:
-      echo-internal:
+      echo:
         strategy: RollingUpdate
         containers:
           app:
@@ -63,13 +63,13 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     service:
       app:
-        controller: echo-internal
+        controller: echo
         ports:
           http:
             port: *port
     serviceMonitor:
       app:
-        serviceName: echo-internal
+        serviceName: echo
         endpoints:
           - port: http
             scheme: http
