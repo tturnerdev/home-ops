@@ -97,12 +97,12 @@ spec:
     #     runAsUser: 65534
     #     runAsGroup: 65534
     #     seccompProfile: { type: RuntimeDefault }
-    # service:
-    #   app:
-    #     controller: podinfo
-    #     ports:
-    #       http:
-    #         port: *port
+    service:
+      app:
+        controller: podinfo
+        ports:
+          http:
+            port: 9899
     # serviceMonitor:
     #   app:
     #     serviceName: podinfo
@@ -133,7 +133,8 @@ spec:
               - path: /
                 service:
                   identifier: app
-        tls:
+                  port: 9899
+      tls:
           - hosts:
               - *host
     # tls:
