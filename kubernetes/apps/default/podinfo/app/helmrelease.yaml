@@ -134,9 +134,9 @@ spec:
                 service:
                   identifier: app
                   port: 9899
-      tls:
-          - hosts:
-              - *host
+       tls:
+          hosts:
+            - host: *host
     # tls:
     #   enabled: true
     #   # the name of the secret used to mount the certificate key pair
