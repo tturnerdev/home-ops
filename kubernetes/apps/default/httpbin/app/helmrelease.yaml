@@ -28,8 +28,6 @@ spec:
             image:
               repository: ghcr.io/mccutchen/go-httpbin
               tag: 2.18.1
-            env:
-              PORT: &port 80
     # test
     service:
       app:
@@ -37,7 +35,7 @@ spec:
         type: ClusterIP
         ports:
           http:
-            port: *port
+            port: 8080
     ingress:
       app:
         className: internal
