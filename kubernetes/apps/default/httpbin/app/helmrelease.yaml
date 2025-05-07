@@ -28,6 +28,8 @@ spec:
             image:
               repository: ghcr.io/mccutchen/go-httpbin
               tag: 2.18.1
+            service:
+              port: 80
     # test
     service:
       app:
