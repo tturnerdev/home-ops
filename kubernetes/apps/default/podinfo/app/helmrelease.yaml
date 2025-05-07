@@ -21,7 +21,7 @@ spec:
       namespace: network
   values:
     controllers:
-      podinfo:
+      app:
         strategy: RollingUpdate
         containers:
           app:
@@ -29,26 +29,49 @@ spec:
               repository: ghcr.io/stefanprodan/podinfo
               tag: 6.8.0
     service:
+      # Configure a service for the main application
       app:
-        controller: podinfo
+        controller: main
+        type: ClusterIP
         ports:
           http:
             port: 9899
     ingress:
-      enabled: "true"
-      ClassName: internal
-      annotations:
-        external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-
-      hosts:
-        - host: &host "podinfo.${SECRET_DOMAIN}"
-          paths:
-            - path: /
-              pathType: ImplementationSpecific
-
-      tls:
-        - hosts:
-            - *host
+      # Configure an Ingress for the main application
+      app:
+        className: "internal"
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        hosts:
+          - host: &host "{{ .Release.Name }}.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - *host
+    # service:
+    #   app:
+    #     controller: podinfo
+    #     ports:
+    #       http:
+    #         port: 9899
+    # ingress:
+    #   enabled: "true"
+    #   ClassName: internal
+    #   annotations:
+    #     external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+    #   hosts:
+    #     - host: &host "podinfo.${SECRET_DOMAIN}"
+    #       paths:
+    #         - path: /
+    #           pathType: ImplementationSpecific
+    #   tls:
+    #     - hosts:
+    #         - *host
 
 
 
