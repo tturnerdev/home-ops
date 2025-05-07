@@ -29,7 +29,7 @@ spec:
               repository: ghcr.io/mccutchen/go-httpbin
               tag: 2.18.1
             env:
-              PORT: &port 1337
+              PORT: &port 80
     # test
     service:
       app:
