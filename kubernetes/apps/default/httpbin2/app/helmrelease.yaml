@@ -31,6 +31,7 @@ spec:
       ports:
         port: 8080
     ingress:
+      enabled: true
       className: internal
       annotations:
         external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
