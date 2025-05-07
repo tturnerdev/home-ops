@@ -40,7 +40,7 @@ spec:
     ingress:
       # Configure an Ingress for the main application
       app:
-        className: external
+        className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
