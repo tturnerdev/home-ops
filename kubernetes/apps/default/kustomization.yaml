@@ -10,3 +10,4 @@ resources:
   - ./echo/ks.yaml
   - ./echo-internal/ks.yaml
   - ./podinfo/ks.yaml
+  - ./httpbin/ks.yaml
