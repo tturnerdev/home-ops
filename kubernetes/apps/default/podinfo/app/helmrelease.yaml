@@ -28,6 +28,7 @@ spec:
             image:
               repository: ghcr.io/stefanprodan/podinfo
               tag: 6.8.0
+    # test
     service:
       # Configure a service for the main application
       app:
