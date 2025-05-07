@@ -22,6 +22,9 @@ spec:
         kind: HelmRepository
         name: matheusfm
   interval: 24h
+  dependsOn:
+    - name: internal-ingress-nginx
+      namespace: network
   values:
     service:
       type: ClusterIP
