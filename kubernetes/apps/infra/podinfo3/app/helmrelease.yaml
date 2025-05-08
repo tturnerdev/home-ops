@@ -25,6 +25,16 @@ spec:
     name: podinfo
     namespace: infra
   values:
+    extraEnvs:
+      - name: RD_TEST_ENV_VAR
+        value: "Testing RD VAR"
+      - name: RD_TEST_ENV_DOMAIN
+        value: "Domain: ${SECRET_DOMAIN}"
+      - name: RD_TEST_ENV_ENC
+        valueFrom:
+          secretKeyRef:
+            name: podinfo3-secret
+            key: test-token
     service:
       externalPort: &port 80
     ingress:
@@ -45,3 +55,5 @@ spec:
         - enabled: true
           hosts:
             - *host
+    podAnnotations:
+      secret.reloader.stakater.com/reload: podinfo3-secret
