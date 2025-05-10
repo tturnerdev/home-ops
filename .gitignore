@@ -7,6 +7,9 @@
 /github-deploy.key
 /github-deploy.key.pub
 /github-push-token.txt
+# External-Secrets - 1Password Provider
+/1password-credentials.json
+/1password-token-home-ops.txt
 # Template config files
 /cluster.yaml
 /nodes.yaml
