@@ -7,5 +7,5 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  # - ./podinfo2/ks.yaml
+  - ./podinfo2/ks.yaml
   # - ./podinfo3/ks.yaml

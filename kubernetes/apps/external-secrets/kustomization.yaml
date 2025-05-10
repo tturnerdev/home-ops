@@ -8,21 +8,21 @@ components:
   - ../../components/repos/app-template
 resources:
 # Deploy the Vault access secret
-- namespace.yaml
+- ./namespace.yaml
 # - secret.sops.yaml
 
 # Deploy the repositories
-- repositories.yaml
+- ./repositories.yaml
 
 # Deploy the CRDs
-- deployment-crds.yaml
+- ./deployment-crds.yaml
 
 # Deploy the operator
-- deployment.yaml
+- ./deployment.yaml
 
 # Deploy default Custom Resources from 'crs' directory
 # INFO: This depends on the CRDs deployment. Will happen after it
-- deployment-crs.yaml
+- ./deployment-crs.yaml
 
 # Deploy the SecretStore
-- secretstore.yaml
+# - secretstore.yaml
