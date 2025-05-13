@@ -26,3 +26,7 @@ resources:
 
 # Deploy the SecretStore
 - ./secretstore.yaml
+
+# Deploy the CRDs
+# - ./deploy/crds/test-ext-secret.yaml
+# - ./deploy/crds/new-ext-secret.yaml
