@@ -16,7 +16,7 @@ spec:
       - name: cluster-secrets
         kind: Secret
   prune: true
-  retryInterval: 24h
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
