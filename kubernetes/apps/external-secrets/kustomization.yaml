@@ -25,4 +25,4 @@ resources:
 - ./deployment-crs.yaml
 
 # Deploy the SecretStore
-# - secretstore.yaml
+- ./secretstore.yaml
