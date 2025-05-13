@@ -3,8 +3,8 @@ kind: Kustomization
 
 # namespace: external-secrets
 
-# components:
-#   - ../../components/common
+components:
+  - ../../components/common
 #   - ../../components/repos/app-template
 resources:
 # Deploy the Vault access secret
