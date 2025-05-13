@@ -14,14 +14,15 @@ spec:
       kind: ClusterIssuer
       failed: status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')
       current: status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')
-  interval: 1h
+  # interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/cert-manager/cert-manager/app
   postBuild:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
   prune: true
-  retryInterval: 2m
+  retryInterval: 24h
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -48,14 +49,15 @@ spec:
       kind: Certificate
       failed: status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')
       current: status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')
-  interval: 1h
+  # interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/cert-manager/cert-manager/tls
   postBuild:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
   prune: true
-  retryInterval: 2m
+  retryInterval: 24h
   sourceRef:
     kind: GitRepository
     name: flux-system

@@ -6,7 +6,7 @@ metadata:
   name: k8s-gateway
   namespace: network # Required for Renovate lookups
 spec:
-  interval: 1h
+  interval: 168h
   url: https://ori-edge.github.io/k8s_gateway
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
@@ -15,7 +15,7 @@ kind: HelmRelease
 metadata:
   name: k8s-gateway
 spec:
-  interval: 1h
+  interval: 168h
   chart:
     spec:
       chart: k8s-gateway

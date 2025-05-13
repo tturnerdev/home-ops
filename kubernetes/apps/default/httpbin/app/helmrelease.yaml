@@ -5,7 +5,7 @@ kind: HelmRelease
 metadata:
   name: httpbin
 spec:
-  interval: 1h
+  interval: 168h
   chartRef:
     kind: OCIRepository
     name: app-template

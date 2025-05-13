@@ -9,14 +9,14 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/infra/podinfo2/app
   postBuild:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
   prune: true
-  retryInterval: 2m
+  retryInterval: 24h
   sourceRef:
     kind: GitRepository
     name: flux-system

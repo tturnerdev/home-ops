@@ -9,7 +9,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/default/echo/app
   postBuild:
     substituteFrom:

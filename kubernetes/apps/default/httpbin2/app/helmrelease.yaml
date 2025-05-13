@@ -5,7 +5,7 @@ metadata:
   name: matheusfm
   namespace: flux-system
 spec:
-  interval: 24h0m0s
+  interval: 168h
   url: https://matheusfm.dev/charts
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
@@ -21,7 +21,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: matheusfm
-  interval: 24h
+  interval: 168h
   dependsOn:
     - name: internal-ingress-nginx
       namespace: network

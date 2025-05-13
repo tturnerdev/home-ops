@@ -9,7 +9,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/network/external/external-dns
   postBuild:
     substituteFrom:
@@ -35,7 +35,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/network/external/cloudflared
   postBuild:
     substituteFrom:
@@ -64,7 +64,7 @@ spec:
   dependsOn:
     - name: cert-manager-tls
       namespace: cert-manager
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/network/external/ingress-nginx
   postBuild:
     substituteFrom:

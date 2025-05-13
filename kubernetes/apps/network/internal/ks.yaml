@@ -12,7 +12,7 @@ spec:
   dependsOn:
     - name: cert-manager-tls
       namespace: cert-manager
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/network/internal/ingress-nginx
   postBuild:
     substituteFrom:
@@ -38,7 +38,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/network/internal/k8s-gateway
   postBuild:
     substituteFrom:
@@ -64,7 +64,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  interval: 168h
   path: ./kubernetes/apps/network/internal/unifi-dns
   postBuild:
     substituteFrom:
