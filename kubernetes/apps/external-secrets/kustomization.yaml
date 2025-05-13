@@ -11,8 +11,8 @@ resources:
 - ./namespace.yaml
 # - secret.sops.yaml
 
-# Deploy the repositories
-# - ./repositories.yaml
+Deploy the repositories
+- ./repositories.yaml
 
 # Deploy the CRDs
 # - ./deployment-crds.yaml
