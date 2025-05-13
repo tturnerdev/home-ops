@@ -29,4 +29,4 @@ resources:
 
 # Deploy the CRDs
 # - ./deploy/crds/test-ext-secret.yaml
-- ./deploy/crds/new-ext-secret.yaml
+# - ./deploy/crds/new-ext-secret.yaml
