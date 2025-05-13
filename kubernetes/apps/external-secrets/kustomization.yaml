@@ -6,9 +6,9 @@ kind: Kustomization
 # components:
 #   - ../../components/common
 #   - ../../components/repos/app-template
-# resources:
+resources:
 # Deploy the Vault access secret
-# - ./namespace.yaml
+- ./namespace.yaml
 # - secret.sops.yaml
 
 # Deploy the repositories
