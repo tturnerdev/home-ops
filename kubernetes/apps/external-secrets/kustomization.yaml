@@ -22,10 +22,10 @@ resources:
 
 # Deploy default Custom Resources from 'crs' directory
 # INFO: This depends on the CRDs deployment. Will happen after it
-# - ./deployment-crs.yaml
+- ./deployment-crs.yaml
 
 # Deploy the SecretStore
-- ./secretstore.yaml
+# - ./secretstore.yaml
 
 # Deploy the CRDs
 # - ./deploy/crds/test-ext-secret.yaml
