@@ -8,7 +8,7 @@ spec:
   dependsOn:
     - name: external-secrets-crds
   interval: 10m
-  path: ./apps/external-secrets/crs
+  path: ./kubernetes/apps/external-secrets/crs
   prune: true
   sourceRef:
     kind: GitRepository
