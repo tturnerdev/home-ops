@@ -9,7 +9,7 @@ kind: Kustomization
 resources:
 # Deploy the Vault access secret
 - ./namespace.yaml
-- secret.sops.yaml
+- ./secret.sops.yaml
 
 # Deploy the repositories
 - ./repositories.yaml
