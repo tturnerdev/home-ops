@@ -11,10 +11,6 @@ spec:
       app.kubernetes.io/name: *app
   interval: 168h
   path: ./kubernetes/apps/util/ntfy/app
-  # postBuild:
-  #   substituteFrom:
-  #     - name: cluster-secrets
-  #       kind: Secret
   prune: true
   retryInterval: 24h
   sourceRef:
