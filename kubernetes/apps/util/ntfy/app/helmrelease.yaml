@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: ntfy
+  namespace: util
+spec:
+  type: oci
+  interval: 15m
+  url: oci://tccr.io/truecharts/ntfy
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ntfy
+  namespace: util
+spec:
+  interval: 1h
+  chartRef:
+    kind: HelmChart
+    name: ntfy
+    namespace: util
+  install:
+    remediation:
+      retries: -1
+  # upgrade:
+  #   cleanupOnFail: true
+  #   remediation:
+  #     retries: 3
+  # valuesFrom:
+  #   - kind: ConfigMap
+  #     name: external-secrets-values

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# This should be a standard Kustomize configuration file
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The namespace will be handled by the Flux Kustomization pointing to this directory (ks.yaml)
+# namespace: infra # Setting it here is optional but can help clarity
+
+resources:
+  - ./helmrelease.yaml
