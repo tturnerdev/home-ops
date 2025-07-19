@@ -8,7 +8,7 @@ metadata:
 spec:
   type: oci
   interval: 15m
-  url: oci://tccr.io/truecharts/ntfy
+  url: oci://tccr.io/truecharts
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
