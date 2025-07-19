@@ -18,10 +18,18 @@ metadata:
   namespace: util
 spec:
   interval: 1h
-  chartRef:
-    kind: HelmChart
-    name: ntfy
-    namespace: util
+  # chartRef:
+  #   kind: HelmChart
+  #   name: ntfy
+  #   namespace: util
+  chart:
+    spec:
+      chart: ntfy
+      # version: "14.2.0" # Pinning the chart version is recommended
+      sourceRef:
+        kind: HelmRepository
+        name: ntfy
+        namespace: util
   install:
     remediation:
       retries: -1
