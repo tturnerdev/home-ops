@@ -24,7 +24,7 @@ spec:
   #   namespace: util
   chart:
     spec:
-      chart: ntfy
+      #chart: ntfy
       # version: "14.2.0" # Pinning the chart version is recommended
       sourceRef:
         kind: HelmRepository
