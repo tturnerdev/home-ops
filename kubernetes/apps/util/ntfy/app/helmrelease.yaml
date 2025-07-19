@@ -3,11 +3,13 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: ntfy
+  # Renamed for clarity, as it now points to the whole repository
+  name: truecharts
   namespace: util
 spec:
   type: oci
   interval: 15m
+  # URL now points to the parent repository, not the specific chart
   url: oci://tccr.io/truecharts
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
@@ -18,25 +20,16 @@ metadata:
   namespace: util
 spec:
   interval: 1h
-  # chartRef:
-  #   kind: HelmChart
-  #   name: ntfy
-  #   namespace: util
   chart:
     spec:
-      #chart: ntfy
-      # version: "14.2.0" # Pinning the chart version is recommended
+      # The chart name is required and now correctly appended to the repo URL
+      chart: ntfy
+      version: "14.2.0"
       sourceRef:
         kind: HelmRepository
-        name: ntfy
+        # This now points to the 'truecharts' HelmRepository defined above
+        name: truecharts
         namespace: util
   install:
     remediation:
       retries: -1
-  # upgrade:
-  #   cleanupOnFail: true
-  #   remediation:
-  #     retries: 3
-  # valuesFrom:
-  #   - kind: ConfigMap
-  #     name: external-secrets-values
