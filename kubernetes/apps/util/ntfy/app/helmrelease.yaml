@@ -24,7 +24,7 @@ spec:
     spec:
       # The chart name is required and now correctly appended to the repo URL
       chart: ntfy
-      version: "14.2.0"
+      # version: "14.2.0"
       sourceRef:
         kind: HelmRepository
         # This now points to the 'truecharts' HelmRepository defined above
