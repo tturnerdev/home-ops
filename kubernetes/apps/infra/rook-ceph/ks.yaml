@@ -4,7 +4,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app rook-ceph
-  namespace: &namespace rook-ceph
+  namespace: &namespace infra
 spec:
   commonMetadata:
     labels:
@@ -30,7 +30,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app rook-ceph-cluster
-  namespace: &namespace rook-ceph
+  namespace: &namespace infra
 spec:
   commonMetadata:
     labels:
@@ -40,8 +40,8 @@ spec:
   dependsOn:
     - name: rook-ceph
       namespace: *namespace
-    - name: volsync
-      namespace: volsync-system
+    # - name: volsync
+    #   namespace: volsync-system
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
