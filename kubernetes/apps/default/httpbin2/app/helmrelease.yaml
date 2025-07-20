@@ -14,6 +14,7 @@ kind: HelmRelease
 metadata:
   name: httpbin2
 spec:
+  suspend: true # *** SUSPEND / DISABLE APP ***
   chart:
     spec:
       chart: httpbin

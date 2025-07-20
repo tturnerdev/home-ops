@@ -5,6 +5,7 @@ kind: HelmRelease
 metadata:
   name: echo-internal
 spec:
+  suspend: true # *** SUSPEND / DISABLE APP ***
   interval: 168h
   chartRef:
     kind: OCIRepository

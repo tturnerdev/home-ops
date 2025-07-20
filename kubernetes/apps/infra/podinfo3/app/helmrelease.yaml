@@ -19,6 +19,7 @@ metadata:
   name: podinfo3
   namespace: infra
 spec:
+  suspend: true # *** SUSPEND / DISABLE APP ***
   interval: 168h
   chartRef:
     kind: OCIRepository
