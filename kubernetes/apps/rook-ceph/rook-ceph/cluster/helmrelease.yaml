@@ -88,9 +88,9 @@ spec:
           name: ceph-block
           isDefault: true
           reclaimPolicy: Delete
-          allowVolumeExpansion: true
-          volumeBindingMode: Immediate
-          mountOptions: ["discard"]
+          # allowVolumeExpansion: true # Default: true
+          # volumeBindingMode: Immediate # Default: Immediate
+          mountOptions: ["discard"] # this might enable UNMAP / TRIM at the block storage layer
           parameters:
             compression_mode: aggressive
             compression_algorithm: zstd
