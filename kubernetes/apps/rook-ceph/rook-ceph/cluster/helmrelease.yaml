@@ -56,7 +56,7 @@ spec:
         enabled: true
         urlPrefix: /
         ssl: false
-        prometheusEndpoint: http://prometheus-operated.observability.svc.cluster.local:9090
+        # prometheusEndpoint: http://prometheus-operated.observability.svc.cluster.local:9090 # disabled for now until we have a prometheus instance
       mgr:
         modules:
           - name: diskprediction_local
