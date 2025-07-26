@@ -27,6 +27,7 @@ spec:
     - name: internal-ingress-nginx
       namespace: network
   values:
+    enabled: false
     service:
       type: ClusterIP
       ports:

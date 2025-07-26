@@ -26,6 +26,7 @@ spec:
     name: podinfo
     namespace: infra
   values:
+    enabled: false
     extraEnvs:
       - name: RD_TEST_ENV_VAR
         value: "Testing RD VAR"

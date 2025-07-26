@@ -21,6 +21,7 @@ spec:
     - name: cloudflared
       namespace: network
   values:
+    enabled: false
     controllers:
       echo:
         strategy: RollingUpdate
