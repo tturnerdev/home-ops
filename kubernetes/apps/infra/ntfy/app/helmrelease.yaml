@@ -27,6 +27,7 @@ spec:
             image:
               repository: docker.io/binwiederhier/ntfy
               tag: 2.13.0@sha256:cd107fa9ecca863b99e5cdd335bf27b0584cc54d170f1d0939253f314e0fdd4d
+              pullPolicy: IfNotPresent
     # test
     service:
       # Configure a service for the main application
@@ -35,7 +36,7 @@ spec:
         type: ClusterIP
         ports:
           http:
-            port: 10222
+            port: 80
     ingress:
       # Configure an Ingress for the main application
       app:
