@@ -9,7 +9,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 168h
+  interval: 2m
   path: ./kubernetes/apps/infra/ntfy/app
   postBuild:
     substituteFrom:
