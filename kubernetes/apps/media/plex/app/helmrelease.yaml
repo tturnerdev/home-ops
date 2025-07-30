@@ -71,7 +71,7 @@ spec:
         controller: plex
         ports:
           http:
-            port: *port
+            port: &port 32400
     # service:
     #   app:
     #     controller: plex
