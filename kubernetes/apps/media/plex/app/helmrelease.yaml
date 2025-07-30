@@ -68,7 +68,7 @@ spec:
         supplementalGroups: [44]
     service:
       app:
-        controller: echo
+        controller: plex
         ports:
           http:
             port: *port
