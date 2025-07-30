@@ -54,10 +54,10 @@ spec:
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
-                cpu: 100m
-              limits:
-                gpu.intel.com/i915: 1
-                memory: 16Gi
+                cpu: 10m
+              # limits:
+                # gpu.intel.com/i915: 1
+                # memory: 2Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -68,14 +68,20 @@ spec:
         supplementalGroups: [44]
     service:
       app:
-        controller: plex
-        # type: LoadBalancer
-        # type: ClusterIP
-        # annotations:
-        #   lbipam.cilium.io/ips: 192.168.42.128
+        controller: echo
         ports:
           http:
             port: *port
+    # service:
+    #   app:
+    #     controller: plex
+    #     # type: LoadBalancer
+    #     # type: ClusterIP
+    #     # annotations:
+    #     #   lbipam.cilium.io/ips: 192.168.42.128
+    #     ports:
+    #       http:
+    #         port: *port
     # route:
     #   app:
     #     hostnames: ["{{ .Release.Name }}.devbu.io"]
