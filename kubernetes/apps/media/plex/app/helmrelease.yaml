@@ -119,6 +119,9 @@ spec:
     persistence:
       config:
         existingClaim: plex
+        globalMounts:
+          - path: /config
+            # readOnly: true
       config-cache:
         existingClaim: plex-cache
         globalMounts:
