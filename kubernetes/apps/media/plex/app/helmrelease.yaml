@@ -68,6 +68,7 @@ spec:
         supplementalGroups: [44]
     service:
       app:
+        controller: plex
         # type: LoadBalancer
         # type: ClusterIP
         # annotations:
