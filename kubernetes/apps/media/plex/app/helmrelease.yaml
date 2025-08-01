@@ -150,21 +150,21 @@ spec:
                 subPath: tmp
       movie:
         type: nfs
-        server: ${SECRET_NFS_IP}
+        server: "${SECRET_NFS_IP}"
         path: /mnt/storage/media/video/movie
         globalMounts:
           - path: /mnt/nfs/movie
             readOnly: false
       tv:
         type: nfs
-        server: ${SECRET_NFS_IP}
+        server: "${SECRET_NFS_IP}"
         path: /mnt/storage/media/video/tv
         globalMounts:
           - path: /mnt/nfs/tv
             readOnly: false
       music:
         type: nfs
-        server: ${SECRET_NFS_IP}
+        server: "${SECRET_NFS_IP}"
         path: /mnt/storage/media/music
         globalMounts:
           - path: /mnt/nfs/music
