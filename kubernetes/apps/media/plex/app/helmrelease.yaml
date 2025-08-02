@@ -22,6 +22,18 @@ spec:
         # annotations:
         #   reloader.stakater.com/auto: "true"
         containers:
+          debug:
+            image:
+              repository: ghcr.io/home-operations/busybox
+              tag: 1.37.0@sha256:026ed7273270ec08f6902b4ae8334c23b473e5394bec3bbbdbfe580c710d50bc
+            command: ['sh', '-c', 'echo Lets debug! && sleep 3600']
+            # volumeMounts:
+            #   - name: volume-claim
+            #     mountPath: "/data"
+        # volumes:
+        #   - name: volume-claim
+        #     persistentVolumeClaim:
+        #       claimName: appdata # CHANGE THIS TO YOUR PVC NAME
           app:
             image:
               repository: ghcr.io/home-operations/plex
@@ -58,6 +70,7 @@ spec:
               # limits:
                 # gpu.intel.com/i915: 1
                 # memory: 2Gi
+        restartPolicy: Never
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
