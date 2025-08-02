@@ -70,7 +70,7 @@ spec:
               # limits:
                 # gpu.intel.com/i915: 1
                 # memory: 2Gi
-        restartPolicy: Never
+        # restartPolicy: Never
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
