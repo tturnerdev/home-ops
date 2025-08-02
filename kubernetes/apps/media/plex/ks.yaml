@@ -13,14 +13,14 @@ spec:
   #   - ../../../../components/gatus/external
   #   - ../../../../components/keda/nfs-scaler
   #   - ../../../../components/volsync
-  # dependsOn:
+  dependsOn:
   #   - name: intel-device-plugin-gpu
   #     namespace: kube-system
   #   - name: keda
   #     namespace: observability
-  #   - name: rook-ceph-cluster
-  #     namespace: rook-ceph
-  interval: 2m
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
+  interval: 1h
   path: ./kubernetes/apps/media/plex/app
   postBuild:
     substituteFrom:

@@ -28,7 +28,7 @@ spec:
               tag: 1.41.9.9961@sha256:6c86319bb3275135f5da5aec71b45e48305669ecbceee0f88d335bebf0d0f218
             env:
               TZ: America/Los_Angeles
-              PLEX_ADVERTISE_URL: https://plex.${SECRET_DOMAIN}:443,http://plex-direct.${SECRET_DOMAIN}:32400,http://10.0.81.3:32400
+              PLEX_ADVERTISE_URL: https://plex.${SECRET_DOMAIN}:443,http://10.13.38.91:32400
               PLEX_NO_AUTH_NETWORKS: 10.13.36.0/22
             probes:
               liveness: &probes
