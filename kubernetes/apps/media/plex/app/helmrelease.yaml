@@ -141,12 +141,19 @@ spec:
                 subPath: transcode
               - path: /tmp
                 subPath: tmp
-      video:
+      movie:
         type: nfs
         server: "${SECRET_NFS_IP}"
-        path: /mnt/storage/media/video
+        path: /mnt/storage/media/video/movie
         globalMounts:
-          - path: /mnt/nfs/video
+          - path: /mnt/nfs/movie
+            readOnly: false
+      tv:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/video/tv
+        globalMounts:
+          - path: /mnt/nfs/tv
             readOnly: false
       music:
         type: nfs
