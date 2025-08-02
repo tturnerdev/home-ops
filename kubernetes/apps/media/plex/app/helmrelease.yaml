@@ -130,13 +130,6 @@ spec:
         existingClaim: plex-cache
         globalMounts:
           - path: /config/Library/Application Support/Plex Media Server/Cache
-      # media:
-      #   type: nfs
-      #   server: expanse.internal
-      #   path: /mnt/eros/Media
-      #   globalMounts:
-      #     - path: /media
-      #       readOnly: true
       tmpfs:
         type: emptyDir
         advancedMounts:
@@ -148,20 +141,12 @@ spec:
                 subPath: transcode
               - path: /tmp
                 subPath: tmp
-      movie:
-      # Test
+      video:
         type: nfs
         server: "${SECRET_NFS_IP}"
-        path: /mnt/storage/media/video/movie
+        path: /mnt/storage/media/video
         globalMounts:
-          - path: /mnt/nfs/movie
-            readOnly: false
-      tv:
-        type: nfs
-        server: "${SECRET_NFS_IP}"
-        path: /mnt/storage/media/video/tv
-        globalMounts:
-          - path: /mnt/nfs/tv
+          - path: /mnt/nfs/video
             readOnly: false
       music:
         type: nfs
