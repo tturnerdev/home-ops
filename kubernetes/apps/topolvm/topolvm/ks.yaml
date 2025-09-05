@@ -3,13 +3,13 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app topolvm
-  namespace: &namespace flux-system
+  namespace: &namespace topolvm
 spec:
-  targetNamespace: storage
+  targetNamespace: topolvm
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/storage/topolvm/app
+  path: ./kubernetes/apps/topolvm/topolvm/app
   # prune: false
   prune: true
   retryInterval: 2m
