@@ -2,13 +2,24 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# namespace: kube-system
+namespace: kube-system
 components:
   - ../../components/common
 resources:
-  - ./namespace.yaml
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./metrics-server/ks.yaml
   - ./reloader/ks.yaml
-  - ./spegel/ks.yaml
+  - ./spegel/ks.yam
+patches:
+  - target:
+      kind: Namespace
+      name: kube-system
+    # Instead of pointing to a path, we embed the patch inline
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: kube-system
+        labels:
+          topolvm.io/webhook: ignore

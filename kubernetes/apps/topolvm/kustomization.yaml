@@ -7,4 +7,16 @@ components:
   - ../../components/common
 resources:
   - ./topolvm/ks.yaml
-  - ./namespace.yaml
+patches:
+  - target:
+      kind: Namespace
+      name: topolvm
+    # Instead of pointing to a path, we embed the patch inline
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: topolvm
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          topolvm.io/webhook: ignore
