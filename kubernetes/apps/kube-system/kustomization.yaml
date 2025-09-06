@@ -10,7 +10,7 @@ resources:
   - ./coredns/ks.yaml
   - ./metrics-server/ks.yaml
   - ./reloader/ks.yaml
-  - ./spegel/ks.yam
+  - ./spegel/ks.yaml
 patches:
   - target:
       kind: Namespace
