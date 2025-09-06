@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - ./helmrelease.yaml
   # - ./snapshot-class.yaml
-  - ./helmrepository.yaml
+  # - ./helmrepository.yaml

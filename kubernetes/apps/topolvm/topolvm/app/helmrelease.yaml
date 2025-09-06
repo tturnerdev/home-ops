@@ -1,3 +1,15 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: topolvm
+  namespace: flux-system
+spec:
+  interval: 2h
+  url: https://topolvm.github.io/topolvm
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -11,7 +23,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: topolvm
-        namespace: flux-system
       interval: 1h
   releaseName: topolvm
   install:
