@@ -13,7 +13,7 @@ metadata:
   namespace: database
 spec:
   instances: 3
-  imageName: ghcr.io/cloudnative-pg/postgresql:17-standard-bookworm
+  imageName: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
   storage:
     storageClass: topolvm-thin-provisioner
     size: 20Gi
