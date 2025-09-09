@@ -12,3 +12,4 @@ resources:
   - ./podinfo/ks.yaml
   # - ./httpbin/ks.yaml
   # - ./httpbin2/ks.yaml
+  - ./mealie/ks.yaml
