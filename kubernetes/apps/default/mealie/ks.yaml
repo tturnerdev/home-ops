@@ -11,6 +11,13 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   path: "./kubernetes/apps/default/mealie/app"
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+    substitute:
+      APP: *app
+      # HOSTNAME: mealie.holthome.net
   prune: true
   sourceRef:
     kind: GitRepository
@@ -23,7 +30,3 @@ spec:
   #   - name: external-secrets
   #   - name: rook-ceph-cluster
   #   - name: cloudnative-pg-cluster
-  postBuild:
-    substitute:
-      APP: *app
-      # HOSTNAME: mealie.holthome.net
