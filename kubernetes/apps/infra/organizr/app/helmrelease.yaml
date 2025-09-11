@@ -43,6 +43,7 @@ spec:
             port: 80
     ingress:
       app:
+        enabled: true
         className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
@@ -57,3 +58,14 @@ spec:
         tls:
           - hosts:
               - *host
+    persistence:
+      data:
+        enabled: true
+        existingClaim: organizr
+        globalMounts:
+          - path: /var/www/data
+      config:
+        enabled: true
+        existingClaim: organizr-config
+        globalMounts:
+          - path: /config
