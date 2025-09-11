@@ -59,11 +59,13 @@ spec:
           - hosts:
               - *host
     persistence:
+      # Doesn't appear to be used, /var/www/data seems to be empty
       data:
         enabled: true
         existingClaim: organizr
         globalMounts:
           - path: /var/www/data
+      # Config data stored at /config/www/organizr/data
       config:
         enabled: true
         existingClaim: organizr-config
