@@ -10,3 +10,4 @@ resources:
   - ./podinfo2/ks.yaml
   - ./podinfo3/ks.yaml
   - ./ntfy/ks.yaml
+  - ./organizr/ks.yaml
