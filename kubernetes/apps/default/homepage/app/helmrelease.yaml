@@ -1,0 +1,257 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: homepage
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      homepage:
+        initContainers:
+          init-config:
+            image:
+              repository: alpine
+              tag: 3.19.1
+              pullPolicy: IfNotPresent
+            command:
+              - /bin/sh
+              - -c
+              - |
+                mkdir -p /app/config
+                if [ ! -f /app/config/bookmarks.yaml ]; then
+                  echo "Bookmarks file not found, copying default..."
+                  cp /dummy-config/bookmarks.yaml /app/config/bookmarks.yaml
+                fi
+                if [ ! -f /app/config/services.yaml ]; then
+                  echo "Services file not found, copying default..."
+                  cp /dummy-config/services.yaml /app/config/services.yaml
+                fi
+                if [ ! -f /app/config/settings.yaml ]; then
+                  echo "Settings file not found, copying default..."
+                  cp /dummy-config/settings.yaml /app/config/settings.yaml
+                fi
+                if [ ! -f /app/config/widgets.yaml ]; then
+                  echo "Widgets file not found, copying default..."
+                  cp /dummy-config/widgets.yaml /app/config/widgets.yaml
+                fi
+                if [ ! -f /app/config/custom.css ]; then
+                  echo "Custom CSS file not found, creating empty..."
+                  touch /app/config/custom.css
+                fi
+                if [ ! -f /app/config/custom.js ]; then
+                  echo "Custom JS file not found, creating empty..."
+                  touch /app/config/custom.js
+                fi
+        containers:
+          app:
+            image:
+              repository: ghcr.io/gethomepage/homepage
+              tag: v0.8.12
+            env:
+              TZ: "America/Los_Angeles"
+            resources:
+              requests:
+                memory: 100Mi
+                cpu: 100m
+              # limits:
+              #   memory: 500Mi
+              #   cpu: 500m
+            # securityContext:
+            #   runAsUser: 568
+            #   runAsGroup: 568
+            #   runAsNonRoot: true
+            #   readOnlyRootFilesystem: true
+            #   allowPrivilegeEscalation: false
+            #   capabilities:
+            #     drop:
+            #       - ALL
+
+    service:
+      app:
+        controller: homepage
+        ports:
+          http:
+            port: 3000
+
+    ingress:
+      app:
+        enabled: true
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+        hosts:
+          - host: "home.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+
+    persistence:
+      config:
+        enabled: true
+        existingClaim: homepage
+        globalMounts:
+          - path: /app/config
+
+      # ConfigMaps for default configuration
+      bookmarks-config:
+        enabled: true
+        type: configMap
+        name: homepage-config
+        globalMounts:
+          - path: /dummy-config/bookmarks.yaml
+            subPath: bookmarks.yaml
+            readOnly: true
+
+      services-config:
+        enabled: true
+        type: configMap
+        name: homepage-config
+        globalMounts:
+          - path: /dummy-config/services.yaml
+            subPath: services.yaml
+            readOnly: true
+
+      settings-config:
+        enabled: true
+        type: configMap
+        name: homepage-config
+        globalMounts:
+          - path: /dummy-config/settings.yaml
+            subPath: settings.yaml
+            readOnly: true
+
+      widgets-config:
+        enabled: true
+        type: configMap
+        name: homepage-config
+        globalMounts:
+          - path: /dummy-config/widgets.yaml
+            subPath: widgets.yaml
+            readOnly: true
+
+      kubernetes-config:
+        enabled: true
+        type: configMap
+        name: homepage-config
+        globalMounts:
+          - path: /app/config/kubernetes.yaml
+            subPath: kubernetes.yaml
+            readOnly: true
+
+    configMaps:
+      config:
+        enabled: true
+        data:
+          bookmarks.yaml: |
+            ---
+            - Developer:
+                - Github:
+                    - abbr: GH
+                      href: https://github.com/
+
+            - Social:
+                - Reddit:
+                    - abbr: RE
+                      href: https://reddit.com/
+
+            - Entertainment:
+                - YouTube:
+                    - abbr: YT
+                      href: https://youtube.com/
+
+          services.yaml: |
+            ---
+            - Arr:
+                - My First Service:
+                    href: http://localhost/
+                    description: Homepage is awesome
+
+            - Media:
+                - My Second Service:
+                    href: http://localhost/
+                    description: Homepage is the best
+
+            - Infra:
+                - My Third Service:
+                    href: http://localhost/
+                    description: Homepage is 😎
+
+          settings.yaml: |
+            ---
+            providers:
+              openweathermap: openweathermapapikey
+              weatherapi: weatherapiapikey
+
+          widgets.yaml: |
+            ---
+            - resources:
+                cpu: true
+                memory: true
+                disk: /
+
+            - search:
+                provider: duckduckgo
+                target: _blank
+
+          kubernetes.yaml: |
+            mode: cluster
+
+    # serviceAccount:
+    #   create: true
+    #   name: homepage
+
+    # rbac:
+    #   create: true
+    #   rules:
+    #     - apiGroups:
+    #         - ""
+    #       resources:
+    #         - namespaces
+    #         - pods
+    #         - nodes
+    #       verbs:
+    #         - get
+    #         - list
+    #     - apiGroups:
+    #         - extensions
+    #         - networking.k8s.io
+    #       resources:
+    #         - ingresses
+    #       verbs:
+    #         - get
+    #         - list
+    #     - apiGroups:
+    #         - traefik.containo.us
+    #         - traefik.io
+    #       resources:
+    #         - ingressroutes
+    #       verbs:
+    #         - get
+    #         - list
+    #     - apiGroups:
+    #         - metrics.k8s.io
+    #       resources:
+    #         - nodes
+    #         - pods
+    #       verbs:
+    #         - get
+    #         - list

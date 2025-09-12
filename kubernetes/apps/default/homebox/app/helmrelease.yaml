@@ -1,0 +1,90 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: homebox
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      homebox:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/hay-kot/homebox
+              tag: v0.10.3@sha256:b1fbca6fc1ad2bd3634d13056d1bc0242cf92e9bad4ca21ce57589be3fe4987e
+              pullPolicy: IfNotPresent
+            env:
+              TZ: "America/Los_Angeles"
+              HBOX_LOG_LEVEL: info
+              HBOX_LOG_FORMAT: text
+              HBOX_WEB_MAX_UPLOAD_SIZE: 10
+              HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
+              HBOX_OPTIONS_AUTO_INCREMENT_ASSET_ID: "true"
+              HBOX_DATA_DIR: /data
+            resources:
+              requests:
+                cpu: 10m
+                memory: 50Mi
+              limits:
+                memory: 500Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - ALL
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: homebox
+        ports:
+          http:
+            port: 7745
+    ingress:
+      app:
+        enabled: true
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+        hosts:
+          - host: "homebox.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      data:
+        enabled: true
+        existingClaim: homebox
+        globalMounts:
+          - path: /data
+      config:
+        enabled: true
+        type: emptyDir
+        globalMounts:
+          - path: /config
