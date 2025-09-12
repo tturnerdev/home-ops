@@ -13,5 +13,5 @@ resources:
   # - ./httpbin/ks.yaml
   # - ./httpbin2/ks.yaml
   - ./mealie/ks.yaml
-    #- ./homebox/ks.yaml
+  - ./homebox/ks.yaml
   - ./homepage/ks.yaml

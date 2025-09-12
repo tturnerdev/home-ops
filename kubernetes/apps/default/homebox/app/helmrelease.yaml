@@ -34,29 +34,29 @@ spec:
               TZ: "America/Los_Angeles"
               HBOX_LOG_LEVEL: info
               HBOX_LOG_FORMAT: text
-              HBOX_WEB_MAX_UPLOAD_SIZE: 10
+              HBOX_WEB_MAX_UPLOAD_SIZE: 100
               HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
               HBOX_OPTIONS_AUTO_INCREMENT_ASSET_ID: "true"
               HBOX_DATA_DIR: /data
             resources:
               requests:
-                cpu: 10m
-                memory: 50Mi
+                cpu: 100m
+                memory: 100Mi
               limits:
-                memory: 500Mi
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities:
-                drop:
-                  - ALL
-    defaultPodOptions:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
+                memory: 1Gi
+            # securityContext:
+            #   allowPrivilegeEscalation: false
+            #   readOnlyRootFilesystem: false
+            #   capabilities:
+            #     drop:
+            #       - ALL
+    # defaultPodOptions:
+    #   securityContext:
+    #     runAsNonRoot: true
+    #     runAsUser: 568
+    #     runAsGroup: 568
+    #     fsGroup: 568
+    #     fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: homebox
@@ -70,7 +70,7 @@ spec:
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
         hosts:
-          - host: "homebox.${SECRET_DOMAIN}"
+          - host: "box.${SECRET_DOMAIN}"
             paths:
               - path: /
                 pathType: Prefix
