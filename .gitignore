@@ -22,3 +22,5 @@ talosconfig
 .venv/
 .DS_Store
 Thumbs.db
+# TrueNAS TrueCharts apps export (includes sensitive data)
+truenas-truecharts-app-export_2025-09-12/
