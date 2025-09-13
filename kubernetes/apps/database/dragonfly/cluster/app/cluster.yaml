@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/dragonflydb.io/dragonfly_v1alpha1.json
+apiVersion: dragonflydb.io/v1alpha1
+kind: Dragonfly
+metadata:
+  name: dragonfly
+  namespace: database
+spec:
+  replicas: 3
+  image: ghcr.io/dragonflydb/dragonfly:v1.23.1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  args:
+    - --maxmemory=2Gi
+    - --proactor_threads=2
+    - --cluster_mode=emulated
+    - --default_lua_flags=allow-undeclared-keys
+  # serviceSpec:
+  #   type: ClusterIP
