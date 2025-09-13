@@ -24,6 +24,15 @@ spec:
   values:
     controllers:
       paperless-ngx:
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16.2
+              pullPolicy: IfNotPresent
+            envFrom:
+              - secretRef:
+                  name: paperless-ngx-secret
         containers:
           app:
             image:
