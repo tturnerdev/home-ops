@@ -8,3 +8,9 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./plex/ks.yaml
+  - ./overseerr/ks.yaml
+  - ./prowlarr/ks.yaml
+  - ./radarr/ks.yaml
+  - ./sonarr/ks.yaml
+  - ./readarr/ks.yaml
+  - ./sabnzbd/ks.yaml

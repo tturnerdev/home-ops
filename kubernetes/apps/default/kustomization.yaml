@@ -16,3 +16,6 @@ resources:
   - ./homebox/ks.yaml
   - ./homepage/ks.yaml
   - ./paperless-ngx/ks.yaml
+  - ./n8n/ks.yaml
+  - ./homarr/ks.yaml
+  - ./photoprism/ks.yaml
