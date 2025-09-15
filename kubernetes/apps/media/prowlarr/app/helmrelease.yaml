@@ -43,7 +43,7 @@ spec:
               TZ: "America/Los_Angeles"
               PROWLARR__INSTANCE_NAME: Prowlarr
               PROWLARR__PORT: 9696
-              PROWLARR__APPLICATION_URL: "https://indexers.${SECRET_DOMAIN}"
+              PROWLARR__APPLICATION_URL: "https://index.${SECRET_DOMAIN}"
               PROWLARR__LOG_LEVEL: info
               PROWLARR__API_KEY:
                 valueFrom:
@@ -69,7 +69,7 @@ spec:
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
         hosts:
-          - host: "indexers.${SECRET_DOMAIN}"
+          - host: "index.${SECRET_DOMAIN}"
             paths:
               - path: /
                 pathType: Prefix

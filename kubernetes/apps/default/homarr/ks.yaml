@@ -25,9 +25,9 @@ spec:
   interval: 30m
   timeout: 5m
   dependsOn:
-    - name: external-secrets-stores
-      namespace: flux-system
+    - name: external-secrets
+      namespace: external-secrets
     - name: rook-ceph-cluster
-      namespace: flux-system
+      namespace: rook-ceph
     - name: cloudnative-pg-cluster
       namespace: database
