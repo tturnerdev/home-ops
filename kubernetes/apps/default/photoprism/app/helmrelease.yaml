@@ -24,15 +24,15 @@ spec:
   values:
     controllers:
       photoprism:
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/onedr0p/postgres-init
-              tag: 16.2
-              pullPolicy: IfNotPresent
-            envFrom:
-              - secretRef:
-                  name: photoprism-secret
+        # initContainers:
+        #   init-db:
+        #     image:
+        #       repository: ghcr.io/onedr0p/postgres-init
+        #       tag: 16.2
+        #       pullPolicy: IfNotPresent
+        #     envFrom:
+        #       - secretRef:
+        #           name: photoprism-secret
         containers:
           app:
             image:
@@ -47,19 +47,19 @@ spec:
               PHOTOPRISM_GID: "568"
               PHOTOPRISM_UMASK: "0022"
               # Database
-              PHOTOPRISM_DATABASE_DRIVER: postgres
-              PHOTOPRISM_DATABASE_SERVER: "postgres-rw.database.svc.cluster.local:5432"
-              PHOTOPRISM_DATABASE_NAME: photoprism
-              PHOTOPRISM_DATABASE_USER:
-                valueFrom:
-                  secretKeyRef:
-                    name: photoprism-secret
-                    key: POSTGRES_USER
-              PHOTOPRISM_DATABASE_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: photoprism-secret
-                    key: POSTGRES_PASSWORD
+              # PHOTOPRISM_DATABASE_DRIVER: postgres
+              # PHOTOPRISM_DATABASE_SERVER: "postgres-rw.database.svc.cluster.local:5432"
+              # PHOTOPRISM_DATABASE_NAME: photoprism
+              # PHOTOPRISM_DATABASE_USER:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: photoprism-secret
+              #       key: POSTGRES_USER
+              # PHOTOPRISM_DATABASE_PASSWORD:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: photoprism-secret
+              #       key: POSTGRES_PASSWORD
               # Admin credentials
               PHOTOPRISM_ADMIN_USER: admin
               PHOTOPRISM_ADMIN_PASSWORD:
