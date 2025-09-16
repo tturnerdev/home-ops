@@ -27,5 +27,3 @@ spec:
   dependsOn:
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: prowlarr
-      namespace: flux-system
