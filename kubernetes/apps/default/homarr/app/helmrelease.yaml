@@ -34,11 +34,11 @@ spec:
               TZ: "America/Los_Angeles"
               AUTH_PROVIDERS: "credentials"
               DISABLE_ANALYTICS: "true"
-              DATABASE_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: homarr-secret
-                    key: DB_URL
+              # DATABASE_URL:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: homarr-secret
+              #       key: DB_URL
               SECRET_ENCRYPTION_KEY:
                 valueFrom:
                   secretKeyRef:
