@@ -43,9 +43,9 @@ spec:
               TZ: "America/Los_Angeles"
               HOME: /photoprism
               PHOTOPRISM_PUBLIC: "false"
-              PHOTOPRISM_UID: "568"
-              PHOTOPRISM_GID: "568"
-              PHOTOPRISM_UMASK: "0022"
+              # PHOTOPRISM_UID: "568"
+              # PHOTOPRISM_GID: "568"
+              # PHOTOPRISM_UMASK: "0022"
               # Database
               # PHOTOPRISM_DATABASE_DRIVER: postgres
               # PHOTOPRISM_DATABASE_SERVER: "postgres-rw.database.svc.cluster.local:5432"
@@ -82,19 +82,19 @@ spec:
                 memory: 512Mi
               limits:
                 memory: 4Gi
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities:
-                drop:
-                  - ALL
-    defaultPodOptions:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
+            # securityContext:
+            #   allowPrivilegeEscalation: false
+            #   readOnlyRootFilesystem: false
+            #   capabilities:
+            #     drop:
+            #       - ALL
+    # defaultPodOptions:
+    #   securityContext:
+    #     runAsNonRoot: true
+    #     runAsUser: 568
+    #     runAsGroup: 568
+    #     fsGroup: 568
+    #     fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: photoprism
