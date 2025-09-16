@@ -82,10 +82,10 @@ spec:
         existingClaim: readarr-config
         globalMounts:
           - path: /config
-      media:
-        enabled: true
-        type: nfs
-        server: ${NAS_IP}
-        path: /mnt/storage/media
-        globalMounts:
-          - path: /media
+      #       media:
+      #         enabled: true
+      #         type: nfs
+      #         server: ${NAS_IP}
+      #         path: /mnt/storage/media
+      #         globalMounts:
+      #           - path: /media
