@@ -1,0 +1,127 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: shlink
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      shlink:
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/cloudnative-pg/postgresql
+              tag: 16.3
+            envFrom:
+              - secretRef:
+                  name: shlink-secret
+            command:
+              - sh
+              - -c
+              - |
+                until pg_isready -h postgres-rw.database.svc.cluster.local -U shlink; do
+                  echo "Waiting for PostgreSQL to be ready..."
+                  sleep 5
+                done
+        containers:
+          app:
+            image:
+              repository: shlinkio/shlink
+              tag: 4.2.2
+              pullPolicy: IfNotPresent
+            env:
+              TZ: "America/Los_Angeles"
+              DEFAULT_DOMAIN: "s.${SECRET_DOMAIN}"
+              IS_HTTPS_ENABLED: "true"
+              PORT: "8080"
+              ENABLE_PERIODIC_VISIT_LOCATE: "true"
+              AUTO_RESOLVE_TITLES: "true"
+              DEFAULT_SHORT_CODES_LENGTH: "5"
+              DB_DRIVER: postgres
+              DB_HOST: postgres-rw.database.svc.cluster.local
+              DB_PORT: "5432"
+              DB_NAME: shlink
+              DB_USER: shlink
+              REDIS_SERVERS: "redis.database.svc.cluster.local:6379"
+              SHORT_DOMAIN_SCHEMA: https
+              SHORT_DOMAIN_HOST: "s.${SECRET_DOMAIN}"
+            envFrom:
+              - secretRef:
+                  name: shlink-secret
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /rest/health
+                    port: 8080
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /rest/health
+                    port: 8080
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+    service:
+      app:
+        controller: shlink
+        ports:
+          http:
+            port: 8080
+    ingress:
+      app:
+        enabled: true
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+        hosts:
+          - host: "s.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+          - host: "shlink.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      data:
+        enabled: true
+        existingClaim: shlink
+        globalMounts:
+          - path: /etc/shlink/data
