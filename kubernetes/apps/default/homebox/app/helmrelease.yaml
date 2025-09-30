@@ -49,7 +49,7 @@ spec:
               HBOX_WEB_MAX_UPLOAD_SIZE: 100
               HBOX_DATABASE_DRIVER: postgres
               HBOX_DATABASE_SSL_MODE: disable
-              HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
+              # HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
               HBOX_OPTIONS_CHECK_GITHUB_RELEASE: "false"
             envFrom:
               - secretRef:
