@@ -10,13 +10,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  dependsOn:
-    - name: external-secrets
-      namespace: external-secrets
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
-    - name: cloudnative-pg-cluster
-      namespace: database
   maxHistory: 3
   install:
     createNamespace: true
