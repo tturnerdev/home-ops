@@ -10,6 +10,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  dependsOn:
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
   maxHistory: 3
   install:
     createNamespace: true
@@ -24,45 +27,59 @@ spec:
   values:
     controllers:
       homebox:
-        containers:
-          app:
+        initContainers:
+          init-db:
             image:
-              repository: ghcr.io/hay-kot/homebox
-              tag: v0.10.3@sha256:b1fbca6fc1ad2bd3634d13056d1bc0242cf92e9bad4ca21ce57589be3fe4987e
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16.2
+              pullPolicy: IfNotPresent
+            envFrom:
+              - secretRef:
+                  name: homebox
+              - secretRef:
+                  name: homebox-initdb
+        containers:
+          homebox:
+            image:
+              repository: ghcr.io/sysadminsmedia/homebox
+              tag: 0.21.0-rootless
               pullPolicy: IfNotPresent
             env:
-              TZ: "America/Los_Angeles"
+              TZ: America/Los_Angeles
               HBOX_LOG_LEVEL: info
-              HBOX_LOG_FORMAT: text
+              HBOX_LOG_FORMAT: json
+              HBOX_WEB_PORT: &port "7745"
               HBOX_WEB_MAX_UPLOAD_SIZE: 100
+              HBOX_DATABASE_DRIVER: postgres
+              HBOX_DATABASE_SSL_MODE: disable
               HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
-              HBOX_OPTIONS_AUTO_INCREMENT_ASSET_ID: "true"
-              HBOX_DATA_DIR: /data
+              HBOX_OPTIONS_CHECK_GITHUB_RELEASE: "false"
+            envFrom:
+              - secretRef:
+                  name: homebox
             resources:
               requests:
                 cpu: 100m
                 memory: 100Mi
               limits:
-                memory: 1Gi
-            # securityContext:
-            #   allowPrivilegeEscalation: false
-            #   readOnlyRootFilesystem: false
-            #   capabilities:
-            #     drop:
-            #       - ALL
-    # defaultPodOptions:
-    #   securityContext:
-    #     runAsNonRoot: true
-    #     runAsUser: 568
-    #     runAsGroup: 568
-    #     fsGroup: 568
-    #     fsGroupChangePolicy: OnRootMismatch
+                memory: 2Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: homebox
         ports:
           http:
-            port: 7745
+            port: *port
     ingress:
       app:
         enabled: true
@@ -79,12 +96,9 @@ spec:
                   port: http
     persistence:
       data:
-        enabled: true
-        existingClaim: homebox
-        globalMounts:
-          - path: /data
-      config:
-        enabled: true
+        existingClaim: ${APP}
+      modcache:
         type: emptyDir
+        sizeLimit: 100Mi
         globalMounts:
-          - path: /config
+          - path: /.cache
