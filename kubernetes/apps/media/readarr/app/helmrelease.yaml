@@ -60,7 +60,19 @@ spec:
                 cpu: 10m
                 memory: 250Mi
               limits:
-                memory: 1Gi
+                cpu: 1000m
+                memory: 4Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: readarr
