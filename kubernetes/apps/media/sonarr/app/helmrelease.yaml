@@ -93,12 +93,12 @@ spec:
         existingClaim: sonarr-config
         globalMounts:
           - path: /config
-      #       media:
-      #         enabled: true
-      #         type: nfs
-      #         server: ${NAS_IP}
-      #         path: /mnt/storage/media
-      #         globalMounts:
-      #           - path: /media
+      tv:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/video/tv
+        globalMounts:
+          - path: /mnt/tv
+            readOnly: false
       tmp:
         type: emptyDir
