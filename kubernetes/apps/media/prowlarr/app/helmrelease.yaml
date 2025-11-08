@@ -93,3 +93,5 @@ spec:
         existingClaim: prowlarr-config
         globalMounts:
           - path: /config
+      tmp:
+        type: emptyDir

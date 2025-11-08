@@ -100,3 +100,5 @@ spec:
       #   path: /mnt/storage/media
       #   globalMounts:
       #     - path: /media
+      tmp:
+        type: emptyDir
