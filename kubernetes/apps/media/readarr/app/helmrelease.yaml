@@ -36,15 +36,20 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/readarr-develop
-              tag: 0.3.23.2506
+              repository: ghcr.io/home-operations/readarr
+              tag: 0.4.18.2805
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
               READARR__INSTANCE_NAME: Readarr
-              READARR__PORT: 8787
               READARR__APPLICATION_URL: "https://books.${SECRET_DOMAIN}"
-              READARR__LOG_LEVEL: info
+              READARR__APP__THEME: dark
+              # # READARR__AUTH__METHOD: Forms
+              # READARR__AUTH__REQUIRED: DisabledForLocalAddresses
+              READARR__LOG__DBENABLED: "False"
+              READARR__LOG__LEVEL: info
+              READARR__SERVER__PORT: &port 8787
+              READARR__UPDATE__BRANCH: develop
               READARR__API_KEY:
                 valueFrom:
                   secretKeyRef:
@@ -61,7 +66,7 @@ spec:
         controller: readarr
         ports:
           http:
-            port: 8787
+            port: *port
     ingress:
       app:
         enabled: true
@@ -89,3 +94,5 @@ spec:
       #         path: /mnt/storage/media
       #         globalMounts:
       #           - path: /media
+      tmp:
+        type: emptyDir
