@@ -86,12 +86,19 @@ spec:
         existingClaim: sabnzbd-config
         globalMounts:
           - path: /config
-      incoming:
+      sabnzbd-incomplete:
         type: nfs
         server: "${SECRET_NFS_IP}"
-        path: /mnt/storage/media/incoming/sabnzbd
+        path: /mnt/storage/media/incoming/sabnzbd/Downloads/incomplete
         globalMounts:
-          - path: /mnt/sabnzbd
+          - path: /mnt/sabnzbd/Downloads/incomplete
+            readOnly: false
+      sabnzbd-complete:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/incoming/sabnzbd/Downloads/complete
+        globalMounts:
+          - path: /mnt/sabnzbd/Downloads/complete
             readOnly: false
       incomplete:
         enabled: true

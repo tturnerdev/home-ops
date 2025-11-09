@@ -100,12 +100,12 @@ spec:
         globalMounts:
           - path: /mnt/tv
             readOnly: false
-      incoming-sabnzbd:
+      sabnzbd-complete:
         type: nfs
         server: "${SECRET_NFS_IP}"
-        path: /mnt/storage/media/incoming/sabnzbd
+        path: /mnt/storage/media/incoming/sabnzbd/Downloads/complete
         globalMounts:
-          - path: /mnt/incoming/sabnzbd
+          - path: /mnt/incoming/sabnzbd/Downloads/complete
             readOnly: false
       tmp:
         type: emptyDir
