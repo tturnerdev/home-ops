@@ -100,5 +100,12 @@ spec:
         globalMounts:
           - path: /mnt/tv
             readOnly: false
+      incoming:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/incoming
+        globalMounts:
+          - path: /mnt/incoming
+            readOnly: false
       tmp:
         type: emptyDir

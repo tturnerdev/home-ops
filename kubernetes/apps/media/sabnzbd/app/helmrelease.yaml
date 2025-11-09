@@ -43,12 +43,23 @@ spec:
             envFrom:
               - secretRef:
                   name: sabnzbd-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m
                 memory: 250Mi
               limits:
                 memory: 8Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: sabnzbd
@@ -75,15 +86,17 @@ spec:
         existingClaim: sabnzbd-config
         globalMounts:
           - path: /config
-      #       media:
-      #         enabled: true
-      #         type: nfs
-      #         server: ${NAS_IP}
-      #         path: /mnt/storage/media
-      #         globalMounts:
-      #           - path: /media
+      incoming:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/incoming/sabnzbd
+        globalMounts:
+          - path: /mnt/sabnzbd
+            readOnly: false
       incomplete:
         enabled: true
         type: emptyDir
         globalMounts:
           - path: /incomplete
+      tmp:
+        type: emptyDir
