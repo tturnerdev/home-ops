@@ -36,15 +36,18 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/radarr
-              tag: 5.4.6.8723
+              repository: ghcr.io/home-operations/radarr
+              tag: 6.0.3.10276@sha256:0ebc60aa20afb0df76b52694cee846b7cf7bd96bb0157f3b68b916e77c8142a0
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
               RADARR__INSTANCE_NAME: Radarr
-              RADARR__PORT: 7878
+              RADARR__PORT: &port 30025
               RADARR__APPLICATION_URL: "https://movies.${SECRET_DOMAIN}"
+              RADARR__APP__THEME: dark
+              RADARR__LOG__DBENABLED: "False"
               RADARR__LOG_LEVEL: info
+              RADARR__UPDATE__BRANCH: develop
               RADARR__API_KEY:
                 valueFrom:
                   secretKeyRef:
@@ -63,16 +66,16 @@ spec:
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: radarr
         ports:
           http:
-            port: 7878
+            port: *port
     ingress:
       app:
         enabled: true
@@ -93,12 +96,19 @@ spec:
         existingClaim: radarr-config
         globalMounts:
           - path: /config
-      # media:
-      #   enabled: true
-      #   type: nfs
-      #   server: ${NAS_IP}
-      #   path: /mnt/storage/media
-      #   globalMounts:
-      #     - path: /media
+      movies:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/video/movies
+        globalMounts:
+          - path: /mnt/movies
+            readOnly: false
+      sabnzbd-complete:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/incoming/sabnzbd/Downloads/complete
+        globalMounts:
+          - path: /mnt/incoming/sabnzbd/Downloads/complete
+            readOnly: false
       tmp:
         type: emptyDir
