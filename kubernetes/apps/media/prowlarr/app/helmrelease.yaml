@@ -42,7 +42,7 @@ spec:
             env:
               TZ: "America/Los_Angeles"
               PROWLARR__INSTANCE_NAME: Prowlarr
-              PROWLARR__PORT: &port 9696
+              PROWLARR__PORT: &port 30050
               PROWLARR__APPLICATION_URL: "https://index.${SECRET_DOMAIN}"
               PROWLARR__LOG__DBENABLED: "False"
               PROWLARR__APP__THEME: dark
