@@ -103,7 +103,7 @@ spec:
       incoming-sabnzbd:
         type: nfs
         server: "${SECRET_NFS_IP}"
-        path: storage/media/incoming/sabnzbd
+        path: /mnt/storage/media/incoming/sabnzbd
         globalMounts:
           - path: /mnt/incoming/sabnzbd
             readOnly: false
