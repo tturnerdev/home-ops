@@ -99,9 +99,9 @@ spec:
       movies:
         type: nfs
         server: "${SECRET_NFS_IP}"
-        path: /mnt/storage/media/video/movies
+        path: /mnt/storage/media/video/movie
         globalMounts:
-          - path: /mnt/movies
+          - path: /mnt/movie
             readOnly: false
       sabnzbd-complete:
         type: nfs
