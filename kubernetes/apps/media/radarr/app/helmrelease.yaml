@@ -42,7 +42,7 @@ spec:
             env:
               TZ: "America/Los_Angeles"
               RADARR__INSTANCE_NAME: Radarr
-              RADARR__PORT: &port 30025
+              RADARR__PORT: &port 7878
               RADARR__APPLICATION_URL: "https://movies.${SECRET_DOMAIN}"
               RADARR__APP__THEME: dark
               RADARR__LOG__DBENABLED: "False"
