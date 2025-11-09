@@ -36,15 +36,18 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/prowlarr-develop
-              tag: 1.16.2.4435
+              repository: ghcr.io/home-operations/prowlarr
+              tag: 2.1.5.5216@sha256:affb671fa367f4b7029d58f4b7d04e194e887ed6af1cf5a678f3c7aca5caf6ca
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
               PROWLARR__INSTANCE_NAME: Prowlarr
-              PROWLARR__PORT: 9696
+              PROWLARR__PORT: &port 9696
               PROWLARR__APPLICATION_URL: "https://index.${SECRET_DOMAIN}"
+              PROWLARR__LOG__DBENABLED: "False"
+              PROWLARR__APP__THEME: dark
               PROWLARR__LOG_LEVEL: info
+              PROWLARR__UPDATE__BRANCH: develop
               PROWLARR__API_KEY:
                 valueFrom:
                   secretKeyRef:
@@ -55,7 +58,8 @@ spec:
                 cpu: 10m
                 memory: 100Mi
               limits:
-                memory: 500Mi
+                cpu: 2000m
+                memory: 2Gi
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -72,7 +76,7 @@ spec:
         controller: prowlarr
         ports:
           http:
-            port: 9696
+            port: *port
     ingress:
       app:
         enabled: true
