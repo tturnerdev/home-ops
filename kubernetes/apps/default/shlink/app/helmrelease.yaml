@@ -48,7 +48,7 @@ spec:
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
-              DEFAULT_DOMAIN: "s.${SECRET_DOMAIN}"
+              DEFAULT_DOMAIN: "link.${SECRET_DOMAIN}"
               IS_HTTPS_ENABLED: "true"
               PORT: "8080"
               ENABLE_PERIODIC_VISIT_LOCATE: "true"
@@ -61,7 +61,7 @@ spec:
               DB_USER: shlink
               REDIS_SERVERS: "redis.database.svc.cluster.local:6379"
               SHORT_DOMAIN_SCHEMA: https
-              SHORT_DOMAIN_HOST: "s.${SECRET_DOMAIN}"
+              SHORT_DOMAIN_HOST: "link.${SECRET_DOMAIN}"
             envFrom:
               - secretRef:
                   name: shlink-secret
@@ -105,14 +105,14 @@ spec:
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
         hosts:
-          - host: "s.${SECRET_DOMAIN}"
+          - host: "link.${SECRET_DOMAIN}"
             paths:
               - path: /
                 pathType: Prefix
                 service:
                   identifier: app
                   port: http
-          - host: "shlink.${SECRET_DOMAIN}"
+          - host: "link-admin.${SECRET_DOMAIN}"
             paths:
               - path: /
                 pathType: Prefix
