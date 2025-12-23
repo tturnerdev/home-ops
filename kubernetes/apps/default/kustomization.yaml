@@ -19,5 +19,5 @@ resources:
   - ./n8n/ks.yaml
   - ./homarr/ks.yaml
   - ./photoprism/ks.yaml
-  - ./shlink/ks.yaml
-  - ./shlink-web-client/ks.yaml
+  # - ./shlink/ks.yaml
+  # - ./shlink-web-client/ks.yaml
