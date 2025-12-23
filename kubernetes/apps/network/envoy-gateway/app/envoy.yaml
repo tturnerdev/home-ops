@@ -49,11 +49,11 @@ kind: Gateway
 metadata:
   name: envoy-external
   annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname external.${SECRET_DOMAIN}
+    external-dns.alpha.kubernetes.io/target: &hostname external-envoy.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       client:
         dns-resolver: tcp://1.1.1.1:53
-      group: external
+      group: external-envoy
 spec:
   gatewayClassName: envoy
   infrastructure:
@@ -114,9 +114,9 @@ kind: Gateway
 metadata:
   name: envoy-internal
   annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname internal.${SECRET_DOMAIN}
+    external-dns.alpha.kubernetes.io/target: &hostname internal-envoy.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
-      group: internal
+      group: internal-envoy
       guarded: true
       ui:
         hide-hostname: true
