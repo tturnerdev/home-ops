@@ -1,0 +1,413 @@
+---
+# TODO: Untested on new deployment - also check if bootstrap/helmfile.yaml entry needs to reference this file
+# Gateway API CRDs installation
+# This file installs the Gateway API CRDs required for Envoy Gateway
+# Source: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
+# renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gatewayclasses.gateway.networking.k8s.io
+spec:
+  group: gateway.networking.k8s.io
+  names:
+    kind: GatewayClass
+    listKind: GatewayClassList
+    plural: gatewayclasses
+    singular: gatewayclass
+  scope: Cluster
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              controllerName:
+                type: string
+                maxLength: 253
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+              description:
+                type: string
+                maxLength: 64
+              parametersRef:
+                type: object
+                properties:
+                  group:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - group
+                - kind
+                - name
+    subresources:
+      status: {}
+  - name: v1beta1
+    served: true
+    storage: false
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              controllerName:
+                type: string
+                maxLength: 253
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+              description:
+                type: string
+                maxLength: 64
+              parametersRef:
+                type: object
+                properties:
+                  group:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - group
+                - kind
+                - name
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gateways.gateway.networking.k8s.io
+spec:
+  group: gateway.networking.k8s.io
+  names:
+    kind: Gateway
+    listKind: GatewayList
+    plural: gateways
+    singular: gateway
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              gatewayClassName:
+                type: string
+              listeners:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    protocol:
+                      type: string
+                    port:
+                      type: integer
+                    allowedRoutes:
+                      type: object
+                      properties:
+                        namespaces:
+                          type: object
+                          properties:
+                            from:
+                              type: string
+                            selector:
+                              type: object
+                    tls:
+                      type: object
+                      properties:
+                        certificateRefs:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              group:
+                                type: string
+                              kind:
+                                type: string
+                              name:
+                                type: string
+              addresses:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    value:
+                      type: string
+              infrastructure:
+                type: object
+                properties:
+                  annotations:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  labels:
+                    type: object
+                    additionalProperties:
+                      type: string
+    subresources:
+      status: {}
+  - name: v1beta1
+    served: true
+    storage: false
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              gatewayClassName:
+                type: string
+              listeners:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    protocol:
+                      type: string
+                    port:
+                      type: integer
+                    allowedRoutes:
+                      type: object
+                      properties:
+                        namespaces:
+                          type: object
+                          properties:
+                            from:
+                              type: string
+                            selector:
+                              type: object
+                    tls:
+                      type: object
+                      properties:
+                        certificateRefs:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              group:
+                                type: string
+                              kind:
+                                type: string
+                              name:
+                                type: string
+              addresses:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    value:
+                      type: string
+              infrastructure:
+                type: object
+                properties:
+                  annotations:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  labels:
+                    type: object
+                    additionalProperties:
+                      type: string
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: httproutes.gateway.networking.k8s.io
+spec:
+  group: gateway.networking.k8s.io
+  names:
+    kind: HTTPRoute
+    listKind: HTTPRouteList
+    plural: httproutes
+    singular: httproute
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parentRefs:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    sectionName:
+                      type: string
+                    group:
+                      type: string
+                    kind:
+                      type: string
+              hostnames:
+                type: array
+                items:
+                  type: string
+              rules:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    matches:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          path:
+                            type: object
+                            properties:
+                              type:
+                                type: string
+                              value:
+                                type: string
+                    filters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                          requestRedirect:
+                            type: object
+                            properties:
+                              scheme:
+                                type: string
+                              statusCode:
+                                type: integer
+                    backendRefs:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          port:
+                            type: integer
+                          group:
+                            type: string
+                          kind:
+                            type: string
+    subresources:
+      status: {}
+  - name: v1beta1
+    served: true
+    storage: false
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parentRefs:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    sectionName:
+                      type: string
+                    group:
+                      type: string
+                    kind:
+                      type: string
+              hostnames:
+                type: array
+                items:
+                  type: string
+              rules:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    matches:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          path:
+                            type: object
+                            properties:
+                              type:
+                                type: string
+                              value:
+                                type: string
+                    filters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                          requestRedirect:
+                            type: object
+                            properties:
+                              scheme:
+                                type: string
+                              statusCode:
+                                type: integer
+                    backendRefs:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          port:
+                            type: integer
+                          group:
+                            type: string
+                          kind:
+                            type: string
+    subresources:
+      status: {}
+
