@@ -92,4 +92,4 @@ spec:
           - backendRefs:
               - name: echo-envoy
                 namespace: default
-                port: http
+                port: *port
