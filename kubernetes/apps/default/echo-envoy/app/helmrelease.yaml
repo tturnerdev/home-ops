@@ -5,7 +5,7 @@ kind: HelmRelease
 metadata:
   name: echo-envoy
 spec:
-  suspend: false # *** SUSPEND / DISABLE APP ***
+  #suspend: false # *** SUSPEND / DISABLE APP ***
   interval: 168h
   chartRef:
     kind: OCIRepository

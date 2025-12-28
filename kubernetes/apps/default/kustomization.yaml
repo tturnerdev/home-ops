@@ -8,7 +8,8 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./echo/ks.yaml
-  # - ./echo-internal/ks.yaml
+  - ./echo-internal/ks.yaml
+  - ./echo-envoy/ks.yaml
   - ./podinfo/ks.yaml
   # - ./httpbin/ks.yaml
   # - ./httpbin2/ks.yaml
