@@ -28,7 +28,7 @@ spec:
           app:
             image:
               repository: shlinkio/shlink-web-client
-              tag: 4.2.1
+              tag: 4.6.2
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
