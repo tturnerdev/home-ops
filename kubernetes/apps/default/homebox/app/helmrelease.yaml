@@ -39,7 +39,7 @@ spec:
           homebox:
             image:
               repository: ghcr.io/sysadminsmedia/homebox
-              tag: 0.21.0-rootless
+              tag: 0.22.3-rootless
               # pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
