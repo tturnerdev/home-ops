@@ -29,7 +29,7 @@ spec:
           app:
             image:
               repository: ghcr.io/mccutchen/go-httpbin
-              tag: 2.18.1
+              tag: 2.21.0
     # test
     service:
       app:

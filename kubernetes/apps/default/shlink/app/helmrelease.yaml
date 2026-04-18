@@ -44,7 +44,7 @@ spec:
           app:
             image:
               repository: shlinkio/shlink
-              tag: 4.2.2
+              tag: 5.0.0
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
