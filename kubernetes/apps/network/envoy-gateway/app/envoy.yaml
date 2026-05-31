@@ -59,7 +59,9 @@ spec:
   infrastructure:
     annotations:
       external-dns.alpha.kubernetes.io/hostname: *hostname
-      lbipam.cilium.io/ips: 10.13.38.82
+      # NOTE: 10.13.38.82 is the Kube API VIP (talos/talconfig.yaml vip.ip + cluster.yaml cluster_api_addr).
+      # It must NOT be used as a LoadBalancer IP. Using a free address until external-nginx (.80) is retired.
+      lbipam.cilium.io/ips: 10.13.38.84
   listeners:
     - name: http
       protocol: HTTP
