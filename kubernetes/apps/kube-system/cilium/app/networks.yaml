@@ -6,8 +6,19 @@ metadata:
   name: pool
 spec:
   allowFirstLastIPs: "No"
+  # NOTE: Do NOT use a single "10.13.36.0/22" block — that whole range includes the
+  # Kube API VIP (10.13.38.82), the node IPs (10.13.38.101-103) and the router
+  # (10.13.36.1), so Cilium can (and did) hand those out to Services. The ranges
+  # below intentionally EXCLUDE 10.13.38.82 (VIP) and stop before the node IPs.
   blocks:
-    - cidr: "10.13.36.0/22"
+    # k8s-gateway split-DNS
+    - start: "10.13.38.53"
+      stop: "10.13.38.53"
+    # ingress / gateway / app LoadBalancers (10.13.38.82 deliberately excluded = Kube API VIP)
+    - start: "10.13.38.80"
+      stop: "10.13.38.81"
+    - start: "10.13.38.83"
+      stop: "10.13.38.100"
 ---
 # yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/cilium.io/ciliuml2announcementpolicy_v2alpha1.json
 apiVersion: cilium.io/v2alpha1
