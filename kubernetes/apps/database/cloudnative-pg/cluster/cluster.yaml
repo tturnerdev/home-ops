@@ -16,7 +16,7 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
   storage:
     storageClass: topolvm-thin-provisioner
-    size: 20Gi
+    size: 40Gi
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
