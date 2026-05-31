@@ -27,6 +27,9 @@ spec:
     parameters:
       max_connections: "400"
       shared_buffers: 256MB
+      # Cap WAL retained by replication slots so an abandoned/stuck replica can't fill the
+      # data volume and crash the DB (root cause of the 2026-05-31 outage). Default -1 = unlimited.
+      max_slot_wal_keep_size: 20GB
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
