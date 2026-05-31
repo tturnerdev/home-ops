@@ -11,6 +11,10 @@ spec:
       app.kubernetes.io/name: *app
   interval: 1h
   path: ./kubernetes/apps/database/cloudnative-pg/operator
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
   prune: true
   retryInterval: 2m
   sourceRef:
@@ -43,6 +47,10 @@ spec:
       current: status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')
   interval: 1h
   path: ./kubernetes/apps/database/cloudnative-pg/cluster
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
   prune: true
   retryInterval: 2m
   sourceRef:
