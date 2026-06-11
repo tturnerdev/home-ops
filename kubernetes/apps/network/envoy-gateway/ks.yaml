@@ -12,6 +12,10 @@ spec:
   #     namespace: cert-manager
   interval: 1h
   path: ./kubernetes/apps/network/envoy-gateway/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
   prune: true
   sourceRef:
     kind: GitRepository
