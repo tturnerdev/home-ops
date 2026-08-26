@@ -7,4 +7,6 @@ ingress:
     service: &svc https://external-ingress-nginx-controller.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
     service: *svc
+  - hostname: "sign.${SECRET_DOMAIN_2}"
+    service: *svc
   - service: http_status:404
