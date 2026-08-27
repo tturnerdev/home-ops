@@ -63,8 +63,9 @@ spec:
               NEXT_PRIVATE_SIGNING_TRANSPORT: "local"
               NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH: "/opt/documenso/cert.p12"
               NEXT_PRIVATE_ALLOWED_SIGNUP_DOMAINS: "${SECRET_DOMAIN_2}"
-              # Registration closed post-onboarding; recipients sign without accounts
-              NEXT_PUBLIC_DISABLE_SIGNUP: "true"
+              # "true" closes registration; currently open (domain allowlist above
+              # still restricts signups) while onboarding users
+              NEXT_PUBLIC_DISABLE_SIGNUP: "false"
             envFrom:
               - secretRef:
                   name: documenso-app-secret
