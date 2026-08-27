@@ -48,6 +48,7 @@ spec:
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
+              DOCUMENSO_DISABLE_TELEMETRY: "true"
               NEXT_PUBLIC_WEBAPP_URL: "https://sign.${SECRET_DOMAIN_2}"
               # Background jobs call back into the app; stay in-pod
               NEXT_PRIVATE_INTERNAL_WEBAPP_URL: "http://localhost:3000"
