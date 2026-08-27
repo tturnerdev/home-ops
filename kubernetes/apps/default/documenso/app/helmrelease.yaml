@@ -105,8 +105,10 @@ spec:
         className: external
         annotations:
           nginx.ingress.kubernetes.io/proxy-body-size: 50m
-        # DNS is NOT managed by external-dns (domain filter excludes this zone).
-        # Manual CNAME in the zone: sign -> <tunnel-id>.cfargotunnel.com (proxied)
+          cert-manager.io/cluster-issuer: letsencrypt-production
+        # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
+        # (cloudflare external-dns domain filter excludes this zone).
+        # LAN DNS: unifi-dns publishes this host -> ingress LB IP for direct access.
         hosts:
           - host: "sign.${SECRET_DOMAIN_2}"
             paths:
@@ -115,6 +117,9 @@ spec:
                 service:
                   identifier: app
                   port: http
+        tls:
+          - secretName: documenso-tls
+            hosts: ["sign.${SECRET_DOMAIN_2}"]
     persistence:
       signing-cert:
         type: secret
