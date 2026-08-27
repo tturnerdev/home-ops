@@ -40,12 +40,17 @@ spec:
                   name: documenso-app-secret
               - secretRef:
                   name: documenso-ext-secret
-        containers:
-          app:
-            image:
+          # Rewrites the compiled UK-English catalogs to US English into
+          # emptyDir overlays (upstream ships no en-US locale)
+          us-english:
+            image: &documensoImage
               repository: documenso/documenso
               tag: v2.17.0
               pullPolicy: IfNotPresent
+            command: ["node", "/patch/patch-us-english.mjs"]
+        containers:
+          app:
+            image: *documensoImage
             env:
               TZ: "America/Los_Angeles"
               DOCUMENSO_DISABLE_TELEMETRY: "true"
@@ -134,3 +139,27 @@ spec:
           - path: /opt/documenso/cert.p12
             subPath: cert.p12
             readOnly: true
+      us-english-patch:
+        type: configMap
+        name: documenso-us-english
+        advancedMounts:
+          documenso:
+            us-english:
+              - path: /patch
+                readOnly: true
+      i18n-server-en:
+        type: emptyDir
+        advancedMounts:
+          documenso:
+            us-english:
+              - path: /out-server
+            app:
+              - path: /app/apps/remix/build/server/hono/packages/lib/translations/en
+      i18n-client-assets:
+        type: emptyDir
+        advancedMounts:
+          documenso:
+            us-english:
+              - path: /out-client
+            app:
+              - path: /app/apps/remix/build/client/assets
