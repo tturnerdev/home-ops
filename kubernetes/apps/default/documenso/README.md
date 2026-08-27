@@ -83,10 +83,21 @@ the UI equivalent is Organisation settings → Preferences → Branding).
 Teams inherit while their own branding columns are NULL.
 
 Notes:
-- The "This document was sent using Documenso" line has no off-switch in
-  this build (no `hidePoweredBy` column yet); its text lives in the
-  translation catalogs, so the init-container patcher could rewrite it if
-  ever desired.
+- The "This document was sent using Documenso" attribution line is
+  controlled by `OrganisationClaim.flags.hidePoweredBy` (jsonb) — set to
+  `true` for the business org via SQL. Same table's
+  `allowCustomBranding: true` is what unlocks the branding UI.
+- The uploaded logo is stored as inline BYTES_64 JSON in `brandingLogo`
+  and served publicly at `/api/branding/logo/{organisation|team}/{id}` —
+  emails embed that URL in the header of all ~26 templates.
+- `brandingColors` (jsonb) themes emails too (button = `primary`,
+  headings = `foreground`, etc.). Gotcha: a dark-site palette with
+  `foreground: #ffffff` renders invisible headings on white emails — the
+  renderer applies colors verbatim with no contrast guard; keep
+  `foreground` dark or unset.
+- The large mid-email document illustration is the static
+  `/static/document.png` (not branding-aware, no per-document preview
+  upstream); replaceable via a client-assets overlay if ever desired.
 - Emails render through the patched catalogs (verified: upstream says
   "cancelled", delivered mail says "canceled"), so email copy is also
   US English.
