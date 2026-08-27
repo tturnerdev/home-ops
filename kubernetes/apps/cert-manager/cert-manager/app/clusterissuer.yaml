@@ -17,3 +17,10 @@ spec:
               key: api-token
         selector:
           dnsZones: ["${SECRET_DOMAIN}"]
+      # Secondary domain: the Cloudflare token is zone-scoped to the primary
+      # domain, so validate over HTTP through the cloudflared tunnel instead
+      - http01:
+          ingress:
+            ingressClassName: external
+        selector:
+          dnsZones: ["${SECRET_DOMAIN_2}"]
