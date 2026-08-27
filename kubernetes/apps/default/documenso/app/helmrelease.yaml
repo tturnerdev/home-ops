@@ -24,6 +24,9 @@ spec:
   values:
     controllers:
       documenso:
+        # Default Recreate causes ~5min outages (app ignores SIGTERM); Documenso
+        # supports concurrent replicas, so overlap during rollout is safe
+        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
