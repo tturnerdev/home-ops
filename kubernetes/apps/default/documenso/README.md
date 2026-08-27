@@ -69,6 +69,31 @@ ConfigMap change alone rolls the deployment via Reloader.
   `en` locale in place; a true `en-US` picker entry would require a fork
   and image rebuild.
 
+## Email templates / branding
+
+Recipient-facing emails are React Email templates compiled into the image;
+there is no template directory to override. The supported customization
+surface is **organisation branding**, stored in
+`OrganisationGlobalSettings` (row for the business org): `brandingEnabled`,
+`brandingUrl`, `brandingCompanyDetails` (newline-split, replaces the
+hardcoded "Documenso, Inc." address in every email footer), and
+`brandingLogo` (URL; swaps the email header + signing-page logo when set).
+These were enabled via direct SQL (the settings are not in the public API;
+the UI equivalent is Organisation settings → Preferences → Branding).
+Teams inherit while their own branding columns are NULL.
+
+Notes:
+- The "This document was sent using Documenso" line has no off-switch in
+  this build (no `hidePoweredBy` column yet); its text lives in the
+  translation catalogs, so the init-container patcher could rewrite it if
+  ever desired.
+- Emails render through the patched catalogs (verified: upstream says
+  "cancelled", delivered mail says "canceled"), so email copy is also
+  US English.
+- Email From identity: `NEXT_PRIVATE_SMTP_FROM_ADDRESS` in
+  `externalsecret.yaml`; the address must be a verified "Send mail as"
+  alias of the authenticated Gmail account or Google rewrites the header.
+
 ## Other notable choices
 
 - **Secrets**: machine-generated values (encryption keys, DB password,
