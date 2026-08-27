@@ -7,3 +7,9 @@ resources:
   - ./secret.sops.yaml
   - ./signing-cert.sops.yaml
   - ./helmrelease.yaml
+configMapGenerator:
+  - name: documenso-us-english
+    files:
+      - ./resources/patch-us-english.mjs
+generatorOptions:
+  disableNameSuffixHash: true
