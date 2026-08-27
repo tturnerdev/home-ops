@@ -13,3 +13,6 @@ configMapGenerator:
       - ./resources/patch-us-english.mjs
 generatorOptions:
   disableNameSuffixHash: true
+  annotations:
+    # The JS template literals (${...}) are not for Flux to substitute
+    kustomize.toolkit.fluxcd.io/substitute: disabled
