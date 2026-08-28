@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: workflow-console
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      workflow-console:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile: { type: RuntimeDefault }
+        containers:
+          app:
+            image:
+              repository: ghcr.io/tturnerdev/atrelix-workflow-console
+              tag: v0.1.0
+              pullPolicy: IfNotPresent
+            env:
+              TZ: "America/Los_Angeles"
+              PORT: "8080"
+              # In-cluster hop straight to the atrelix n8n service
+              N8N_BASE_URL: "http://n8n-atrelix.default.svc.cluster.local:5678"
+              # Public base used for links/iframes shown to techs
+              N8N_PUBLIC_BASE: "https://automate.${SECRET_DOMAIN_2}"
+              POLL_MS: "4000"
+            # N8N_API_KEY / N8N_LOGIN_EMAIL / N8N_LOGIN_PASSWORD
+            envFrom:
+              - secretRef:
+                  name: workflow-console-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/config
+                    port: 8080
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+    defaultPodOptions:
+      # Private ghcr image — reuses the ghcr-pull dockerconfigjson Secret
+      # (default namespace) managed in ../documenso/app/pull-secret.sops.yaml
+      imagePullSecrets:
+        - name: ghcr-pull
+    service:
+      app:
+        controller: workflow-console
+        ports:
+          http:
+            port: 8080
+    ingress:
+      app:
+        enabled: true
+        # INTERNAL ONLY — the console has no built-in auth. Not routed via
+        # cloudflared; atrelix zone is excluded from cloudflare external-dns.
+        # LAN DNS: unifi-dns publishes this host -> internal ingress alias.
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        hosts:
+          - host: "flow.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
