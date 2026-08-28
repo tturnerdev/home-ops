@@ -1,5 +1,8 @@
 [env]
 _.python.venv = { path = "{{config_root}}/.venv", create = true }
+# pipx installs (makejinja) must not use the system pipx's own python (3.11);
+# point pipx venvs at the repo venv python (mise-managed, satisfies >=3.12)
+PIPX_DEFAULT_PYTHON = "{{config_root}}/.venv/bin/python"
 KUBECONFIG = "{{config_root}}/kubeconfig"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
 TALOSCONFIG = "{{config_root}}/talos/clusterconfig/talosconfig"
