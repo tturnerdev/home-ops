@@ -46,10 +46,13 @@ spec:
               # Public base used for links/iframes shown to techs
               N8N_PUBLIC_BASE: "https://automate.${SECRET_DOMAIN_2}"
               POLL_MS: "4000"
-            # N8N_API_KEY / N8N_LOGIN_EMAIL / N8N_LOGIN_PASSWORD
+            # N8N_API_KEY / N8N_LOGIN_EMAIL from sops; N8N_LOGIN_PASSWORD syncs
+            # from the 1Password item "n8n-atrelix" via ExternalSecret
             envFrom:
               - secretRef:
                   name: workflow-console-secret
+              - secretRef:
+                  name: workflow-console-1p-secret
             probes:
               liveness: &probes
                 enabled: true
