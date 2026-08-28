@@ -36,7 +36,7 @@ spec:
           app:
             image:
               repository: ghcr.io/tturnerdev/atrelix-workflow-console
-              tag: v0.1.1
+              tag: v0.2.0
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
@@ -45,14 +45,15 @@ spec:
               N8N_BASE_URL: "http://n8n-atrelix.default.svc.cluster.local:5678"
               # Public base used for links/iframes shown to techs
               N8N_PUBLIC_BASE: "https://automate.${SECRET_DOMAIN_2}"
+              # process_board Data Table id — the run-queue source the workflows
+              # maintain themselves (v0.2.0 dropped the editor-login /rest queue:
+              # MFA blocks editor logins; the board needs only the API key)
+              N8N_BOARD_TABLE_ID: "YGlUSzRlLJLDMxKY"
               POLL_MS: "4000"
-            # N8N_API_KEY / N8N_LOGIN_EMAIL from sops; N8N_LOGIN_PASSWORD syncs
-            # from the 1Password item "n8n-atrelix" via ExternalSecret
+            # N8N_API_KEY from sops — the console's only secret
             envFrom:
               - secretRef:
                   name: workflow-console-secret
-              - secretRef:
-                  name: workflow-console-1p-secret
             probes:
               liveness: &probes
                 enabled: true
