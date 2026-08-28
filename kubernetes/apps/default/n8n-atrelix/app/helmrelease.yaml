@@ -40,8 +40,6 @@ spec:
               pullPolicy: IfNotPresent
             envFrom:
               - secretRef:
-                  name: n8n-atrelix-app-secret
-              - secretRef:
                   name: n8n-atrelix-ext-secret
         containers:
           app:
@@ -77,18 +75,18 @@ spec:
               DB_POSTGRESDB_USER:
                 valueFrom:
                   secretKeyRef:
-                    name: n8n-atrelix-app-secret
+                    name: n8n-atrelix-ext-secret
                     key: POSTGRES_USER
               DB_POSTGRESDB_PASSWORD:
                 valueFrom:
                   secretKeyRef:
-                    name: n8n-atrelix-app-secret
+                    name: n8n-atrelix-ext-secret
                     key: POSTGRES_PASSWORD
               # Encryption key (critical for credentials; never rotate)
               N8N_ENCRYPTION_KEY:
                 valueFrom:
                   secretKeyRef:
-                    name: n8n-atrelix-app-secret
+                    name: n8n-atrelix-ext-secret
                     key: N8N_ENCRYPTION_KEY
             resources:
               requests:
