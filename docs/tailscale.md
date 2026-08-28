@@ -19,7 +19,7 @@ state, and traffic rides the tunnel only when away from home.
   `turner.haus` via **k8s-gateway at `10.13.38.53`**, which answers from live
   Ingress status (internal apps → `10.13.38.81`, external apps → `10.13.38.80`,
   no Cloudflare hairpin). Non-cluster names fall through to the UniFi resolver
-  at `10.13.36.1`. LAN clients without VPN keep using UniFi DNS as before.
+  at `10.13.37.1`. LAN clients without VPN keep using UniFi DNS as before.
 - Because the `/21` also covers the Kube API VIP (`10.13.38.82`) and
   postgres-lb (`10.13.38.92`), `kubectl` and `psql` work over the VPN with no
   extra setup.
@@ -69,7 +69,7 @@ state, and traffic rides the tunnel only when away from home.
 
    *Optional:* the secondary domain (`SECRET_DOMAIN_2`, e.g. `sign.`/
    `automate.` hosts) is not served by k8s-gateway. For LAN-direct access to
-   it over VPN, add a second split-DNS entry: that domain → `10.13.36.1`
+   it over VPN, add a second split-DNS entry: that domain → `10.13.37.1`
    (UniFi already holds its records via unifi-dns `domainFilters`). Without
    it, those hosts still work over the VPN via public DNS + cloudflared.
 
