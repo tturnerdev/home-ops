@@ -46,7 +46,7 @@ spec:
             # built from atrelixtech/atrelix-sign; digest-pinned for reproducibility
             image:
               repository: ghcr.io/atrelixtech/atrelix-sign
-              tag: v2.17.0-atrelix@sha256:50ece70040f14983a92bfabd8a91afc0937b5522b3b5aa9e71ea1a772588bf43
+              tag: v2.17.0-atrelix@sha256:da45a8328b53f68b048ce96a29dcddfcf144b906f867c316552f36e1a974754a
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
