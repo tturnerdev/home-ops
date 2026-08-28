@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/tailscale.com/connector_v1alpha1.json
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: home-lan
+spec:
+  tags: ["tag:k8s"]
+  hostnamePrefix: home-ops-connector
+  replicas: 2
+  subnetRouter:
+    # 10.13.32.0/21 is deliberately LESS specific than the physical LAN
+    # (10.13.36.0/22): clients on the home network keep preferring their
+    # directly connected route via longest-prefix match and only use the
+    # tunnel when away. Any other subnet router on the tailnet must advertise
+    # this exact same prefix, or it will shadow this one and break both
+    # failover and the LAN-first behavior.
+    advertiseRoutes: ["10.13.32.0/21"]

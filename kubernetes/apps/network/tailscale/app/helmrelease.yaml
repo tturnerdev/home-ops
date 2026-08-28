@@ -1,0 +1,39 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: tailscale
+  namespace: network # Required for Renovate lookups
+spec:
+  interval: 168h
+  url: https://pkgs.tailscale.com/helmcharts
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tailscale-operator
+spec:
+  interval: 168h
+  chart:
+    spec:
+      chart: tailscale-operator
+      version: 1.102.3
+      sourceRef:
+        kind: HelmRepository
+        name: tailscale
+        namespace: network
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # OAuth credentials are deliberately not set as chart values; with
+    # `oauth` unset the operator reads the pre-created Secret named
+    # `operator-oauth` (see secret.sops.yaml).
+    operatorConfig:
+      hostname: home-ops-k8s-operator

@@ -42,3 +42,28 @@ spec:
         lbipam.cilium.io/ips: "10.13.38.53"
       externalTrafficPolicy: Cluster
     watchedResources: ["Ingress", "Service"]
+    # Tailscale split DNS sends all *.${SECRET_DOMAIN} queries from VPN clients
+    # here; names the cluster doesn't own must keep resolving.
+    fallthrough:
+      enabled: true
+    # Setting extraZonePlugins replaces the chart defaults wholesale, so this
+    # reproduces them with one change: fallthrough queries go to the UniFi
+    # gateway resolver (which holds the LAN-only records) instead of the pod's
+    # resolv.conf.
+    extraZonePlugins:
+      - name: log
+      - name: errors
+      # Serves a /health endpoint on :8080, required for livenessProbe
+      - name: health
+        configBlock: |-
+          lameduck 5s
+      # Serves a /ready endpoint on :8181, required for readinessProbe
+      - name: ready
+      # Serves a /metrics endpoint on :9153, required for serviceMonitor
+      - name: prometheus
+        parameters: 0.0.0.0:9153
+      - name: forward
+        parameters: . 10.13.36.1
+      - name: loop
+      - name: reload
+      - name: loadbalance
