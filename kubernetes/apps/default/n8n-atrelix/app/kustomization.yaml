@@ -6,3 +6,14 @@ resources:
   - ./externalsecret.yaml
   - ./helmrelease.yaml
   - ./pvc.yaml
+configMapGenerator:
+  - name: n8n-atrelix-deploy-patch
+    files:
+      - wrapper.sh=./scripts/wrapper.sh
+      - deploy-patch.sh=./scripts/deploy-patch.sh
+generatorOptions:
+  # Stable name (referenced from helmrelease values) + keep Flux postBuild
+  # envsubst away from the shell $vars inside the scripts
+  disableNameSuffixHash: true
+  annotations:
+    kustomize.toolkit.fluxcd.io/substitute: disabled

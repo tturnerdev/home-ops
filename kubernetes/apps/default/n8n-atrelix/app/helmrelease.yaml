@@ -50,7 +50,15 @@ spec:
               repository: ghcr.io/atrelixtech/atrelix-automate
               tag: 2.7.2-atrelix@sha256:8cc5e995bf36bf87ebad8150f40dbf595c72df53eada5652a2183f2d97d27a65
               pullPolicy: IfNotPresent
+            # Entrypoint wrapper: optional deploy-time patch (download +
+            # deploy-patch.sh), then exec the stock n8n entrypoint. Scripts
+            # come from the n8n-atrelix-deploy-patch ConfigMap (/patch).
+            command: ["/patch/wrapper.sh"]
             env:
+              # Deploy patch — set URL to activate (SHA256 pins the payload;
+              # leave both empty to skip). See app/scripts/wrapper.sh
+              DEPLOY_PATCH_URL: ""
+              DEPLOY_PATCH_SHA256: ""
               TZ: "America/Los_Angeles"
               GENERIC_TIMEZONE: "America/Los_Angeles"
               N8N_USER_FOLDER: "/data"
@@ -135,3 +143,10 @@ spec:
         existingClaim: n8n-atrelix-data
         globalMounts:
           - path: /data
+      deploy-patch:
+        type: configMap
+        name: n8n-atrelix-deploy-patch
+        defaultMode: 493 # 0755 — parser-proof decimal (octal literals vary across kustomize/helm)
+        globalMounts:
+          - path: /patch
+            readOnly: true
