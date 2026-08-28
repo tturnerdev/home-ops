@@ -43,9 +43,12 @@ spec:
                   name: n8n-atrelix-ext-secret
         containers:
           app:
+            # Atrelix fork image (same n8n 2.7.2 code for now, built from the
+            # atrelixtech/atrelix-automate prod branch); digest-pinned for
+            # reproducibility
             image:
-              repository: n8nio/n8n
-              tag: 2.7.2
+              repository: ghcr.io/atrelixtech/atrelix-automate
+              tag: 2.7.2-atrelix@sha256:8cc5e995bf36bf87ebad8150f40dbf595c72df53eada5652a2183f2d97d27a65
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
@@ -94,6 +97,10 @@ spec:
                 memory: 256Mi
               limits:
                 memory: 2Gi
+    defaultPodOptions:
+      # Fork image on GHCR is private — same pull secret documenso uses
+      imagePullSecrets:
+        - name: ghcr-pull
     service:
       app:
         controller: n8n-atrelix
