@@ -36,7 +36,7 @@ spec:
           app:
             image:
               repository: ghcr.io/tturnerdev/atrelix-workflow-console
-              tag: v0.1.0
+              tag: v0.1.1
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
