@@ -9,4 +9,6 @@ ingress:
     service: *svc
   - hostname: "sign.${SECRET_DOMAIN_2}"
     service: *svc
+  - hostname: "automate.${SECRET_DOMAIN_2}"
+    service: *svc
   - service: http_status:404
