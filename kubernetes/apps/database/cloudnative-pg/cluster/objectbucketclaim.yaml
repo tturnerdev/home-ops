@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/objectbucket.io/objectbucketclaim_v1alpha1.json
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: cnpg-backups
+  namespace: database
+spec:
+  # Rook provisions the bucket and writes creds to Secret/cnpg-backups
+  # (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) + a ConfigMap with the
+  # generated bucket name. StorageClass reclaimPolicy is Retain.
+  generateBucketName: cnpg-backups
+  storageClassName: ceph-bucket
