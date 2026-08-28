@@ -1,0 +1,132 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: n8n-atrelix
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      n8n-atrelix:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16.2
+              pullPolicy: IfNotPresent
+            envFrom:
+              - secretRef:
+                  name: n8n-atrelix-app-secret
+              - secretRef:
+                  name: n8n-atrelix-ext-secret
+        containers:
+          app:
+            image:
+              repository: n8nio/n8n
+              tag: 2.7.2
+              pullPolicy: IfNotPresent
+            env:
+              TZ: "America/Los_Angeles"
+              GENERIC_TIMEZONE: "America/Los_Angeles"
+              N8N_USER_FOLDER: "/data"
+              # URLs — WEBHOOK_URL is what generated webhook/form/resume links
+              # point at; must stay the public hostname
+              N8N_HOST: "automate.${SECRET_DOMAIN_2}"
+              N8N_PROTOCOL: "https"
+              N8N_EDITOR_BASE_URL: "https://automate.${SECRET_DOMAIN_2}"
+              WEBHOOK_URL: "https://automate.${SECRET_DOMAIN_2}/"
+              # One trusted reverse proxy in front (external ingress-nginx)
+              N8N_PROXY_HOPS: "1"
+              # Task runners need no flag: enabled by default (internal mode,
+              # JS runner) since v2; N8N_RUNNERS_ENABLED is deprecated
+              # Privacy / noise reduction
+              N8N_DIAGNOSTICS_ENABLED: "false"
+              N8N_HIRING_BANNER_ENABLED: "false"
+              N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+              # Deliberately NO EXECUTIONS_TIMEOUT* overrides: the default (-1)
+              # lets multi-week waiting executions run to completion
+              # Database
+              DB_TYPE: "postgresdb"
+              DB_POSTGRESDB_HOST: "postgres-rw.database.svc.cluster.local"
+              DB_POSTGRESDB_PORT: "5432"
+              DB_POSTGRESDB_DATABASE: "n8n_atrelix"
+              DB_POSTGRESDB_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-app-secret
+                    key: POSTGRES_USER
+              DB_POSTGRESDB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-app-secret
+                    key: POSTGRES_PASSWORD
+              # Encryption key (critical for credentials; never rotate)
+              N8N_ENCRYPTION_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-app-secret
+                    key: N8N_ENCRYPTION_KEY
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+    service:
+      app:
+        controller: n8n-atrelix
+        ports:
+          http:
+            port: 5678
+    ingress:
+      app:
+        enabled: true
+        className: external
+        annotations:
+          # Matches n8n's default 16 MiB payload cap (N8N_PAYLOAD_SIZE_MAX)
+          nginx.ingress.kubernetes.io/proxy-body-size: 16m
+          cert-manager.io/cluster-issuer: letsencrypt-production
+        # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
+        # (cloudflare external-dns domain filter excludes this zone).
+        # LAN DNS: unifi-dns publishes this host -> ingress LB IP for direct access.
+        hosts:
+          - host: "automate.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - secretName: n8n-atrelix-tls
+            hosts: ["automate.${SECRET_DOMAIN_2}"]
+    persistence:
+      data:
+        enabled: true
+        existingClaim: n8n-atrelix-data
+        globalMounts:
+          - path: /data
