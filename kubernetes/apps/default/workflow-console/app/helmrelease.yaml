@@ -50,10 +50,13 @@ spec:
               # MFA blocks editor logins; the board needs only the API key)
               N8N_BOARD_TABLE_ID: "YGlUSzRlLJLDMxKY"
               POLL_MS: "4000"
-            # N8N_API_KEY from sops — the console's only secret
+            # N8N_API_KEY from the 1Password item "n8n-atrelix" via
+            # ExternalSecret — the console's only secret
             envFrom:
               - secretRef:
                   name: workflow-console-secret
+              - secretRef:
+                  name: workflow-console-ext-secret
             probes:
               liveness: &probes
                 enabled: true
