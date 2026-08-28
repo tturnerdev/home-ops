@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./cluster.yaml
   - ./objectbucketclaim.yaml
-  # - ./scheduledbackup.yaml  # re-enable once the Barman Cloud plugin is installed
+  - ./objectstore.yaml
+  - ./scheduledbackup.yaml
   # - ./prometheusrule.yaml
   - ./service.yaml
