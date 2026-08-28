@@ -6,13 +6,5 @@ resources:
   - ./externalsecret.yaml
   - ./secret.sops.yaml
   - ./signing-cert.sops.yaml
+  - ./pull-secret.sops.yaml
   - ./helmrelease.yaml
-configMapGenerator:
-  - name: documenso-us-english
-    files:
-      - ./resources/patch-us-english.mjs
-generatorOptions:
-  disableNameSuffixHash: true
-  annotations:
-    # The JS template literals (${...}) are not for Flux to substitute
-    kustomize.toolkit.fluxcd.io/substitute: disabled

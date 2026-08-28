@@ -40,17 +40,14 @@ spec:
                   name: documenso-app-secret
               - secretRef:
                   name: documenso-ext-secret
-          # Rewrites the compiled UK-English catalogs to US English into
-          # emptyDir overlays (upstream ships no en-US locale)
-          us-english:
-            image: &documensoImage
-              repository: documenso/documenso
-              tag: v2.17.0
-              pullPolicy: IfNotPresent
-            command: ["node", "/patch/patch-us-english.mjs"]
         containers:
           app:
-            image: *documensoImage
+            # Atrelix fork image (en-US locale + email de-branding baked in),
+            # built from atrelixtech/atrelix-sign; digest-pinned for reproducibility
+            image:
+              repository: ghcr.io/atrelixtech/atrelix-sign
+              tag: v2.17.0-atrelix@sha256:50ece70040f14983a92bfabd8a91afc0937b5522b3b5aa9e71ea1a772588bf43
+              pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
               DOCUMENSO_DISABLE_TELEMETRY: "true"
@@ -105,6 +102,9 @@ spec:
                 memory: 512Mi
               limits:
                 memory: 1Gi
+    defaultPodOptions:
+      imagePullSecrets:
+        - name: ghcr-pull
     service:
       app:
         controller: documenso
@@ -140,27 +140,3 @@ spec:
           - path: /opt/documenso/cert.p12
             subPath: cert.p12
             readOnly: true
-      us-english-patch:
-        type: configMap
-        name: documenso-us-english
-        advancedMounts:
-          documenso:
-            us-english:
-              - path: /patch
-                readOnly: true
-      i18n-server-en:
-        type: emptyDir
-        advancedMounts:
-          documenso:
-            us-english:
-              - path: /out-server
-            app:
-              - path: /app/apps/remix/build/server/hono/packages/lib/translations/en
-      i18n-client-assets:
-        type: emptyDir
-        advancedMounts:
-          documenso:
-            us-english:
-              - path: /out-client
-            app:
-              - path: /app/apps/remix/build/client/assets
