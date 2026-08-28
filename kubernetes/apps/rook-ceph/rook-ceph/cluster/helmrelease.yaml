@@ -106,4 +106,31 @@ spec:
     # NOTE: After disabling the filesystem, the filesystem can be removed with the following commands:
     # ceph fs fail ceph-filesystem && ceph fs rm ceph-filesystem --yes-i-really-mean-it
     cephFileSystems: []
-    cephObjectStores: []
+    cephObjectStores:
+      - name: ceph-objectstore
+        spec:
+          metadataPool:
+            failureDomain: host
+            replicated:
+              size: 3
+          dataPool:
+            failureDomain: host
+            replicated:
+              size: 3
+          preservePoolsOnDelete: true
+          gateway:
+            port: 80
+            instances: 1
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+        storageClass:
+          enabled: true
+          name: ceph-bucket
+          # Retain so deleting an ObjectBucketClaim never drops backup data
+          reclaimPolicy: Retain
+          parameters:
+            region: us-east-1
