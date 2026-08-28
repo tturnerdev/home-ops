@@ -54,8 +54,6 @@ spec:
             # ExternalSecret — the console's only secret
             envFrom:
               - secretRef:
-                  name: workflow-console-secret
-              - secretRef:
                   name: workflow-console-ext-secret
             probes:
               liveness: &probes
