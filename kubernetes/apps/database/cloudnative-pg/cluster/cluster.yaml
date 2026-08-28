@@ -45,27 +45,18 @@ spec:
     podMonitorMetricRelabelings:
       - { sourceLabels: ["cluster"], targetLabel: cnpg_cluster, action: replace }
       - { regex: cluster, action: labeldrop }
-  backup:
-    retentionPolicy: 30d
-    barmanObjectStore: &barmanObjectStore
-      # Bucket provisioned by the cnpg-backups ObjectBucketClaim (Ceph RGW);
-      # creds + name come from Secret/ConfigMap 'cnpg-backups' in this ns
-      destinationPath: s3://cnpg-backups-3e423fc4-c680-4b68-88e6-67382d084def/
-      endpointURL: http://rook-ceph-rgw-ceph-objectstore.rook-ceph.svc:80
-      s3Credentials:
-        accessKeyId:
-          name: cnpg-backups
-          key: AWS_ACCESS_KEY_ID
-        secretAccessKey:
-          name: cnpg-backups
-          key: AWS_SECRET_ACCESS_KEY
-      data:
-        compression: bzip2
-      wal:
-        compression: bzip2
-        maxParallel: 8
-      # Increment when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres-v1
+  # NOTE: in-tree barmanObjectStore does NOT work on the current operand image
+  # (17-standard-trixie ships no barman-cloud binaries; CNPG moved object-store
+  # backups to the Barman Cloud Plugin). RGW + the cnpg-backups bucket/creds are
+  # ready; backups will be wired via the plugin (ObjectStore CR + spec.plugins).
+  # backup:
+  #   retentionPolicy: 30d
+  #   barmanObjectStore:
+  #     destinationPath: s3://cnpg-backups-3e423fc4-c680-4b68-88e6-67382d084def/
+  #     endpointURL: http://rook-ceph-rgw-ceph-objectstore.rook-ceph.svc:80
+  #     s3Credentials:
+  #       accessKeyId: { name: cnpg-backups, key: AWS_ACCESS_KEY_ID }
+  #       secretAccessKey: { name: cnpg-backups, key: AWS_SECRET_ACCESS_KEY }
   # Note: previousCluster needs to be set to the name of the previous
   # cluster when recovering from an existing cnpg cluster
   # bootstrap:
