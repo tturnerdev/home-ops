@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Barman Cloud Plugin (v0.14.0) — the current, supported replacement for the
+# deprecated in-tree barmanObjectStore. Must live in the CNPG operator's
+# namespace; upstream ships it for cnpg-system, so retarget to `database`.
+# Vendored from:
+# https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.14.0/manifest.yaml
+namespace: database
+resources:
+  - ./manifest.yaml
