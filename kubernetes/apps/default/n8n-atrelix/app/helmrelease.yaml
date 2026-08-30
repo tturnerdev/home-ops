@@ -99,6 +99,37 @@ spec:
                   secretKeyRef:
                     name: n8n-atrelix-ext-secret
                     key: N8N_ENCRYPTION_KEY
+              # SMTP (user-management email). Host/port/user/pass/sender come
+              # from the 1Password item via the ext-secret; mode + TLS are plain.
+              # Port 587 => STARTTLS (explicit TLS), so SSL=false.
+              N8N_EMAIL_MODE: "smtp"
+              N8N_SMTP_SSL: "false"
+              N8N_SMTP_STARTTLS: "true"
+              N8N_SMTP_HOST:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-ext-secret
+                    key: N8N_SMTP_HOST
+              N8N_SMTP_PORT:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-ext-secret
+                    key: N8N_SMTP_PORT
+              N8N_SMTP_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-ext-secret
+                    key: N8N_SMTP_USER
+              N8N_SMTP_PASS:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-ext-secret
+                    key: N8N_SMTP_PASS
+              N8N_SMTP_SENDER:
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-atrelix-ext-secret
+                    key: N8N_SMTP_SENDER
             resources:
               requests:
                 cpu: 100m
