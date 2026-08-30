@@ -48,7 +48,7 @@ spec:
             # reproducibility
             image:
               repository: ghcr.io/atrelixtech/atrelix-automate
-              tag: 2.7.2-atrelix@sha256:8cc5e995bf36bf87ebad8150f40dbf595c72df53eada5652a2183f2d97d27a65
+              tag: 2.7.2-atrelix@sha256:67bca3ab449fe26fd7358be23d90776dd282118653f83ddb7614686fefe46683
               pullPolicy: IfNotPresent
             # Entrypoint wrapper: optional deploy-time patch (download +
             # deploy-patch.sh), then exec the stock n8n entrypoint. Scripts
