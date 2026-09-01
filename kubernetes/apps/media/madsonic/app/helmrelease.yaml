@@ -1,0 +1,113 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: madsonic
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      madsonic:
+        # Madsonic 6.3.9840 — the exact build that ran on lab1, packaged at
+        # https://github.com/tturnerdev/docker-madsonic (Java 8 / Alpine / ffmpeg).
+        # State (HSQLDB, lucene index, thumbs) lives in the madsonic-config PVC,
+        # migrated from lab1:/var/madsonic.
+        strategy: Recreate # RWO config volume + embedded HSQLDB: never two pods
+        containers:
+          app:
+            image:
+              repository: ghcr.io/tturnerdev/madsonic
+              tag: 6.3.9840
+            env:
+              TZ: America/Los_Angeles
+              JVM_INIT_MEMORY: "512"
+              JVM_MAX_MEMORY: "2048"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /rest/ping.view
+                    port: &port 4040
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /rest/ping.view
+                    port: *port
+                  periodSeconds: 10
+                  failureThreshold: 60 # HSQLDB load + war extraction can take a few minutes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1Gi
+              limits:
+                memory: 3Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: madsonic
+        ports:
+          http:
+            port: *port
+    ingress:
+      app:
+        enabled: true
+        className: external
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+        hosts:
+          - host: "music.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      config:
+        enabled: true
+        existingClaim: madsonic-config
+        globalMounts:
+          - path: /config
+      music:
+        type: nfs
+        server: "${SECRET_NFS_IP}"
+        path: /mnt/storage/media/music
+        globalMounts:
+          # Mounted at the path the lab1 install used so the ~55k absolute
+          # media paths already in the migrated database stay valid.
+          - path: /mnt/core/Media/Music
+            readOnly: false
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
