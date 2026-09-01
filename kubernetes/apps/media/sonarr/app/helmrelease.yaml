@@ -36,8 +36,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/sonarr
-              tag: 4.0.4.1491
+              repository: ghcr.io/home-operations/sonarr
+              tag: 4.0.19.3009
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
@@ -45,11 +45,12 @@ spec:
               SONARR__PORT: 8989
               SONARR__APPLICATION_URL: "https://tv.${SECRET_DOMAIN}"
               SONARR__LOG_LEVEL: info
-              SONARR__API_KEY:
+              SONARR__API_KEY: &apikey
                 valueFrom:
                   secretKeyRef:
                     name: sonarr-secret
                     key: SONARR_API_KEY
+              SONARR__AUTH__APIKEY: *apikey
             resources:
               requests:
                 cpu: 10m
