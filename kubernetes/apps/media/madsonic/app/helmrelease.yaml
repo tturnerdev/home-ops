@@ -19,16 +19,18 @@ spec:
   values:
     controllers:
       madsonic:
-        # Madsonic 6.3.9840 — the exact build that ran on lab1, packaged at
+        # Madsonic 7.0.10400 (2022-01 beta: Jetty 9.4 / HSQLDB 2.5.1 / Lucene 8),
+        # upgraded in place from the 6.3.9840 build migrated off lab1. Image from
         # https://github.com/tturnerdev/docker-madsonic (Java 8 / Alpine / ffmpeg).
-        # State (HSQLDB, lucene index, thumbs) lives in the madsonic-config PVC,
-        # migrated from lab1:/var/madsonic.
+        # State (HSQLDB, lucene index, thumbs) lives in the madsonic-config PVC.
+        # Rolling back to the 6.3.9840 tag needs the pre-upgrade database copy at
+        # /config/backup-6.3.9840 (6.3 cannot read HSQLDB 2.5.1 files).
         strategy: Recreate # RWO config volume + embedded HSQLDB: never two pods
         containers:
           app:
             image:
               repository: ghcr.io/tturnerdev/madsonic
-              tag: 6.3.9840
+              tag: 7.0.10400
             env:
               TZ: America/Los_Angeles
               JVM_INIT_MEMORY: "512"
