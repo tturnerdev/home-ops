@@ -21,6 +21,7 @@ resources:
   - ./documenso/ks.yaml
   - ./n8n-atrelix/ks.yaml
   - ./workflow-console/ks.yaml
+  - ./dario/ks.yaml
   - ./homarr/ks.yaml
   - ./photoprism/ks.yaml
   # - ./shlink/ks.yaml

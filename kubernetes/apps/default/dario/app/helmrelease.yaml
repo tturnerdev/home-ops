@@ -1,0 +1,149 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: dario
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      dario:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # One replica only: RWO volume, and dario's OAuth token refresh races
+        # on a single credentials file (docs/docker.md). Never two pods.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # https://github.com/askalf/dario — Anthropic/OpenAI-compatible proxy
+              # that serves Claude + ChatGPT subscriptions to Claude Code, Cursor,
+              # Aider, the Agent SDK, etc. Multi-arch; tags track npm releases.
+              repository: ghcr.io/askalf/dario
+              tag: v6.0.9
+              pullPolicy: IfNotPresent
+            env:
+              TZ: America/Los_Angeles
+              # The image sets DARIO_HOST=0.0.0.0 / DARIO_PORT=3456. A non-loopback
+              # bind makes DARIO_API_KEY mandatory (dario refuses to start without
+              # it) — it comes from dario-secret via envFrom below.
+              #
+              # Headless admin API at /admin/* so OAuth accounts can be provisioned
+              # over HTTP (no TTY in a pod). Bearer = DARIO_ADMIN_TOKEN. Bootstrap:
+              #   T=$(sops -d kubernetes/apps/default/dario/app/secret.sops.yaml | yq -r .stringData.DARIO_ADMIN_TOKEN)
+              #   curl -s -X POST -H "authorization: Bearer $T" https://dario.${SECRET_DOMAIN}/admin/login/start -d '{"alias":"main"}'
+              #   -> open authorize_url in a browser, approve, copy the code, then (within 10 min):
+              #   curl -s -X POST -H "authorization: Bearer $T" https://dario.${SECRET_DOMAIN}/admin/login/complete -d '{"alias":"main","code":"<code>"}'
+              # The pool hot-reloads; /health flips from 503 degraded to 200 ok.
+              DARIO_ADMIN: "1"
+              # No `claude` binary in the image: use the baked Claude Code wire
+              # template instead of trying to spawn one for live capture.
+              DARIO_NO_LIVE_CAPTURE: "1"
+            envFrom:
+              - secretRef:
+                  name: dario-secret # DARIO_API_KEY, DARIO_ADMIN_TOKEN
+            probes:
+              # TCP on purpose. /health is 503 "degraded" until the first account
+              # is provisioned (a liveness probe there would crashloop; a readiness
+              # probe would pull the pod out of the Service and block the admin
+              # bootstrap through the ingress). /status is key-gated for
+              # non-loopback callers, which kubelet is.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 3456
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: *port
+                  initialDelaySeconds: 3
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        # `dario` user baked into the image (alpine adduser -S): uid 100 / gid 101.
+        # The entrypoint skips its chown/su-exec self-heal when not root, so no
+        # capabilities are needed.
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: dario
+        ports:
+          http:
+            port: *port
+    ingress:
+      app:
+        enabled: true
+        # INTERNAL ONLY. dario holds OAuth refresh tokens for the Claude/ChatGPT
+        # subscriptions and the proxy key is the only client auth. Not routed via
+        # cloudflared. LAN DNS: unifi-dns publishes this host -> internal ingress
+        # alias. Clients: ANTHROPIC_BASE_URL=https://dario.<domain>,
+        # ANTHROPIC_API_KEY=<DARIO_API_KEY> (same for OPENAI_BASE_URL/OPENAI_API_KEY).
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+          # LLM calls: long silent gaps on non-streaming responses, long SSE
+          # streams. nginx's default 60s read/send timeouts would 504 them.
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+        hosts:
+          - host: "dario.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      # Whole home dir on the PVC: ~/.dario holds credentials.json,
+      # accounts/*.json, codex-accounts/, the OAuth config cache and compare/
+      # output; bun/node caches land in ~ too, and the root fs is read-only.
+      # (The image has nothing under /home/dario besides an empty .dario.)
+      home:
+        existingClaim: dario
+        globalMounts:
+          - path: /home/dario
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
