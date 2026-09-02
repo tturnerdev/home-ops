@@ -21,6 +21,7 @@ resources:
   - ./documenso/ks.yaml
   - ./n8n-atrelix/ks.yaml
   - ./postal/ks.yaml
+  - ./inbox-zero/ks.yaml
   - ./workflow-console/ks.yaml
   - ./dario/ks.yaml
   - ./homarr/ks.yaml

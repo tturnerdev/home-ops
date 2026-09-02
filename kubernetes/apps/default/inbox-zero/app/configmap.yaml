@@ -1,0 +1,42 @@
+---
+# Non-secret Inbox Zero configuration, shared by the web and worker
+# Deployments via envFrom. Secrets (DB URL, auth/encryption keys, Google OAuth,
+# Anthropic key, cron/pubsub tokens) come from inbox-zero-ext-secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inbox-zero-config
+  namespace: default
+data:
+  NODE_ENV: production
+  TZ: "America/Los_Angeles"
+  PORT: "3000"
+  HOSTNAME: "0.0.0.0"
+  # Public URL. Staged on inbox.<domain>; becomes https://mail.<domain> at
+  # cutover (start.sh re-bakes NEXT_PUBLIC_* at boot, so this is a plain edit)
+  NEXT_PUBLIC_BASE_URL: "https://inbox.${SECRET_DOMAIN_2}"
+  NEXT_PUBLIC_BRAND_NAME: "Atrelix Mail"
+  # Worker -> web callbacks
+  INTERNAL_API_URL: "http://inbox-zero.default.svc.cluster.local:3000"
+  # Background jobs run in the separate worker Deployment (BullMQ on Dragonfly)
+  QUEUE_BACKEND: bullmq
+  WORKER_QUEUES: "automation-jobs:3,digest-item-summarize:3,email-summary-all:3,email-digest-all:3"
+  # Two Redis clients: Upstash-style REST (via the serverless-redis-http
+  # bridge) for caching, ioredis for pub/sub + BullMQ. Dragonfly runs in
+  # emulated cluster mode => database 0 only.
+  UPSTASH_REDIS_URL: "http://inbox-zero-redis-http.default.svc.cluster.local:80"
+  REDIS_URL: "redis://dragonfly.database.svc.cluster.local:6379/0"
+  # LLM (Anthropic). Both naming schemes so a later bump to a DEFAULT_LLMS-era
+  # tag needs no edit.
+  DEFAULT_LLM_PROVIDER: anthropic
+  DEFAULT_LLM_MODEL: claude-sonnet-4-6
+  ECONOMY_LLM_PROVIDER: anthropic
+  ECONOMY_LLM_MODEL: claude-haiku-4-5-20251001
+  DEFAULT_LLMS: "anthropic:claude-sonnet-4-6"
+  ECONOMY_LLMS: "anthropic:claude-haiku-4-5-20251001"
+  CHAT_LLMS: "anthropic:claude-sonnet-4-6"
+  NANO_LLMS: "anthropic:claude-haiku-4-5-20251001"
+  DRAFT_LLMS: "anthropic:claude-sonnet-4-6"
+  # Sign-up policy: only Workspace accounts; Google login is the only method
+  AUTH_ALLOWED_EMAIL_DOMAINS: "${SECRET_DOMAIN_2}"
+  ADMINS: "tturner@${SECRET_DOMAIN_2}"

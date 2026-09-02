@@ -1,0 +1,376 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: inbox-zero
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    # No defaultPodOptions.securityContext on purpose: the image runs as root
+    # and start.sh rewrites the baked NEXT_PUBLIC_* values under /app at boot
+    # (runAsNonRoot / readOnlyRootFilesystem would break it). No PVC — all
+    # state lives in Postgres (CNPG) and Dragonfly.
+    controllers:
+      # ---------------------------------------------------------------------
+      # Web (Next.js) — Deployment "inbox-zero"
+      # ---------------------------------------------------------------------
+      inbox-zero:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # start.sh runs `prisma migrate deploy` before serving; one at a time
+        strategy: Recreate
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16.2
+              pullPolicy: IfNotPresent
+            envFrom:
+              - secretRef:
+                  name: inbox-zero-ext-secret
+        containers:
+          app:
+            image: &img
+              repository: ghcr.io/elie222/inbox-zero
+              tag: 2.30.0
+              pullPolicy: IfNotPresent
+            envFrom: &envFrom
+              - configMapRef:
+                  name: inbox-zero-config
+              - secretRef:
+                  name: inbox-zero-ext-secret
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: 3000
+                  initialDelaySeconds: 30
+                  periodSeconds: 20
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probe
+              # Migrations on a fresh database can take minutes: 60 x 10s
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: 3000
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+            resources:
+              requests:
+                cpu: 100m
+                memory: 768Mi
+              limits:
+                memory: 2Gi
+      # ---------------------------------------------------------------------
+      # Worker (BullMQ consumer on Dragonfly) — Deployment "inbox-zero-worker"
+      # ---------------------------------------------------------------------
+      worker:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image: *img
+            command: ["/app/docker/scripts/start-worker.sh"]
+            envFrom: *envFrom
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+      # ---------------------------------------------------------------------
+      # Upstash-compatible REST bridge in front of Dragonfly — Deployment
+      # "inbox-zero-redis-http" (the app's @upstash/redis client speaks HTTP)
+      # ---------------------------------------------------------------------
+      redis-http:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/hiett/serverless-redis-http
+              tag: 0.0.10
+              pullPolicy: IfNotPresent
+            env:
+              SRH_MODE: env
+              SRH_TOKEN:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: UPSTASH_REDIS_TOKEN
+              SRH_CONNECTION_STRING:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: SRH_CONNECTION_STRING
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 80
+                  initialDelaySeconds: 10
+                  periodSeconds: 20
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 80
+                  periodSeconds: 10
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+      # ---------------------------------------------------------------------
+      # Scheduled work is HTTP in Inbox Zero: one CronJob per endpoint, each
+      # a curl against the web Service with the CRON_SECRET bearer token.
+      # Skipped on purpose: /api/resend/digest/all (needs RESEND_API_KEY),
+      # /api/meeting-briefs and /api/meeting-recorder/schedule (calendar).
+      # ---------------------------------------------------------------------
+      cron-scheduled-actions:
+        type: cronjob
+        cronjob:
+          schedule: "* * * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 1
+          failedJobsHistory: 1
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/curlimages/curl
+              tag: 8.17.0
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - 'curl --fail --silent --show-error --location "http://inbox-zero.default.svc.cluster.local:3000$CRON_PATH" -H "Authorization: Bearer $CRON_SECRET"'
+            env:
+              CRON_PATH: /api/cron/scheduled-actions
+              CRON_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: CRON_SECRET
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+      cron-automation-jobs:
+        type: cronjob
+        cronjob:
+          schedule: "*/15 * * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 1
+          failedJobsHistory: 1
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/curlimages/curl
+              tag: 8.17.0
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - 'curl --fail --silent --show-error --location "http://inbox-zero.default.svc.cluster.local:3000$CRON_PATH" -H "Authorization: Bearer $CRON_SECRET"'
+            env:
+              CRON_PATH: /api/cron/automation-jobs
+              CRON_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: CRON_SECRET
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+      cron-follow-up-reminders:
+        type: cronjob
+        cronjob:
+          schedule: "0 * * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 1
+          failedJobsHistory: 1
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/curlimages/curl
+              tag: 8.17.0
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - 'curl --fail --silent --show-error --location "http://inbox-zero.default.svc.cluster.local:3000$CRON_PATH" -H "Authorization: Bearer $CRON_SECRET"'
+            env:
+              CRON_PATH: /api/follow-up-reminders
+              CRON_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: CRON_SECRET
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+      # Gmail push watches expire after 7 days — renewal is mandatory
+      cron-watch-all:
+        type: cronjob
+        cronjob:
+          schedule: "0 */6 * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 1
+          failedJobsHistory: 1
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/curlimages/curl
+              tag: 8.17.0
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - 'curl --fail --silent --show-error --location "http://inbox-zero.default.svc.cluster.local:3000$CRON_PATH" -H "Authorization: Bearer $CRON_SECRET"'
+            env:
+              CRON_PATH: /api/watch/all
+              CRON_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: CRON_SECRET
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+      cron-reasoning-retention:
+        type: cronjob
+        cronjob:
+          schedule: "0 3 * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 1
+          failedJobsHistory: 1
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/curlimages/curl
+              tag: 8.17.0
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - 'curl --fail --silent --show-error --location "http://inbox-zero.default.svc.cluster.local:3000$CRON_PATH" -H "Authorization: Bearer $CRON_SECRET"'
+            env:
+              CRON_PATH: /api/cron/reasoning-retention
+              CRON_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: CRON_SECRET
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+      cron-draft-cleanup:
+        type: cronjob
+        cronjob:
+          schedule: "0 4 * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 1
+          failedJobsHistory: 1
+          ttlSecondsAfterFinished: 300
+          backoffLimit: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/curlimages/curl
+              tag: 8.17.0
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - 'curl --fail --silent --show-error --location "http://inbox-zero.default.svc.cluster.local:3000$CRON_PATH" -H "Authorization: Bearer $CRON_SECRET"'
+            env:
+              CRON_PATH: /api/cron/draft-cleanup
+              CRON_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: inbox-zero-ext-secret
+                    key: CRON_SECRET
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+    service:
+      # primary => Service is named after the release ("inbox-zero"), which
+      # INTERNAL_API_URL and the cron curls rely on
+      app:
+        controller: inbox-zero
+        primary: true
+        ports:
+          http:
+            port: 3000
+      redis-http:
+        controller: redis-http
+        ports:
+          http:
+            port: 80
+    ingress:
+      app:
+        className: external
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-production
+          nginx.ingress.kubernetes.io/proxy-body-size: 32m
+        hosts:
+          - host: "inbox.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - secretName: inbox-zero-tls
+            hosts:
+              - "inbox.${SECRET_DOMAIN_2}"
