@@ -1,0 +1,15 @@
+---
+# Postfix queue. Postal marks a message Sent as soon as Postfix accepts it, so
+# the queue must survive pod restarts. Postal itself keeps all state in MariaDB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postal-postfix-spool
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: ceph-block

@@ -20,6 +20,7 @@ resources:
   - ./n8n/ks.yaml
   - ./documenso/ks.yaml
   - ./n8n-atrelix/ks.yaml
+  - ./postal/ks.yaml
   - ./workflow-console/ks.yaml
   - ./dario/ks.yaml
   - ./homarr/ks.yaml
