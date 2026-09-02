@@ -17,6 +17,18 @@ spec:
               key: api-token
         selector:
           dnsZones: ["${SECRET_DOMAIN}"]
+      # Postal's public SMTP host is a plain A record to the WAN IP (no tunnel,
+      # no port 80), so HTTP-01 cannot reach it: DNS-01 for that one name.
+      # Requires the Cloudflare token to also cover the secondary zone.
+      # dnsNames selectors beat dnsZones ones, so the rest of the zone below
+      # keeps using HTTP-01.
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cert-manager-secret
+              key: api-token
+        selector:
+          dnsNames: ["smtp.postal.${SECRET_DOMAIN_2}"]
       # Secondary domain: the Cloudflare token is zone-scoped to the primary
       # domain, so validate over HTTP through the cloudflared tunnel instead
       - http01:
