@@ -1,0 +1,359 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: postal
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    # Postal 3.x mail platform used as an open-tracking relay: Gmail routes
+    # outbound mail here (Workspace routing rule -> smtp.postal.<domain>:2525),
+    # the worker injects the tracking pixel + DKIM, and Postfix hands the
+    # result to smtp-relay.gmail.com. Web UI + pixel endpoint share one
+    # Deployment; smtp / worker / postfix are separate Deployments.
+    defaultPodOptions:
+      securityContext:
+        # image user `postal` = uid/gid 999
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+    controllers:
+      postal:
+        # -> Deployment "postal": web UI + tracking endpoint
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Schema migrations run in the init container — one migrator at a time
+        strategy: Recreate
+        # app-template renders init containers in identifier order
+        initContainers:
+          init-1-db:
+            # Idempotent role/database bootstrap (mirrors the postgres-init
+            # pattern). Postal creates `postal-server-N` DBs itself, hence
+            # the `postal-%` grant. Bare $VARS on purpose: Flux postBuild
+            # substitutes ${VARS} and would blank them.
+            image:
+              repository: docker.io/library/mariadb
+              tag: 11.4.9
+              pullPolicy: IfNotPresent
+            command: ["/bin/sh", "-ec"]
+            args:
+              - |
+                export MYSQL_PWD="$MARIADB_ROOT_PASSWORD"
+                until mariadb-admin ping -h "$DB_HOST" -uroot --silent; do echo "waiting for $DB_HOST"; sleep 2; done
+                mariadb -h "$DB_HOST" -uroot <<SQL
+                CREATE DATABASE IF NOT EXISTS \`postal\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                CREATE USER IF NOT EXISTS 'postal'@'%' IDENTIFIED BY '$MAIN_DB_PASSWORD';
+                ALTER USER 'postal'@'%' IDENTIFIED BY '$MAIN_DB_PASSWORD';
+                GRANT ALL PRIVILEGES ON \`postal\`.* TO 'postal'@'%';
+                GRANT ALL PRIVILEGES ON \`postal-%\`.* TO 'postal'@'%';
+                FLUSH PRIVILEGES;
+                SQL
+                echo "postal role/database ready"
+            env:
+              DB_HOST: mariadb.database.svc.cluster.local
+              MARIADB_ROOT_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: mariadb-root-ext-secret
+                    key: MARIADB_ROOT_PASSWORD
+              MAIN_DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: postal-ext-secret
+                    key: MAIN_DB_PASSWORD
+          init-2-schema:
+            # `postal initialize` = rake db:create postal:update — idempotent,
+            # and doubles as `postal upgrade` on image bumps. The image
+            # entrypoint waits for WAIT_FOR_TARGETS before exec'ing the args.
+            image: &img
+              repository: ghcr.io/postalserver/postal
+              tag: 3.3.7
+              pullPolicy: IfNotPresent
+            args: ["postal", "initialize"]
+            env:
+              WAIT_FOR_TARGETS: "mariadb.database.svc.cluster.local:3306"
+              WAIT_FOR_TIMEOUT: "180"
+            envFrom: &envFrom
+              - configMapRef:
+                  name: postal-config
+              - secretRef:
+                  name: postal-ext-secret
+        containers:
+          app:
+            image: *img
+            args: ["postal", "web-server"]
+            envFrom: *envFrom
+            probes:
+              liveness: &webprobe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    # No /health on the web process; Rails host authorization
+                    # 403s anything without the configured Host
+                    path: /login
+                    port: 5000
+                    httpHeaders:
+                      - name: Host
+                        value: "postal.${SECRET_DOMAIN_2}"
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+              readiness: *webprobe
+            resources:
+              requests:
+                cpu: 50m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
+      smtp:
+        # -> Deployment "postal-smtp": inbound SMTP listener (STARTTLS)
+        annotations:
+          # also restarts on TLS certificate renewal (secret mount)
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image: *img
+            args: ["postal", "smtp-server"]
+            envFrom: *envFrom
+            probes:
+              liveness: &smtpprobe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 9091
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+              readiness: *smtpprobe
+            resources:
+              requests:
+                cpu: 50m
+                memory: 384Mi
+              limits:
+                memory: 768Mi
+      worker:
+        # -> Deployment "postal-worker": queue, DNS checks, webhooks, retries
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image: *img
+            args: ["postal", "worker"]
+            envFrom: *envFrom
+            probes:
+              liveness: &workerprobe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 9090
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+              readiness: *workerprobe
+            resources:
+              requests:
+                cpu: 50m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
+      postfix:
+        # -> Deployment "postal-postfix": smart host doing SMTP AUTH + TLS to
+        # Google's relay (Postal's relay support never authenticates)
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          securityContext:
+            # supervisord + `postfix start-fg` need root
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+        containers:
+          app:
+            image:
+              repository: docker.io/boky/postfix
+              tag: v5.1.0
+              pullPolicy: IfNotPresent
+            env:
+              TZ: "America/Los_Angeles"
+              RELAYHOST: "[smtp-relay.gmail.com]:587"
+              RELAYHOST_USERNAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: postal-ext-secret
+                    key: RELAYHOST_USERNAME
+              RELAYHOST_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: postal-ext-secret
+                    key: RELAYHOST_PASSWORD
+              # access(5) parent-domain match: rp.postal.<domain> senders pass
+              ALLOWED_SENDER_DOMAINS: "${SECRET_DOMAIN_2}"
+              # HELO towards Google (a unique identifier, as the relay docs ask)
+              POSTFIX_myhostname: "smtp.postal.${SECRET_DOMAIN_2}"
+              # Only pods may relay (image default = every RFC1918 range)
+              POSTFIX_mynetworks: "127.0.0.0/8,10.42.0.0/16"
+              # Never send AUTH in the clear (image default is `may`)
+              POSTFIX_smtp_tls_security_level: encrypt
+              # 30 MB, matches SMTP_SERVER_MAX_MESSAGE_SIZE
+              POSTFIX_message_size_limit: "31457280"
+              POSTFIX_maximal_queue_lifetime: 1d
+              LOG_FORMAT: json
+            probes:
+              liveness: &pfprobe
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["/scripts/healthcheck.sh"]
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+              readiness: *pfprobe
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+    service:
+      app:
+        # -> Service "postal" (web UI + tracking pixel). primary keeps the bare
+        # release name now that the release has several services.
+        controller: postal
+        primary: true
+        ports:
+          http:
+            port: 5000
+      smtp:
+        # -> Service "postal-smtp" — public SMTP entry point. UniFi forwards
+        # WAN :2525 here (Google egress ranges only); Google's Hosts entry is
+        # smtp.postal.<domain>:2525.
+        controller: smtp
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "10.13.38.85"
+        # Preserve Google's source IP for Postal's SMTP-IP credentials + logs
+        externalTrafficPolicy: Local
+        ports:
+          smtp:
+            port: 25
+            targetPort: 2525
+            protocol: TCP
+          smtp-alt:
+            port: 2525
+            targetPort: 2525
+            protocol: TCP
+      postfix:
+        # -> Service "postal-postfix" (cluster-internal only)
+        controller: postfix
+        ports:
+          smtp:
+            port: 25
+            protocol: TCP
+    ingress:
+      app:
+        enabled: true
+        className: external
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-production
+        # Public DNS: manual proxied CNAME -> <tunnel-id>.cfargotunnel.com
+        # (cloudflare external-dns is filtered to the primary domain).
+        # LAN DNS: unifi-dns publishes this host -> ingress LB IP.
+        hosts:
+          - host: "postal.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - secretName: postal-tls
+            hosts: ["postal.${SECRET_DOMAIN_2}"]
+      track:
+        # Tracking-pixel hosts. t.<domain> is a DNS-only CNAME to
+        # track.postal.<domain> (proxied) so the pixel URL stays short.
+        enabled: true
+        className: external
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-production
+          # Postal's tracking middleware only engages when this header is
+          # present (docs: set it at the proxy). Pixel responses carry no
+          # Cache-Control of their own, so add one for Gmail's image proxy.
+          nginx.ingress.kubernetes.io/configuration-snippet: |
+            proxy_set_header X-Postal-Track-Host 1;
+            more_set_headers "Cache-Control: no-store";
+        hosts:
+          - host: "t.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+          - host: "track.postal.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - secretName: postal-track-tls
+            hosts: ["t.${SECRET_DOMAIN_2}", "track.postal.${SECRET_DOMAIN_2}"]
+    persistence:
+      signing-key:
+        type: secret
+        name: postal-signing-key
+        advancedMounts:
+          postal:
+            app:
+              - path: /secrets
+                readOnly: true
+            init-2-schema:
+              - path: /secrets
+                readOnly: true
+          smtp:
+            app:
+              - path: /secrets
+                readOnly: true
+          worker:
+            app:
+              - path: /secrets
+                readOnly: true
+      smtp-tls:
+        # From certificate.yaml — tls.crt / tls.key for the STARTTLS listener
+        type: secret
+        name: postal-smtp-tls
+        advancedMounts:
+          smtp:
+            app:
+              - path: /certs
+                readOnly: true
+      postfix-spool:
+        enabled: true
+        existingClaim: postal-postfix-spool
+        advancedMounts:
+          postfix:
+            app:
+              - path: /var/spool/postfix

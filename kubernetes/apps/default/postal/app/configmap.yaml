@@ -1,0 +1,69 @@
+---
+# Non-secret Postal configuration, shared by every Postal container via envFrom.
+# Postal 3.x is configured purely from the environment (<GROUP>_<KEY>); the
+# secret half (RAILS_SECRET_KEY, DB passwords, relay creds) comes from
+# postal-ext-secret. ${SECRET_DOMAIN_2} is expanded by Flux postBuild.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postal-config
+  namespace: default
+data:
+  TZ: "America/Los_Angeles"
+  RAILS_ENVIRONMENT: production
+  # No postal.yml is mounted — silence the "no config file" notice
+  SILENCE_POSTAL_CONFIG_MESSAGES: "true"
+  # Rails host authorization only admits this hostname (probes send it as Host)
+  POSTAL_WEB_HOSTNAME: "postal.${SECRET_DOMAIN_2}"
+  POSTAL_WEB_PROTOCOL: https
+  POSTAL_SMTP_HOSTNAME: "smtp.postal.${SECRET_DOMAIN_2}"
+  POSTAL_SIGNING_KEY_PATH: /secrets/signing.key
+  # Outbound: hand every finished message to the in-release Postfix smart host,
+  # which does SMTP AUTH + TLS to smtp-relay.gmail.com (Postal itself never
+  # authenticates to relays)
+  POSTAL_SMTP_RELAYS: "smtp://postal-postfix.default.svc.cluster.local:25?ssl_mode=None"
+  # Pod CIDR — ingress-nginx sits in front, so trust X-Forwarded-For from pods
+  POSTAL_TRUSTED_PROXIES: "10.42.0.0/16"
+  # SSRF guard for webhooks (pod, service and LAN CIDRs; needed for n8n targets)
+  POSTAL_ALLOWED_REQUEST_DESTINATIONS: "10.42.0.0/16,10.43.0.0/16,10.13.36.0/22"
+  # Databases (MariaDB StatefulSet in the database namespace). Postal creates
+  # the per-server `postal-server-N` message databases itself.
+  MAIN_DB_HOST: mariadb.database.svc.cluster.local
+  MAIN_DB_PORT: "3306"
+  MAIN_DB_USERNAME: postal
+  MAIN_DB_DATABASE: postal
+  MESSAGE_DB_HOST: mariadb.database.svc.cluster.local
+  MESSAGE_DB_PORT: "3306"
+  MESSAGE_DB_USERNAME: postal
+  MESSAGE_DB_DATABASE_NAME_PREFIX: postal
+  # DNS expectations shown in the UI / checked by the worker
+  DNS_MX_RECORDS: "smtp.postal.${SECRET_DOMAIN_2}"
+  DNS_SPF_INCLUDE: "_spf.google.com"
+  DNS_RETURN_PATH_DOMAIN: "rp.postal.${SECRET_DOMAIN_2}"
+  DNS_ROUTE_DOMAIN: "routes.postal.${SECRET_DOMAIN_2}"
+  DNS_TRACK_DOMAIN: "track.postal.${SECRET_DOMAIN_2}"
+  DNS_HELO_HOSTNAME: "smtp.postal.${SECRET_DOMAIN_2}"
+  DNS_DKIM_IDENTIFIER: postal
+  DNS_DOMAIN_VERIFY_PREFIX: postal-verification
+  DNS_CUSTOM_RETURN_PATH_PREFIX: psrp
+  # Web (UI + tracking pixel endpoint); default bind is loopback
+  WEB_SERVER_DEFAULT_BIND_ADDRESS: "0.0.0.0"
+  WEB_SERVER_DEFAULT_PORT: "5000"
+  # SMTP listener on an unprivileged port; the LoadBalancer maps 25/2525 -> 2525
+  SMTP_SERVER_DEFAULT_PORT: "2525"
+  SMTP_SERVER_DEFAULT_HEALTH_SERVER_BIND_ADDRESS: "0.0.0.0"
+  SMTP_SERVER_TLS_ENABLED: "true"
+  SMTP_SERVER_TLS_CERTIFICATE_PATH: /certs/tls.crt
+  SMTP_SERVER_TLS_PRIVATE_KEY_PATH: /certs/tls.key
+  # MB; Gmail's outbound cap is 25 MB
+  SMTP_SERVER_MAX_MESSAGE_SIZE: "30"
+  SMTP_SERVER_LOG_CONNECTIONS: "true"
+  WORKER_DEFAULT_HEALTH_SERVER_BIND_ADDRESS: "0.0.0.0"
+  WORKER_THREADS: "2"
+  # smtp/worker wait for the schema (created by the web pod's init container)
+  MIGRATION_WAITER_ENABLED: "true"
+  # Postal's own mail (password resets etc.) also leaves via the Postfix hop
+  SMTP_HOST: postal-postfix.default.svc.cluster.local
+  SMTP_PORT: "25"
+  SMTP_FROM_NAME: Postal
+  SMTP_FROM_ADDRESS: "postal@${SECRET_DOMAIN_2}"

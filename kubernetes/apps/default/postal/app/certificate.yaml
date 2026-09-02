@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/cert-manager.io/certificate_v1.json
+# STARTTLS certificate for the public SMTP listener (Google Workspace's Hosts
+# entry validates the CA chain and hostname). The host is a plain A record to
+# the WAN IP, so this must be DNS-01 — see the ClusterIssuer solver for it.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postal-smtp-tls
+  namespace: default
+spec:
+  secretName: postal-smtp-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  dnsNames: ["smtp.postal.${SECRET_DOMAIN_2}"]
