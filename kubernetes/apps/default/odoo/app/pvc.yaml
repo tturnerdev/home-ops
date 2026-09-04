@@ -1,0 +1,14 @@
+---
+# Odoo's data_dir. Holds filestore/<db> (every ir.attachment binary), the
+# filesystem session store, and downloaded addons. RWO is fine: the Deployment
+# is pinned to one replica with strategy Recreate.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: odoo-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: ceph-block

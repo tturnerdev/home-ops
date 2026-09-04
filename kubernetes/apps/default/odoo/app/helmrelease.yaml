@@ -1,0 +1,251 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: odoo
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  # helm-controller defaults to 5m with wait: true. First boot does CREATE
+  # DATABASE + install of `base` + asset compilation, which can take minutes.
+  timeout: 20m
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    defaultPodOptions:
+      # Odoo 19 reads ODOO_<DEST> for every config option, so a Service named
+      # e.g. `odoo-http` would inject ODOO_HTTP_PORT=tcp://10.43.x.y:8069 and
+      # Odoo would fail to parse it as an int. This is the chart default; it is
+      # set explicitly because Odoo makes it load-bearing.
+      enableServiceLinks: false
+      securityContext:
+        # uid 100 / gid 101 read from /etc/passwd in the image
+        # (`odoo:x:100:101::/var/lib/odoo:/usr/sbin/nologin`). These are a
+        # BASE-IMAGE property, not an Odoo constant — the .deb postinst runs
+        # `adduser --system --group` with no --uid, so odoo:17.0 (jammy) is 101.
+        # Re-check /etc/passwd on any tag whose base image changes.
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        # fsGroup does the real work: a fresh ceph-block PVC mounts root:root
+        # and Odoo's session_dir does os.makedirs(data_dir + '/sessions', 0o700)
+        # -> PermissionError -> CrashLoopBackOff without it.
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      odoo:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # One replica on an RWO PVC: the filesystem session store and filestore
+        # cannot be shared, and RollingUpdate would deadlock on Multi-Attach.
+        replicas: 1
+        strategy: Recreate
+        initContainers:
+          # Creates ONLY the `odoo` role, with CREATEDB. It must NOT create the
+          # database — that is the whole bootstrap design:
+          #   odoo/cli/server.py main() calls _create_empty_database(db) and, ON
+          #   SUCCESS, sets config['init']['base'] = True. That flag is what makes
+          #   preload_registries() run with update_module=True and actually install
+          #   `base`. If the database already exists, DatabaseExists is raised
+          #   BEFORE the assignment, init is never set, and modules/loading.py does
+          #   a bare `return` after logging one ERROR. Registry.new does not raise,
+          #   rc stays 0 — the pod sits Running AND Ready serving an empty registry
+          #   forever and never self-heals.
+          # This is why the house's usual ghcr.io/onedr0p/postgres-init image is
+          # deliberately not used here: it creates the database too.
+          init-db-role:
+            image:
+              repository: docker.io/library/postgres
+              tag: "17.11-alpine"
+              pullPolicy: IfNotPresent
+            # Bare $VAR on purpose: Flux postBuild substitutes ${VAR} and would
+            # blank these before the container ever sees them.
+            command: ["/bin/sh", "-ec"]
+            args:
+              - |
+                export PGPASSWORD="$INIT_POSTGRES_SUPER_PASS"
+                until pg_isready -h "$PGHOST" -p 5432 -U "$INIT_POSTGRES_SUPER_USER" -q; do
+                  echo "waiting for $PGHOST"; sleep 2
+                done
+                psql -h "$PGHOST" -U "$INIT_POSTGRES_SUPER_USER" -d postgres -v ON_ERROR_STOP=1 -tAc \
+                  "SELECT 1 FROM pg_roles WHERE rolname = 'odoo'" | grep -q 1 \
+                  || psql -h "$PGHOST" -U "$INIT_POSTGRES_SUPER_USER" -d postgres -v ON_ERROR_STOP=1 \
+                       -c "CREATE ROLE odoo LOGIN CREATEDB"
+                psql -h "$PGHOST" -U "$INIT_POSTGRES_SUPER_USER" -d postgres -v ON_ERROR_STOP=1 \
+                  -c "ALTER ROLE odoo WITH LOGIN CREATEDB NOSUPERUSER NOCREATEROLE PASSWORD '$ODOO_DB_PASSWORD'"
+                echo "odoo role ready (CREATEDB); no database pre-created"
+            env:
+              PGHOST: postgres-rw.database.svc.cluster.local
+            envFrom:
+              - secretRef:
+                  name: odoo-cnpg-secret # INIT_POSTGRES_SUPER_USER / _PASS
+              - secretRef:
+                  name: odoo-secret # ODOO_DB_PASSWORD
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+        containers:
+          app:
+            image:
+              # The official library/odoo dated tags ARE the nightly builds:
+              # odoo/docker 19.0/Dockerfile fetches
+              # nightly.odoo.com/19.0/nightly/deb/odoo_19.0.${ODOO_RELEASE}_all.deb.
+              # 19.0-20260817 == the 2026-08-17 nightly of the 19.0 series and is
+              # the newest published. Stable fallback: "18.0-20260817".
+              # There is no master/20.0 image.
+              repository: docker.io/library/odoo
+              tag: "19.0-20260817@sha256:f99ffac95cb39a0924622ea4118481c95651d9c84187e5b30a21c2cc4419c7dd"
+              pullPolicy: IfNotPresent
+            # NEITHER command NOR args on purpose. ENTRYPOINT is ["/entrypoint.sh"]
+            # and CMD is ["odoo"]; entrypoint.sh runs wait-for-psql.py before
+            # exec'ing odoo. Overriding command: would skip that readiness gate.
+            env:
+              TZ: "America/Los_Angeles"
+              HOME: /var/lib/odoo
+              # --- Database: libpq names ONLY. There is no ODOO_DB_HOST. ---
+              # entrypoint.sh's check_config() returns early only when the named
+              # PG* var is set; with all of these set it appends NO CLI args. Using
+              # a non-existent ODOO_DB_* name would let it append `--db_host db`,
+              # and CLI beats env -> "could not translate host name db".
+              PGHOST: postgres-rw.database.svc.cluster.local
+              PGPORT: "5432"
+              PGUSER: odoo
+              # PGDATABASE binds to the -d option and is what makes the zero-touch
+              # bootstrap work. NOTE: this binding is 19.0+ only — on 18.x and
+              # older it is silently ignored and you must pass `-d odoo`.
+              PGDATABASE: odoo
+              PGPASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: odoo-secret
+                    key: ODOO_DB_PASSWORD
+              # --- Generic ODOO_<DEST> config options (Odoo 19) ---
+              ODOO_ADMIN_PASSWD:
+                valueFrom:
+                  secretKeyRef:
+                    name: odoo-secret
+                    key: ODOO_ADMIN_PASSWD
+              ODOO_HTTP_INTERFACE: "0.0.0.0"
+              # workers=0 => single threaded server. Nothing binds the gevent port
+              # 8072 at all, and ThreadedServer serves /websocket in-thread on
+              # 8069 (RequestHandler.make_environ injects environ['socket']).
+              # Raising this REQUIRES adding an 8072 Service port and a
+              # /websocket ingress path.
+              ODOO_WORKERS: "0"
+              ODOO_MAX_CRON_THREADS: "1"
+              # Undocumented raw os.environ read in odoo/service/server.py; caps
+              # the request semaphore. A no-op on any build that does not read it.
+              ODOO_MAX_HTTP_THREADS: "8"
+              ODOO_DB_MAXCONN: "16"
+              # Default 120s re-execs the whole server mid UI-triggered install.
+              ODOO_LIMIT_TIME_REAL: "1200"
+              ODOO_PROXY_MODE: "True"
+              # The DEST boolean, NOT inverted: false disables /web/database/manager.
+              ODOO_LIST_DB: "false"
+              # Deliberately NOT set: ODOO_DBFILTER (with PGDATABASE set and no
+              # dbfilter, list_dbs() short-circuits to db_name and never queries
+              # pg_database per request) and ODOO_LIMIT_MEMORY_SOFT/HARD (see
+              # resources below — the defaults are the memory design).
+            probes:
+              # /web/health is @route(auth='none', save_session=False) in the
+              # `web` addon, which REQUIRED_SERVER_WIDE_MODULES force-prepends, so
+              # it answers 200 even with zero databases and without littering
+              # session files on the PVC. Never probe /web/login (303s and does
+              # create sessions) and never add ?db_server_status=true (opens a
+              # connection to the `postgres` DB and 500s on any transient error).
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &health
+                    path: /web/health
+                    port: 8069
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  # 600s. The HTTP socket binds within ~1s but /web/health BLOCKS
+                  # while the Registry lock is held during the first-boot install.
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *health
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *health
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  # 180s: a UI-triggered app install also holds the Registry lock.
+                  failureThreshold: 6
+            securityContext:
+              allowPrivilegeEscalation: false
+              # Left false deliberately. Hardening needs writable /tmp and
+              # /mnt/extra-addons mounts and is unverified against wkhtmltopdf,
+              # which would fail at report-render time rather than at boot.
+              readOnlyRootFilesystem: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1Gi
+              limits:
+                # 3Gi is the memory design, not a guess. Odoo's own
+                # limit_memory_hard (2560 MiB) is applied as RLIMIT_AS in the
+                # first statement of ThreadedServer.start(), and RSS <= VMS
+                # always — so a hard VMS cap strictly BELOW the cgroup ceiling is
+                # a kernel guarantee that this process raises MemoryError instead
+                # of being OOMKilled. Keep hard < limit if you change either.
+                memory: 3Gi
+    service:
+      app:
+        controller: odoo
+        ports:
+          http:
+            port: 8069
+    ingress:
+      app:
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+          # nginx defaults to 60s read/send. The bus websocket (served in-thread
+          # on 8069) would be torn down every idle minute without these.
+          # proxy-body-size is already 0 (unlimited) globally — do not add it.
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        hosts:
+          - host: "odoo.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      data:
+        existingClaim: odoo-data
+        advancedMounts:
+          odoo:
+            app:
+              - path: /var/lib/odoo
