@@ -1,0 +1,29 @@
+---
+# The frappe bench `sites` directory: common_site_config.json, apps.txt,
+# currentsite.txt, the `assets` symlink into the image layer, and
+# <site>/{site_config.json,public/files,private/files,private/backups}.
+# Every frappe container mounts this read-write (the image ENTRYPOINT rewrites
+# the assets symlink under `set -e`, so a readOnly mount exits 1 immediately).
+# RWO is fine: all of them live in one pod.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: erpnext-sites
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: ceph-block
+---
+# Datadir for the in-pod MariaDB sidecar.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: erpnext-mariadb
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: ceph-block

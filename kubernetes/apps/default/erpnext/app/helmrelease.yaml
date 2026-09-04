@@ -1,0 +1,461 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: erpnext
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  # helm-controller defaults to 5m with wait: true; a first-run
+  # `bench new-site --install-app erpnext` takes 3-8 minutes on top of a
+  # ~2.5 GB image pull.
+  timeout: 20m
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    defaultPodOptions:
+      enableServiceLinks: false
+      securityContext:
+        # `frappe:x:1000:1000::/home/frappe:/bin/bash` in the image; frappe_docker
+        # pins it (`useradd -u 1000 -g 1000 frappe`). The MariaDB sidecar runs as
+        # 999 and still writes its PVC, because fsGroup does not match by uid: the
+        # kubelet chowns each volume to root:1000 setgid g+rwx AND adds gid 1000
+        # to the supplementary groups of every container in the pod.
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    controllers:
+      erpnext:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Two RWO PVCs shared by ten containers in one pod. RWO restricts a volume
+        # to one NODE, not one pod — collapsing the six upstream Deployments into
+        # one pod is what removes the ReadWriteMany requirement the official
+        # frappe/helm chart has.
+        replicas: 1
+        strategy: Recreate
+        initContainers:
+          # 01/02 are Kubernetes NATIVE SIDECARS: initContainers with
+          # `restartPolicy: Always` PLUS a startupProbe. The kubelet gates the
+          # next init container on the startup probe succeeding — and ONLY if a
+          # startupProbe is present (`if container.StartupProbe != nil`). Omitting
+          # it removes the ordering gate entirely. `custom: true` is mandatory:
+          # app-template silently drops non-custom probes on containers that have
+          # no primary Service port.
+          01-mariadb:
+            restartPolicy: Always
+            image:
+              repository: docker.io/library/mariadb
+              tag: "11.8.9"
+              pullPolicy: IfNotPresent
+            args:
+              # Frappe's check_compatible_versions() warns below 10.6 and above
+              # 11.8, so 11.8 is the top of the tested window. Do NOT add
+              # --skip-innodb-read-only-compressed (obsolete since the MariaDB
+              # 10.6.0-10.6.5 era; frappe_docker removed it), --innodb-file-format
+              # or --innodb-large-prefix (MARIADB_REMOVED_OPTION in 11.4+), or
+              # anything touching sql_mode (frappe's query builder compensates for
+              # MariaDB's default backslash-escaping semantics).
+              - --character-set-server=utf8mb4
+              - --collation-server=utf8mb4_unicode_ci
+              - --skip-character-set-client-handshake
+              # bench backup/restore shells out to the mariadb CLI
+              - --max-allowed-packet=256M
+              # MariaDB does not auto-size this; the default 128M is small for the
+              # >1000 tables ERPNext creates
+              - --innodb-buffer-pool-size=512M
+            env:
+              TZ: "America/Los_Angeles"
+              MARIADB_AUTO_UPGRADE: "1"
+              MARIADB_ROOT_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: erpnext-secret
+                    key: MARIADB_ROOT_PASSWORD
+            securityContext:
+              # The mariadb Dockerfile does `userdel --remove ubuntu`, so there is
+              # no uid >= 1000 in its /etc/passwd. Per-CONTAINER override: putting
+              # this at controllers.erpnext.pod.securityContext would replace the
+              # pod securityContext wholesale and silently drop fsGroup.
+              runAsUser: 999
+              runAsGroup: 999
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    # Image-provided; healthcheck@localhost is auto-created. A bare
+                    # tcpSocket:3306 goes green while InnoDB is still recovering —
+                    # exactly when create-site would fail.
+                    command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+            resources:
+              requests:
+                cpu: 100m
+                memory: 768Mi
+              limits:
+                memory: 1536Mi
+          02-valkey:
+            restartPolicy: Always
+            image:
+              # Note the repo is valkey/valkey, not library/valkey.
+              repository: docker.io/valkey/valkey
+              tag: "8.1.10-alpine"
+              pullPolicy: IfNotPresent
+            # Frappe needs exactly two logical endpoints, redis_cache and
+            # redis_queue; redis_socketio has been dead since v15. Both point here
+            # with no database index: cache keys are namespaced `{db_name}|…` and
+            # queue keys are `rq:…`, so they cannot collide.
+            # noeviction is deliberate — an LRU policy could evict `rq:*` job keys
+            # under cache pressure and silently drop background jobs.
+            args: ["--save", "", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 6379 }
+                  periodSeconds: 2
+                  failureThreshold: 30
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 512Mi
+          # Ordinary init containers from here: they run to completion, in order.
+          03-configurator:
+            image: &img
+              # `develop` is the dev/nightly stream (v17.0.0-dev), rebuilt weekly
+              # on Mondays 03:17 UTC after the compose integration suite passes.
+              # Both `develop` and `latest` are mutable, and there is no v17.x tag,
+              # so the only way to pin is by digest.
+              # Stable fallback, a one-line swap:
+              #   "v16.34.1@sha256:eee240a179ff494cb82ad067d853c8db3f87171d86324f4b326892654e342144"
+              # (but see README — downgrading an existing site is not safe).
+              repository: docker.io/frappe/erpnext
+              tag: "develop@sha256:dbe1dcbfd696202b960d52ccef982d9760ffc9f7a5ab6ce6a6e9ec89b7253d19"
+              pullPolicy: IfNotPresent
+            # `command:` here on purpose — it REPLACES the image ENTRYPOINT, which
+            # exists only to rebuild the sites/assets symlink. The long-running
+            # containers below must NOT do that (see their comment).
+            command: ["bash", "-c"]
+            args:
+              - |
+                set -e
+                # MUST be first: get_file_items(sites/apps.txt, raise_not_found=True)
+                # is reached from bench_helper.get_apps(), which builds the click
+                # command tree for EVERY bench invocation. Without it the bench CLI
+                # itself cannot start. A fresh PVC mounted over sites/ hides the
+                # copies the image ships — Kubernetes does not seed empty volumes
+                # from image content the way Docker named volumes do.
+                ls -1 apps > sites/apps.txt
+                # `bench set-config -g` opens common_site_config.json in READ mode
+                # with no existence check, so the first call raises FileNotFoundError
+                # on an empty PVC.
+                [ -f sites/common_site_config.json ] || echo '{}' > sites/common_site_config.json
+                bench set-config -g  db_host 127.0.0.1
+                bench set-config -gp db_port 3306
+                bench set-config -g  redis_cache "redis://127.0.0.1:6379"
+                bench set-config -g  redis_queue "redis://127.0.0.1:6379"
+                bench set-config -g  redis_socketio "redis://127.0.0.1:6379"
+                bench set-config -gp socketio_port 9000
+                bench set-config -g  webserver_host 127.0.0.1
+                bench set-config -gp webserver_port 8000
+                bench set-config -g  chromium_path /usr/bin/chromium-headless-shell
+                echo "common_site_config.json configured"
+            env:
+              TZ: "America/Los_Angeles"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+          04-create-site:
+            image: *img
+            command: ["bash", "-c"]
+            # Bare $VARS on purpose: Flux postBuild substitutes ${VARS} and would
+            # blank them.
+            args:
+              - |
+                set -e
+                SITE="$SITE_NAME"
+                SENTINEL="sites/$SITE/.bootstrap-complete"
+                until jq -e '.db_host and .redis_queue' sites/common_site_config.json >/dev/null 2>&1; do
+                  echo "waiting for common_site_config.json"; sleep 2
+                done
+                # Defensive backstop: the native-sidecar ordering gate is Beta (on
+                # by default) on Kubernetes 1.32, not GA.
+                wait-for-it -t 300 127.0.0.1:3306
+                wait-for-it -t 60 127.0.0.1:6379
+                if [ -f "$SENTINEL" ]; then
+                  echo "site $SITE already bootstrapped; migrating"
+                  bench --site "$SITE" migrate
+                else
+                  # No sentinel => a previous attempt never completed. _new_site()
+                  # writes site_config.json BEFORE it contacts MariaDB and its
+                  # rollback is gated on sys.__stdin__.isatty() (false in a
+                  # container), so one transient failure would poison a naive
+                  # `test -d` guard forever.
+                  rm -rf "sites/$SITE"
+                  # NEVER add --force: setup_database() drops the database first,
+                  # so a pod restart would wipe the ERP.
+                  bench new-site "$SITE" \
+                    --mariadb-user-host-login-scope='%' \
+                    --db-type mariadb --db-host 127.0.0.1 --db-port 3306 \
+                    --db-root-username root --db-root-password "$MARIADB_ROOT_PASSWORD" \
+                    --admin-password "$ADMIN_PASSWORD" \
+                    --install-app erpnext --set-default
+                  touch "$SENTINEL"
+                fi
+                bench --site "$SITE" set-maintenance-mode off
+                # MANDATORY, not optional. _new_site() probes a database that does
+                # not exist yet, swallows the exception and disables the scheduler.
+                # Without this, `bench schedule` runs forever and enqueues NOTHING
+                # — no email queue, no auto-repeat — and logs no error.
+                bench --site "$SITE" enable-scheduler
+                echo "site $SITE ready"
+            env:
+              TZ: "America/Los_Angeles"
+              SITE_NAME: "erpnext.${SECRET_DOMAIN}"
+            envFrom:
+              - secretRef:
+                  name: erpnext-secret # MARIADB_ROOT_PASSWORD, ADMIN_PASSWORD
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                # Memory peak of the whole deploy. An OOMKill here is what leaves a
+                # half-built site directory behind (which the sentinel then cleans).
+                memory: 2Gi
+        # Every long-running container below uses `args:` and NEVER `command:`.
+        # Docker Compose's `command:` maps to CMD and leaves the ENTRYPOINT in
+        # place; Kubernetes `command:` REPLACES it. The ENTRYPOINT is:
+        #   rm -rf sites/assets && ln -s /home/frappe/frappe-bench/assets sites/assets
+        # Since frappe_docker 64e6536 the built assets exist ONLY in the image
+        # layer, so that symlink is the only way nginx can find them. Setting
+        # `command:` here makes every CSS/JS bundle 404 — an unstyled login page
+        # that looks like a CSS or ingress fault.
+        containers:
+          backend:
+            image: *img
+            # No args: the image CMD is start.sh, which execs gunicorn on :8000.
+            env: &frappeEnv
+              TZ: "America/Los_Angeles"
+            probes:
+              liveness: &backendProbe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 8000 }
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+              readiness: *backendProbe
+            resources:
+              requests:
+                cpu: 200m
+                memory: 1Gi
+              limits:
+                memory: 2Gi
+          frontend:
+            image: *img
+            args: ["nginx-entrypoint.sh"]
+            env:
+              TZ: "America/Los_Angeles"
+              BACKEND: "127.0.0.1:8000"
+              SOCKETIO: "127.0.0.1:9000"
+              UPSTREAM_REAL_IP_ADDRESS: "10.42.0.0/16"
+              UPSTREAM_REAL_IP_HEADER: "X-Forwarded-For"
+              UPSTREAM_REAL_IP_RECURSIVE: "off"
+              PROXY_READ_TIMEOUT: "120"
+              CLIENT_MAX_BODY_SIZE: "100m"
+              # FRAPPE_SITE_NAME_HEADER deliberately UNSET so it defaults to the
+              # literal `$host`. The site is named exactly erpnext.${SECRET_DOMAIN},
+              # so Host == Origin == X-Frappe-Site-Name == the site directory name
+              # == the socket.io namespace, and all four checks line up with no
+              # special-casing. Pinning it to a literal that differs from the
+              # browser Host makes nginx emit a mismatched Origin and socket.io
+              # rejects every connection ("Invalid origin") — which is exactly why
+              # upstream's own pwd.yml has broken realtime.
+            probes:
+              # The Host header is MANDATORY. Without it the kubelet sends the pod
+              # IP, nginx forwards X-Frappe-Site-Name: 10.42.x.y, frappe finds no
+              # such site directory and the `assert conf.db_name` fires — HTTP 500
+              # forever, and the pod never goes Ready.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &ping
+                    path: /api/method/ping
+                    port: 8080
+                    httpHeaders:
+                      - name: Host
+                        value: "erpnext.${SECRET_DOMAIN}"
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  # 300s for gunicorn --preload to import frappe + erpnext
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *ping
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 8080 }
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+          websocket:
+            image: *img
+            # `bench socketio` self-selects the backend (node today, with a Python
+            # asyncio server now coexisting on develop), so it degrades gracefully
+            # if a future weekly build drops socketio.js.
+            args: ["bench", "socketio"]
+            env: *frappeEnv
+            probes:
+              liveness: &wsProbe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 9000 }
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+              readiness: *wsProbe
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+          scheduler:
+            image: *img
+            args: ["bench", "schedule"]
+            env: *frappeEnv
+            probes:
+              # No listening port. Mirrors frappe/helm's worker.healthProbe.
+              # Do NOT use `healthcheck.sh --ping-service` — that script is not in
+              # the frappe image and the probe would fail with "executable file not
+              # found", crashlooping an otherwise healthy worker.
+              liveness: &workerProbe
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["bash", "-c", "wait-for-it -t 1 127.0.0.1:3306 && wait-for-it -t 1 127.0.0.1:6379"]
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+            resources:
+              requests:
+                cpu: 10m
+                memory: 192Mi
+              limits:
+                memory: 384Mi
+          # short/default/long are the only built-in queues and frappe asserts it.
+          # Order on the command line is RQ priority order.
+          queue-short:
+            image: *img
+            args: ["bench", "worker", "--queue", "short,default"]
+            env: *frappeEnv
+            probes:
+              liveness: *workerProbe
+            resources:
+              requests:
+                cpu: 50m
+                memory: 384Mi
+              limits:
+                memory: 768Mi
+          queue-long:
+            image: *img
+            args: ["bench", "worker", "--queue", "long,default,short"]
+            env: *frappeEnv
+            probes:
+              liveness: *workerProbe
+            resources:
+              requests:
+                cpu: 50m
+                memory: 384Mi
+              limits:
+                memory: 768Mi
+    service:
+      # Only the nginx frontend is exposed. gunicorn (8000) and socket.io (9000)
+      # are reached over pod-local loopback by nginx and must not be in the
+      # Service. The browser connects socket.io to window.location.origin on the
+      # default /socket.io path, so one port and one `/` Prefix path cover
+      # /socket.io, /assets, /files and /api too.
+      app:
+        controller: erpnext
+        primary: true
+        ports:
+          http:
+            port: 8080
+    ingress:
+      app:
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+          # nginx defaults to 60s read/send; frappe's socket.io TimeoutManager
+          # worst-case idle is 55s, so the default only just clears it and any
+          # jitter tears the connection down every minute.
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        hosts:
+          - host: "erpnext.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      # A typo'd CONTROLLER key is a hard template failure, but a typo'd CONTAINER
+      # key is SILENT — the volume is added to the pod and simply never mounted.
+      sites:
+        existingClaim: erpnext-sites
+        advancedMounts:
+          erpnext:
+            03-configurator: [{ path: &sites /home/frappe/frappe-bench/sites }]
+            04-create-site: [{ path: *sites }]
+            backend: [{ path: *sites }]
+            frontend: [{ path: *sites }]
+            websocket: [{ path: *sites }]
+            scheduler: [{ path: *sites }]
+            queue-short: [{ path: *sites }]
+            queue-long: [{ path: *sites }]
+      mariadb-data:
+        existingClaim: erpnext-mariadb
+        advancedMounts:
+          erpnext:
+            01-mariadb: [{ path: /var/lib/mysql }]

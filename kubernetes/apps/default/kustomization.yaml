@@ -28,5 +28,6 @@ resources:
   - ./paperclip-atrelix/ks.yaml
   - ./rustdesk/ks.yaml
   - ./odoo/ks.yaml
+  - ./erpnext/ks.yaml
   # - ./shlink/ks.yaml
   # - ./shlink-web-client/ks.yaml
