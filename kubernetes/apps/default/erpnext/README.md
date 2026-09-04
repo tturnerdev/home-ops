@@ -39,9 +39,15 @@ Stable fallback, a one-line swap:
 **Downgrading an existing site is not safe** — the revert path is: delete both PVCs,
 flip the digest, let `04-create-site` rebuild.
 
-**Do not let Renovate auto-bump this.** `bench migrate` (which `04-create-site` runs
-on every restart once the sentinel exists) applies patches on the develop stream;
-take a MariaDB dump and a PVC snapshot before bumping.
+**Renovate is disabled for this image** (`.renovaterc.json5`). Nothing in this repo
+automerges, so an un-disabled Renovate would only have opened PRs — but a digest bump on
+a mutable `develop` tag is a schema migration waiting to be merged by reflex, and
+`04-create-site` runs `bench migrate` on every restart once the sentinel exists.
+
+`upgrade.remediation` is set to `retries: 0` / `remediateLastFailure: false` for the same
+reason: by the time a failed upgrade is noticed the database is already migrated, and
+Flux's default rollback would put **old code on a new schema**. A failed upgrade stays
+failed, visibly, for a human.
 
 ## Ordering
 
@@ -52,9 +58,12 @@ container on that probe succeeding — and only if a startupProbe is present
 The gate is never on *readiness*; readiness probes don't even run during the init
 phase.
 
-`custom: true` on those probes is mandatory: app-template silently drops non-custom
-probes on containers with no primary Service port, which would leave a sidecar with
-`restartPolicy: Always` and no gate at all.
+`custom: true` on those probes is mandatory, for a reason that is easy to get backwards:
+a **non-custom** probe is built from the controller's *primary Service port*, and this
+controller has one (service `app`, port 8080). Both sidecars would end up start-probing
+nginx's port instead of their own, so the gate would open at the wrong moment or never.
+(The chart's drop-the-probe-entirely path applies only to a controller with no Service
+at all — not this one.)
 
 SidecarContainers is Beta-on-by-default on Kubernetes 1.32 (GA in 1.33), so
 `04-create-site` also opens with `wait-for-it -t 300 127.0.0.1:3306` as a backstop.
@@ -85,6 +94,15 @@ retries cleanly.
 
 `--force` is **never** used: `setup_database()` drops the database first, so a pod
 restart would wipe the ERP.
+
+A half-built attempt also leaves an orphaned MariaDB database and user behind (frappe
+names them `_<16 hex>`), which nothing else cleans up. The retry path reads `db_name`
+out of the stale `site_config.json` and drops both before starting over.
+
+On the sentinel path, `bench backup` (database only) runs **before** `bench migrate`,
+keeping the newest 5 dumps in `sites/<site>/private/backups`. `bench migrate` is one-way
+and Flux is configured not to roll the image back (below), so this dump is the only
+thing standing between a bad migration and a rebuild.
 
 `bench enable-scheduler` is **mandatory**. `_new_site()` probes a database that does
 not exist yet, swallows the exception, and disables the scheduler. Without the
@@ -119,10 +137,12 @@ Pinning the header to a literal that differs from the browser's Host makes nginx
 a mismatched `Origin` and socket.io rejects every connection with "Invalid origin" —
 which is exactly why upstream's own `pwd.yml` has broken realtime.
 
-A Host that matches no directory under `sites/` raises `AssertionError` → **HTTP 500**
-(not a 404). `currentsite.txt` is not consulted on the HTTP path. This is why the
-frontend's probes must send an explicit `Host` header — otherwise the kubelet sends
-the pod IP and the probe 500s forever.
+A Host that matches no directory under `sites/` makes `frappe.init()` raise
+`frappe.exceptions.IncorrectSitePath`, a subclass of werkzeug's `NotFound` — so the
+response is **HTTP 404** with body `<host> does not exist.` The `assert conf.db_name`
+in `app.py` is never reached. `currentsite.txt` is not consulted on the HTTP path.
+This is why the frontend's probes must send an explicit `Host` header — otherwise the
+kubelet sends the pod IP and the probe 404s forever.
 
 ## Redis
 
@@ -171,6 +191,27 @@ check, and ~85% green; frappe_docker pins `postgres:15.17` while this cluster is
 `bench new-site --db-type postgres` still prints "experimental"; and Postgres-only
 bugs in reports, patches and desk queries kept landing after parity. Revisit in a year.
 
+## Network exposure
+
+There are no NetworkPolicies on this cluster, and every pod can reach every other pod.
+So MariaDB and Valkey are both bound to **loopback only** (`--bind-address=127.0.0.1`
+and `--bind 127.0.0.1`). Every consumer is inside this pod's network namespace and
+already dials `127.0.0.1`, so nothing is lost.
+
+This matters more than it looks for Valkey: RQ deserializes job payloads with `pickle`,
+so an unauthenticated Valkey reachable from other pods is remote code execution in the
+workers. MariaDB's `root@'%'` — which the image provisions on first init — was likewise
+answering cluster-wide.
+
+Only the nginx frontend (8080) is reachable from outside the pod, which is what the
+Service targets.
+
+**Consequence for probes:** a `tcpSocket` probe has no `host` field, so the kubelet dials
+`status.PodIP` *from the node* — a loopback-bound server never answers it. Valkey's
+startup probe is therefore an `exec` (`valkey-cli -h 127.0.0.1 ping`), not a tcpSocket.
+MariaDB's was already an in-container `exec`. Getting this wrong hangs the pod in `Init`
+forever, because the native-sidecar gate never opens.
+
 ## Mixed-uid pod
 
 frappe runs as 1000, MariaDB as 999, and both write their PVCs. `fsGroup` does not
@@ -180,7 +221,19 @@ adds gid 1000 to the supplementary groups of every container in the pod.
 The MariaDB uid override is per-**container**. Putting it at
 `controllers.erpnext.pod.securityContext` would replace the pod securityContext
 wholesale (app-template's `getOption` is a plain assignment, not a merge), silently
-dropping `fsGroup` and leaving both PVCs unwritable.
+dropping `fsGroup` and leaving both PVCs unwritable. The same caution applies to the
+`pod:` block that sets `terminationGracePeriodSeconds` — it deliberately sets *only*
+that key.
+
+All ten containers drop `ALL` capabilities and set `allowPrivilegeEscalation: false`,
+with `runAsNonRoot` and `seccompProfile: RuntimeDefault` at pod level.
+`readOnlyRootFilesystem` is **not** set: the frappe ENTRYPOINT rewrites `sites/assets`,
+nginx writes `/var/lib/nginx` and `/run/nginx.pid`, and MariaDB writes `/run/mysqld`
+and `/tmp`.
+
+`terminationGracePeriodSeconds: 180` exists because the 30s default is shared across all
+ten containers and the kubelet terminates restartable init containers **last** — a busy
+RQ worker can otherwise leave MariaDB the ~2s floor and an unclean InnoDB shutdown.
 
 ## Secrets
 
@@ -221,9 +274,13 @@ credentials.
   fix if it recurs: `command: ["/bin/bash","-c"]` with
   `args: ["ln -sfn /home/frappe/frappe-bench/assets /home/frappe/frappe-bench/sites/assets; exec <real command>"]`
   (`ln -sfn` is atomic via rename, and there is no `rm -rf`).
-- **Node vs Python realtime.** frappe develop now ships a Python socket.io server
-  alongside the Node one. `args: ["bench", "socketio"]` self-selects (node today) and
-  degrades gracefully if a future weekly build drops `socketio.js`.
+- **Node vs Python realtime.** frappe develop ships a Python socket.io server alongside
+  the Node one, but `bench socketio` does **not** probe for availability: it reads
+  `socketio_backend` from `common_site_config.json` (default `"node"`) and execs
+  `apps/frappe/socketio.js` with no existence check. It only ever falls back
+  python → node, never the reverse. If a future weekly build drops `socketio.js`, this
+  container crash-loops until `bench set-config -g socketio_backend python` is added to
+  `03-configurator`.
 - **`chromium_path`.** Set to `/usr/bin/chromium-headless-shell` to match upstream
   compose; the bench Dockerfile installs it behind an `INSTALL_CHROMIUM` ARG. Harmless
   if absent, but chromium-based print/PDF would fail at use time.

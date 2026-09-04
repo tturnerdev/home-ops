@@ -22,7 +22,12 @@ spec:
   upgrade:
     cleanupOnFail: true
     remediation:
-      retries: 3
+      # NO automatic rollback. 04-create-site runs `bench migrate` on every start,
+      # so by the time an upgrade fails the database is already migrated. Rolling
+      # the digest back would put OLD code on a NEW schema — exactly the downgrade
+      # the README calls unsafe. A failed upgrade stays failed, for a human.
+      retries: 0
+      remediateLastFailure: false
   uninstall:
     keepHistory: false
   values:
@@ -34,10 +39,12 @@ spec:
         # 999 and still writes its PVC, because fsGroup does not match by uid: the
         # kubelet chowns each volume to root:1000 setgid g+rwx AND adds gid 1000
         # to the supplementary groups of every container in the pod.
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     controllers:
       erpnext:
         annotations:
@@ -48,14 +55,27 @@ spec:
         # frappe/helm chart has.
         replicas: 1
         strategy: Recreate
+        pod:
+          # The 30s default is shared across ALL containers and the kubelet
+          # terminates the restartable init containers LAST, so a busy RQ worker
+          # can leave MariaDB the ~2s floor and an unclean InnoDB shutdown.
+          # NOTE: only terminationGracePeriodSeconds is set here — adding
+          # `securityContext` at this level would REPLACE defaultPodOptions'
+          # wholesale (app-template's getOption assigns, it does not merge) and
+          # silently drop fsGroup, leaving both PVCs unwritable.
+          terminationGracePeriodSeconds: 180
         initContainers:
           # 01/02 are Kubernetes NATIVE SIDECARS: initContainers with
           # `restartPolicy: Always` PLUS a startupProbe. The kubelet gates the
           # next init container on the startup probe succeeding — and ONLY if a
           # startupProbe is present (`if container.StartupProbe != nil`). Omitting
-          # it removes the ordering gate entirely. `custom: true` is mandatory:
-          # app-template silently drops non-custom probes on containers that have
-          # no primary Service port.
+          # it removes the ordering gate entirely.
+          # `custom: true` is mandatory for a different reason: a NON-custom probe
+          # is built from the controller's PRIMARY Service port, and this controller
+          # has one (service `app`, port 8080). Both sidecars would end up
+          # start-probing nginx's port instead of their own, so the gate would open
+          # at the wrong time or never. (The chart's drop-the-probe-entirely path
+          # applies only to a controller with no Service at all.)
           01-mariadb:
             restartPolicy: Always
             image:
@@ -78,6 +98,13 @@ spec:
               # MariaDB does not auto-size this; the default 128M is small for the
               # >1000 tables ERPNext creates
               - --innodb-buffer-pool-size=512M
+              # Nothing outside this pod may reach the ERP database. Every consumer
+              # is in the same netns and already dials 127.0.0.1 (db_host, the
+              # create-site wait-for-it, the worker liveness probes), and the image's
+              # own `healthcheck.sh --connect` startup probe runs INSIDE the
+              # container. Without this, root@'%' answers from every pod in the
+              # cluster — there are no NetworkPolicies here.
+              - --bind-address=127.0.0.1
             env:
               TZ: "America/Los_Angeles"
               MARIADB_AUTO_UPGRADE: "1"
@@ -93,6 +120,8 @@ spec:
               # pod securityContext wholesale and silently drop fsGroup.
               runAsUser: 999
               runAsGroup: 999
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
             probes:
               startup:
                 enabled: true
@@ -119,19 +148,33 @@ spec:
               repository: docker.io/valkey/valkey
               tag: "8.1.10-alpine"
               pullPolicy: IfNotPresent
+            securityContext: &hardened
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+              # readOnlyRootFilesystem stays off: the frappe ENTRYPOINT rewrites
+              # sites/assets, nginx writes /var/lib/nginx and /run/nginx.pid, and
+              # MariaDB writes /run/mysqld and /tmp.
             # Frappe needs exactly two logical endpoints, redis_cache and
             # redis_queue; redis_socketio has been dead since v15. Both point here
             # with no database index: cache keys are namespaced `{db_name}|…` and
             # queue keys are `rq:…`, so they cannot collide.
             # noeviction is deliberate — an LRU policy could evict `rq:*` job keys
             # under cache pressure and silently drop background jobs.
-            args: ["--save", "", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
+            # --bind 127.0.0.1: RQ deserializes job payloads with pickle, so an
+            # unauthenticated Valkey reachable from other pods is remote code
+            # execution in the workers. All consumers are inside this netns.
+            args: ["--bind", "127.0.0.1", "--save", "", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
             probes:
               startup:
                 enabled: true
                 custom: true
                 spec:
-                  tcpSocket: { port: 6379 }
+                  # exec, NOT tcpSocket: a tcpSocket probe has no `host`, so the
+                  # kubelet dials status.PodIP from the node — which a
+                  # loopback-bound server never answers. The sidecar would restart
+                  # forever and the init gate would never open.
+                  exec:
+                    command: ["valkey-cli", "-h", "127.0.0.1", "ping"]
                   periodSeconds: 2
                   failureThreshold: 30
             resources:
@@ -157,6 +200,7 @@ spec:
             # exists only to rebuild the sites/assets symlink. The long-running
             # containers below must NOT do that (see their comment).
             command: ["bash", "-c"]
+            securityContext: *hardened
             args:
               - |
                 set -e
@@ -192,8 +236,10 @@ spec:
           04-create-site:
             image: *img
             command: ["bash", "-c"]
-            # Bare $VARS on purpose: Flux postBuild substitutes ${VARS} and would
-            # blank them.
+            securityContext: *hardened
+            # Bare $VARS on purpose: Flux postBuild substitutes the braced form
+            # and would blank them. Verified with `flux envsubst`: bare $VAR and
+            # $(cmd) pass through untouched.
             args:
               - |
                 set -e
@@ -207,7 +253,14 @@ spec:
                 wait-for-it -t 300 127.0.0.1:3306
                 wait-for-it -t 60 127.0.0.1:6379
                 if [ -f "$SENTINEL" ]; then
-                  echo "site $SITE already bootstrapped; migrating"
+                  echo "site $SITE already bootstrapped"
+                  # `bench migrate` is one-way and Flux will NOT roll the image back
+                  # (see upgrade.remediation above), so dump the database first —
+                  # this is the only backup this app has. Keep the newest 5 so the
+                  # PVC does not grow without bound.
+                  bench --site "$SITE" backup
+                  ls -1t "sites/$SITE/private/backups"/*-database.sql.gz 2>/dev/null \
+                    | tail -n +6 | xargs -r rm -f
                   bench --site "$SITE" migrate
                 else
                   # No sentinel => a previous attempt never completed. _new_site()
@@ -215,6 +268,16 @@ spec:
                   # rollback is gated on sys.__stdin__.isatty() (false in a
                   # container), so one transient failure would poison a naive
                   # `test -d` guard forever.
+                  #
+                  # That half-built attempt also left an orphaned MariaDB database
+                  # and user behind (frappe names them _<16 hex>), which nothing
+                  # else ever cleans up. Drop them before retrying.
+                  OLD_DB=$(jq -r '.db_name // empty' "sites/$SITE/site_config.json" 2>/dev/null || true)
+                  if [ -n "$OLD_DB" ]; then
+                    echo "dropping orphaned database $OLD_DB left by a failed attempt"
+                    mariadb -h 127.0.0.1 -uroot -p"$MARIADB_ROOT_PASSWORD" \
+                      -e "DROP DATABASE IF EXISTS \`$OLD_DB\`; DROP USER IF EXISTS '$OLD_DB'@'%';" || true
+                  fi
                   rm -rf "sites/$SITE"
                   # NEVER add --force: setup_database() drops the database first,
                   # so a pod restart would wipe the ERP.
@@ -258,6 +321,7 @@ spec:
         containers:
           backend:
             image: *img
+            securityContext: *hardened
             # No args: the image CMD is start.sh, which execs gunicorn on :8000.
             env: &frappeEnv
               TZ: "America/Los_Angeles"
@@ -278,6 +342,8 @@ spec:
                 memory: 2Gi
           frontend:
             image: *img
+            securityContext: *hardened
+            # nginx binds 8080 — unprivileged, so no NET_BIND_SERVICE needed.
             args: ["nginx-entrypoint.sh"]
             env:
               TZ: "America/Los_Angeles"
@@ -298,9 +364,9 @@ spec:
               # upstream's own pwd.yml has broken realtime.
             probes:
               # The Host header is MANDATORY. Without it the kubelet sends the pod
-              # IP, nginx forwards X-Frappe-Site-Name: 10.42.x.y, frappe finds no
-              # such site directory and the `assert conf.db_name` fires — HTTP 500
-              # forever, and the pod never goes Ready.
+              # IP, nginx forwards X-Frappe-Site-Name: 10.42.x.y, and frappe.init()
+              # raises IncorrectSitePath (a werkzeug NotFound) — HTTP 404
+              # "<host> does not exist." forever, so the pod never goes Ready.
               startup:
                 enabled: true
                 custom: true
@@ -339,9 +405,13 @@ spec:
                 memory: 128Mi
           websocket:
             image: *img
-            # `bench socketio` self-selects the backend (node today, with a Python
-            # asyncio server now coexisting on develop), so it degrades gracefully
-            # if a future weekly build drops socketio.js.
+            securityContext: *hardened
+            # `bench socketio` reads `socketio_backend` from common_site_config
+            # (default "node") and execs apps/frappe/socketio.js. It does NOT probe
+            # for availability, and only ever falls back python -> node, never the
+            # reverse. If a future weekly build drops socketio.js this container
+            # crash-loops until `bench set-config -g socketio_backend python` is
+            # added to 03-configurator.
             args: ["bench", "socketio"]
             env: *frappeEnv
             probes:
@@ -361,6 +431,7 @@ spec:
                 memory: 256Mi
           scheduler:
             image: *img
+            securityContext: *hardened
             args: ["bench", "schedule"]
             env: *frappeEnv
             probes:
@@ -387,6 +458,7 @@ spec:
           # Order on the command line is RQ priority order.
           queue-short:
             image: *img
+            securityContext: *hardened
             args: ["bench", "worker", "--queue", "short,default"]
             env: *frappeEnv
             probes:
@@ -399,6 +471,7 @@ spec:
                 memory: 768Mi
           queue-long:
             image: *img
+            securityContext: *hardened
             args: ["bench", "worker", "--queue", "long,default,short"]
             env: *frappeEnv
             probes:
