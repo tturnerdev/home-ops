@@ -364,6 +364,17 @@
         'renovate/github-release',
       ],
     },
+    {
+      description: 'Odoo nightly - manual, backup-gated upgrades only',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'docker.io/library/odoo',
+      ],
+      // Nightly stream with no upgrade guarantee between dated tags: a bump can carry schema migrations and Odoo does not auto-migrate (needs 'odoo -u all --stop-after-init'). Bump by hand, after a backup.
+      enabled: false,
+    },
   ],
   customManagers: [
     {

@@ -17,14 +17,27 @@ stream (`19.5a1`) would need a custom build with no upgrade path.
 Stable fallback, a one-line swap: `"18.0-20260817"` — but see the PGDATABASE note
 below first.
 
-**Do not let Renovate auto-bump this.** The nightly stream carries schema changes
-and Odoo does not auto-migrate; a bump needs `odoo -u all --stop-after-init` after
-a backup.
+**Renovate is disabled for this image** (`.renovaterc.json5`). The nightly stream
+carries schema changes and Odoo does not auto-migrate; a bump needs
+`odoo -u all --stop-after-init` after a backup.
 
 ## Bootstrap
 
-Zero-touch, and the design hinges on one rule: **create the role, never the
-database.**
+Two init containers, and the design hinges on one rule: **never leave an existing
+database empty.**
+
+1. `init-db-role` (postgres image) creates only the PostgreSQL role.
+2. `init-db-schema` (odoo image) runs `odoo db init odoo --username admin --password …`
+   if — and only if — the database does not already exist.
+
+Step 2 is what keeps the admin password out of Odoo's hands: `base`'s
+`res_users_data.xml` hardcodes `admin`/`admin` and does **not** randomize it, and
+`odoo db init` is the only supported way to set it non-interactively at creation
+time. `--force` is never used (it drops the database).
+
+It also does not reintroduce the trap below, because `odoo db init` leaves a
+**fully initialized** database — the app container's `DatabaseExists` path then finds
+`is_initialized()` true and loads normally, in ~0.2s with 0 queries.
 
 `odoo/cli/server.py` `main()` calls `_create_empty_database(db)` and, *on success*,
 sets `config['init']['base'] = True`. That flag is what makes `preload_registries()`
@@ -33,18 +46,20 @@ exists, `DatabaseExists` is raised *before* the assignment, so `init` is never s
 and `modules/loading.py` does a bare `return` after logging one ERROR — the process
 exits 0 and the pod sits **Running and Ready serving an empty registry forever**.
 
-So the `init-db-role` initContainer creates only:
+So `init-db-role` creates only:
 
 ```sql
 CREATE ROLE odoo LOGIN CREATEDB;
 ```
 
-and Odoo creates `odoo` itself on first boot (`ENCODING 'unicode' LC_COLLATE 'C'
-TEMPLATE template0`, plus `CREATE EXTENSION pg_trgm`). Every later boot swallows
-`DatabaseExists` and skips module loading — idempotent.
+and the database is created *and initialized together* by `odoo db init`
+(`ENCODING 'unicode' LC_COLLATE 'C' TEMPLATE template0`, plus `CREATE EXTENSION
+pg_trgm`). Every later boot swallows `DatabaseExists` and skips module loading —
+idempotent.
 
 This is why the house's usual `ghcr.io/onedr0p/postgres-init` is **not** used here:
-it creates the database too.
+it would create an *empty* database, which is precisely the broken state. The role
+keeps `CREATEDB` because `odoo db init` runs as that role.
 
 The role also must not be named `postgres`: `check_postgres_user()` does
 `sys.exit(1)` when `db_user == 'postgres'`. The CNPG superuser is used exactly once,
@@ -105,8 +120,17 @@ periodically with no OOMKill is this.
 
 ## First login
 
-**`admin` / `admin`.** `base`'s `res_users_data.xml` hardcodes it; it is not
-randomised. The instance is reachable by anyone on the LAN — change it immediately.
+Username **`admin`**, password = `ADMIN_LOGIN_PASSWORD` from `secret.sops.yaml`:
+
+```
+sops -d kubernetes/apps/default/odoo/app/secret.sops.yaml | yq -r .stringData.ADMIN_LOGIN_PASSWORD
+```
+
+That key is read **only** on the boot that creates the database. Changing it later has
+no effect — change the password in the UI instead.
+
+Note this host is reachable from the whole tailnet, not only the LAN: the `home-lan`
+Tailscale connector advertises 10.13.32.0/21, which contains the internal ingress VIP.
 
 Then, in Settings → Technical → System Parameters:
 
@@ -115,6 +139,21 @@ Then, in Settings → Technical → System Parameters:
 | `web.base.url` | `https://odoo.${SECRET_DOMAIN}` |
 | `web.base.url.freeze` | `True` |
 | `report.url` | `http://localhost:8069` |
+
+## Probes
+
+Readiness and startup use `/web/health`; **liveness is a bare `tcpSocket` on 8069**, and
+that difference is deliberate. `Registry.new()` holds a process-wide lock for the whole
+of a module install, and every request — `/web/health` included — blocks behind it; with
+`ODOO_WORKERS=0` there is no second process to answer. An HTTP liveness probe would race
+installing an app from the Apps screen against its own `failureThreshold`, and losing
+that race means a SIGKILL mid-install: modules stranded in state `to install`, every
+later module operation raising `UserError`, and `ir.cron` skipping the database
+entirely — with no automatic recovery (`button_reset_state` has no UI action).
+
+`ThreadedServer` binds the socket for the process lifetime, so a hung or dead process is
+still caught. Readiness on `/web/health` still pulls the pod out of the Service while an
+install is in flight.
 
 `report.url` keeps wkhtmltopdf fetching report assets in-pod instead of hairpinning
 out to the ingress VIP and inheriting its timeouts.

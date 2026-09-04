@@ -72,8 +72,9 @@ spec:
               repository: docker.io/library/postgres
               tag: "17.11-alpine"
               pullPolicy: IfNotPresent
-            # Bare $VAR on purpose: Flux postBuild substitutes ${VAR} and would
-            # blank these before the container ever sees them.
+            # Bare $VAR on purpose: Flux postBuild substitutes the braced form and
+            # would blank these. Verified with `flux envsubst`: bare $VAR and
+            # $(cmd) pass through untouched.
             command: ["/bin/sh", "-ec"]
             args:
               - |
@@ -101,18 +102,66 @@ spec:
                 memory: 64Mi
               limits:
                 memory: 256Mi
-        containers:
-          app:
-            image:
+          # Creates AND initializes the database, so the admin password is set at
+          # install time. Without this the app container creates the database on
+          # first boot and `base`'s res_users_data.xml seeds a working
+          # admin/admin superuser — not randomized, and this host is reachable
+          # from the whole tailnet, not just the LAN.
+          #
+          # This does NOT reintroduce the empty-database trap: `odoo db init`
+          # leaves a FULLY initialized database, so the app container's
+          # DatabaseExists path finds is_initialized() true and loads normally.
+          # The trap is only an EXISTING-but-EMPTY database.
+          init-db-schema:
+            image: &img
               # The official library/odoo dated tags ARE the nightly builds:
               # odoo/docker 19.0/Dockerfile fetches
-              # nightly.odoo.com/19.0/nightly/deb/odoo_19.0.${ODOO_RELEASE}_all.deb.
+              # nightly.odoo.com/19.0/nightly/deb/odoo_19.0.<ODOO_RELEASE>_all.deb.
               # 19.0-20260817 == the 2026-08-17 nightly of the 19.0 series and is
               # the newest published. Stable fallback: "18.0-20260817".
               # There is no master/20.0 image.
               repository: docker.io/library/odoo
               tag: "19.0-20260817@sha256:f99ffac95cb39a0924622ea4118481c95651d9c84187e5b30a21c2cc4419c7dd"
               pullPolicy: IfNotPresent
+            # command: on purpose — this replaces /entrypoint.sh, whose wait-for-psql
+            # is redundant here (init-db-role already gated on pg_isready).
+            command: ["/bin/sh", "-ec"]
+            args:
+              - |
+                if python3 -c "import psycopg2,sys; c=psycopg2.connect(dbname='postgres'); cur=c.cursor(); cur.execute(\"SELECT 1 FROM pg_database WHERE datname='odoo'\"); sys.exit(0 if cur.fetchone() else 1)"; then
+                  echo "database odoo already exists; leaving it alone"
+                else
+                  echo "initializing database odoo"
+                  odoo db init odoo --username admin --password "$ADMIN_LOGIN_PASSWORD" --language en_US
+                fi
+            env:
+              TZ: "America/Los_Angeles"
+              HOME: /var/lib/odoo
+              PGHOST: postgres-rw.database.svc.cluster.local
+              PGPORT: "5432"
+              PGUSER: odoo
+              PGDATABASE: postgres
+              PGPASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: odoo-secret
+                    key: ODOO_DB_PASSWORD
+              # Deliberately NOT named ODOO_* — Odoo maps ODOO_<DEST> onto config
+              # options, and this is not one.
+              ADMIN_LOGIN_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: odoo-secret
+                    key: ADMIN_LOGIN_PASSWORD
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+        containers:
+          app:
+            image: *img
             # NEITHER command NOR args on purpose. ENTRYPOINT is ["/entrypoint.sh"]
             # and CMD is ["odoo"]; entrypoint.sh runs wait-for-psql.py before
             # exec'ing odoo. Overriding command: would skip that readiness gate.
@@ -194,10 +243,22 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: *health
+                  # tcpSocket, NOT /web/health. Registry.new() holds a process-wide
+                  # lock for the whole of a module install and every request —
+                  # including /web/health — blocks behind it; with ODOO_WORKERS=0
+                  # there is no second process to answer. An HTTP liveness probe
+                  # would therefore race installing an app from the Apps screen
+                  # against its own failureThreshold, and losing that race means a
+                  # SIGKILL mid-install: modules stuck in state 'to install', every
+                  # later module operation raising UserError, and ir.cron skipping
+                  # the database entirely. ThreadedServer binds this socket for the
+                  # process lifetime, so a hung or dead process is still caught.
+                  # Readiness stays on /web/health and still pulls the pod out of
+                  # the Service while an install is in flight.
+                  tcpSocket:
+                    port: 8069
                   periodSeconds: 30
                   timeoutSeconds: 10
-                  # 180s: a UI-triggered app install also holds the Registry lock.
                   failureThreshold: 6
             securityContext:
               allowPrivilegeEscalation: false
@@ -247,5 +308,10 @@ spec:
         existingClaim: odoo-data
         advancedMounts:
           odoo:
+            # `odoo db init` is filestore-aware and writes under data_dir, so the
+            # init container needs the same volume or the filestore it creates is
+            # lost with the container layer.
+            init-db-schema:
+              - path: &dataDir /var/lib/odoo
             app:
-              - path: /var/lib/odoo
+              - path: *dataDir
