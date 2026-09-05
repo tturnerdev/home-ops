@@ -292,6 +292,19 @@ spec:
             securityContext: *hardened
             # nginx binds 8080 — unprivileged, so no NET_BIND_SERVICE needed.
             args: ["nginx-entrypoint.sh"]
+            lifecycle:
+              preStop:
+                exec:
+                  # nginx-entrypoint.sh ends with a bare `nginx -g 'daemon off;'`
+                  # — no exec — so PID 1 is bash, and a PID 1 gets no default
+                  # signal action: SIGTERM is simply ignored and the container
+                  # burns the whole terminationGracePeriod (measured: nginx still
+                  # answering 2 minutes after the pod was deleted, and the RWO
+                  # volume held for the full 180s on every Recreate rollout).
+                  # `stop` (SIGTERM to the master via /run/nginx.pid), not `quit`:
+                  # a graceful quit waits for open socket.io websockets from
+                  # browser tabs and would burn the grace all over again.
+                  command: ["nginx", "-s", "stop"]
             env:
               TZ: "America/Los_Angeles"
               BACKEND: "127.0.0.1:8000"
@@ -359,7 +372,25 @@ spec:
             # reverse. If a future weekly build drops socketio.js this container
             # crash-loops until `bench set-config -g socketio_backend python` is
             # added to 02-configurator.
-            args: ["bench", "socketio"]
+            #
+            # Wrapped in bash so node is NOT PID 1. socketio.js registers no signal
+            # listeners, and node as PID 1 leaves SIGTERM at its default
+            # disposition, which the kernel ignores for an init process — measured
+            # via the node's CRI view: every other container had exited within
+            # seconds while this one ran out the whole 180s grace (and held the
+            # RWO volume) on every rollout. A preStop hook cannot fix it: the
+            # image has no tini/dumb-init, and `kill -KILL 1` from INSIDE a pid
+            # namespace is ignored too. As a child of a trapping bash, node gets
+            # the default action and exits 143. The ENTRYPOINT still runs first
+            # (assets symlink), because this is args:, not command:.
+            args:
+              - bash
+              - -c
+              - |
+                trap 'kill -TERM "$child" 2>/dev/null; wait "$child"' TERM INT
+                bench socketio &
+                child=$!
+                wait "$child"
             env: *frappeEnv
             probes:
               liveness: &wsProbe
@@ -381,6 +412,15 @@ spec:
             securityContext: *hardened
             args: ["bench", "schedule"]
             env: *frappeEnv
+            lifecycle:
+              preStop:
+                exec:
+                  # start_scheduler() is `while True: time.sleep(...)` with no
+                  # signal handling, running as PID 1 — so SIGTERM is ignored and
+                  # it burns the whole grace period too. Python does install a
+                  # SIGINT handler (KeyboardInterrupt), so that is the exit path.
+                  # bash builtin kill: the image has no /bin/kill on PATH.
+                  command: ["bash", "-c", "kill -INT 1"]
             probes:
               # No listening port. Mirrors frappe/helm's worker.healthProbe, but
               # checks ONLY the in-pod Valkey: restarting a worker cannot fix an

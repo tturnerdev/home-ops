@@ -237,6 +237,37 @@ can finish on rollout). Adding `securityContext` there would replace
 `defaultPodOptions.securityContext` wholesale — app-template's `getOption` is a plain
 assignment, not a merge — silently dropping `fsGroup` and leaving the PVC unwritable.
 
+## Shutdown: three containers ignore SIGTERM
+
+A process running as **PID 1 gets no default signal action** — SIGTERM is silently
+ignored unless the process installs a handler. Three of the upstream entrypoints do not:
+
+| container | PID 1 | why SIGTERM is ignored | fix |
+| --- | --- | --- | --- |
+| `frontend` | `/bin/bash nginx-entrypoint.sh` | the script ends with a bare `nginx -g 'daemon off;'`, no `exec` | preStop `nginx -s stop` |
+| `scheduler` | `python … frappe schedule` | `start_scheduler()` is `while True: sleep`, no handler; Python catches only SIGINT | preStop `kill -INT 1` |
+| `websocket` | `node apps/frappe/socketio.js` | `socketio.js` registers no signal listeners; node leaves SIGTERM at default | `args:` wraps `bench socketio` in a bash `trap` so node is a **child**, not PID 1 |
+
+Without these, each ran out the **entire** 180s grace on every `Recreate` rollout —
+measured from the node's CRI view (`talosctl containers -k`), because the API server does
+not update container states until the whole kill sequence ends: nginx still answering 502s
+two minutes after the pod was deleted, and the RWO volume `Multi-Attach`-blocked for the
+full 180s before the replacement could start.
+
+The websocket one cannot be fixed with a preStop hook: the image ships no `tini` or
+`dumb-init`, and `kill -KILL 1` from *inside* a pid namespace is ignored by the kernel as
+well — only the parent namespace (the kubelet) may SIGKILL an init. Hence the wrapper,
+which keeps the ENTRYPOINT (it is `args:`, not `command:`) and `bench socketio`'s backend
+selection.
+
+`nginx -s stop` rather than the graceful `quit` is deliberate: open ERPNext tabs hold
+socket.io websockets through nginx, and a graceful quit waits for those.
+
+gunicorn (`start.sh` does `exec`), both RQ workers (warm shutdown: finish the current job)
+and Valkey (under `tini`) handle SIGTERM correctly. `grep SigCgt /proc/1/status` is a hint
+(SIGTERM is bit 15, mask `0x4000`) but not proof — node had it clear and *still* did not
+exit; the node-level container list during a delete is the only reliable check.
+
 ## Secrets
 
 `erpnext-secret` (the `Administrator` password) is SOPS today because the cluster's
