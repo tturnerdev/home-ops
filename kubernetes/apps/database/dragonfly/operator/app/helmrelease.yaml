@@ -40,7 +40,7 @@ spec:
   values:
     image:
       repository: ghcr.io/dragonflydb/operator
-      tag: v1.2.1
+      tag: v1.6.1
     replicaCount: 1
     resources:
       requests:
