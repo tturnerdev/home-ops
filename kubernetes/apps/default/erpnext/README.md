@@ -2,16 +2,16 @@
 
 ERPNext at `https://erpnext.${SECRET_DOMAIN}` (internal ingress only). Test instance.
 
-Eight containers in **one pod** — Valkey as a native sidecar, two init containers for
-bootstrap, then gunicorn / nginx / socket.io / scheduler / two RQ workers — with the
-database on the cluster's **CloudNativePG** PostgreSQL.
+Nine containers in **one pod** — Valkey as a native sidecar, two init containers for
+bootstrap, then gunicorn / nginx / socket.io / scheduler / two RQ workers (seven running
+at steady state) — with the database on the cluster's **CloudNativePG** PostgreSQL.
 
 ## Why one pod
 
 Upstream splits these across six Deployments and therefore needs a **ReadWriteMany**
 `sites` volume. This cluster has no RWX storage at all (Ceph RBD and TopoLVM are both
 RWO). RWO restricts a volume to one *node*, not one pod — so collapsing everything
-into a single pod removes the RWX requirement entirely. One RWO PVC, eight containers,
+into a single pod removes the RWX requirement entirely. One RWO PVC, nine containers,
 no shared-filesystem problem.
 
 ## Image
@@ -23,10 +23,12 @@ rebuilt **weekly** (Mondays 03:17 UTC), and only after the compose integration s
 passes. Both `develop` and `latest` are mutable and there is no `v17.x` tag, so the
 only way to pin is by digest.
 
-**There is no stable fallback for this deployment.** ERPNext on PostgreSQL only reached
-parity on `develop` (frappe/erpnext#24389, closed 2026-06-21); `version-16` and
-`version-15` never got it. Swapping in a v16 digest would not just downgrade — it would
-not install at all against this database.
+**There is no stable fallback for this deployment.** ERPNext on PostgreSQL reached parity
+on `develop` (frappe/erpnext#24389, closed 2026-06-21). A `v16` image *can* run
+`bench new-site --db-type postgres` (verified against PG 17 in review), but Postgres is
+untested and unsupported on `version-16`/`version-15` — and on this deployment a v16
+digest would not be a fresh install anyway: the sentinel path would run v16's
+`bench migrate` against the v17-dev schema, which is exactly the downgrade above.
 
 **Renovate is disabled for this image** (`.renovaterc.json5`). Nothing in this repo
 automerges, so an un-disabled Renovate would only have opened PRs — but a digest bump on
@@ -48,8 +50,9 @@ PostgreSQL 17). What that buys and costs:
   materially better backup than a local dump on the same PVC — and, as it happens, the
   only one available: see *`bench backup` does not work* below.
 - **`bench new-site --db-type postgres`** still prints "experimental". The upstream
-  Postgres CI is develop-only, label-gated and explicitly not a required check, and
-  Postgres-only bugs in reports/patches/desk queries have landed after parity. Read
+  Postgres suite runs nightly only on `develop` (`version-15`/`16` carry a label-gated PR
+  copy that has never run) and is label-gated on PRs; Postgres-only bugs in
+  reports/patches/desk queries have landed after parity. Read
   `apps/erpnext/.github/POSTGRES_COMPATIBILITY.md` in the image for the class of thing to
   expect: loose `GROUP BY`, MySQL-only functions, case-sensitive text equality, integer
   division. This is a test instance; that is the point of it.
@@ -75,16 +78,23 @@ GRANT pg_read_all_stats TO "<db_name>";             -- shared_preload_libraries
 ```
 
 `<db_name>` is `_<16 hex>` for both the role and the database, same as on MariaDB. The
-last two statements are wrapped in `try/except` and silently skipped here — CNPG's
-`shared_preload_libraries` is empty. The bootstrap SQL is then restored with **`psql`**,
-which is why a 15.x client against a 17.x server is fine (only `pg_dump` is
-version-strict).
+last two statements are "best-effort" (`try/except`) — but on CNPG **both succeed**:
+`CREATE EXTENSION` needs only superuser (the preload is checked at *query* time, so the
+extension installs but is inert and frappe's Query Stats report raises SQLSTATE 55000),
+and `GRANT pg_read_all_stats` needs nothing at all. That grant lets the site role read
+`pg_stat_activity` query text for **every database on the shared cluster** — a
+cross-tenant boundary no other app role here has. So `03-create-site` immediately
+`REVOKE`s `pg_read_all_stats` and drops the inert extension. The bootstrap SQL is then
+restored with **`psql`**, which is why a 15.x client against a 17.x server is fine (only
+`pg_dump` is version-strict).
 
 The superuser is needed for `CREATE USER` / `CREATE DATABASE` / `ALTER … OWNER` and is
 mounted **only** into `03-create-site` (`erpnext-cnpg-secret`, from the shared
-`cloudnative-pg` 1Password item). The long-running containers never see it; the site
-connects as its own generated role with the password frappe writes into
-`sites/<site>/site_config.json`.
+`cloudnative-pg` 1Password item). It is fed to `bench new-site` on **stdin**, not argv:
+bench logs every invocation's full argv to `logs/bench.log` — a CRI host directory that
+outlives the container — and argv is readable in `/proc`. The long-running containers
+never see it; the site connects as its own generated role with the password frappe
+writes into `sites/<site>/site_config.json`.
 
 Connection details: `db_host` / `db_port` / `db_type` come from `common_site_config.json`
 (written by `02-configurator`); the driver defaults `gssencmode` to `disable` (the krb5
@@ -97,8 +107,13 @@ The image ships **pg_dump 15.19**; the server is **17.6**. pg_dump refuses a new
 server outright — verified: `aborting because of server version mismatch`. So the
 sentinel path deliberately runs **no** `bench backup` before `bench migrate` (it did on
 MariaDB), and `bench backup` from inside the pod will fail until the image ships a PG17
-client. Use CNPG: barman base backups + WAL for point-in-time recovery, or
-`pg_dump` from a PG17 client outside the pod against `postgres-rw.database`.
+client. The same failure reaches every path that takes a pre-flight dump: the desk
+**Download Backups** page (`/app/backups`), `bench drop-site` (use `--no-backup`),
+`bench uninstall-app --no-backup`, and the other bench commands that back up first.
+frappe schedules no periodic backup of its own, so nothing fails nightly. Use CNPG:
+barman base backups + WAL for point-in-time recovery (cluster-scoped — a per-app
+rollback means restoring to a side cluster), or `pg_dump` from a PG17 client outside the
+pod against `postgres-rw.database`.
 
 ## Ordering
 
@@ -155,6 +170,19 @@ restart would wipe the ERP.
 not exist yet, swallows the exception, and disables the scheduler. Without the
 explicit enable, `bench schedule` runs forever and enqueues nothing — no email queue,
 no auto-repeat, no scheduled reports — and logs no error anywhere.
+
+The time zone is set **during bootstrap**, not afterwards, for a related reason. System
+Settings ships no `time_zone` and frappe falls back to `Asia/Kolkata`, so every
+Scheduled Job Type is stamped in IST at creation; the scheduler's cold start computes
+each job's next run from that stamp. Set the zone to America/Los_Angeles *later* and
+the site clock moves back 12.5 h — every job is "not due" for 12.5 h, silently, with
+the scheduler enabled and the workers idle. `03-create-site` sets the zone right after
+`bench new-site` and re-bases `last_execution` to the same local clock. Check:
+`SELECT count(last_execution) FROM "tabScheduled Job Type"` should be `> 0` within
+minutes of Ready.
+
+Both of those post-sentinel steps are non-fatal by design: a failure there must not
+re-enter the destructive retry path.
 
 ## `args:` not `command:`
 
@@ -222,8 +250,10 @@ Getting this wrong hangs the pod in `Init` forever, because the native-sidecar g
 never opens.
 
 The scheduler and worker liveness probes check **only** the in-pod Valkey: restarting a
-worker cannot fix an unreachable database, and a bare TCP probe against CNPG every 15s
-from three containers would only add noise to the Postgres log.
+worker cannot fix an unreachable database, and a `wait-for-it` exec probe against CNPG
+every 15s from three containers would write one `incomplete startup packet` LOG line per
+probe (its `/dev/tcp` path sends a newline before closing). A kubelet `tcpSocket` probe
+would be silent — but equally pointless.
 
 ## Hardening
 
@@ -246,7 +276,7 @@ ignored unless the process installs a handler. Three of the upstream entrypoints
 | --- | --- | --- | --- |
 | `frontend` | `/bin/bash nginx-entrypoint.sh` | the script ends with a bare `nginx -g 'daemon off;'`, no `exec` | preStop `nginx -s stop` |
 | `scheduler` | `python … frappe schedule` | `start_scheduler()` is `while True: sleep`, no handler; Python catches only SIGINT | preStop `kill -INT 1` |
-| `websocket` | `node apps/frappe/socketio.js` | `socketio.js` registers no signal listeners; node leaves SIGTERM at default | `args:` wraps `bench socketio` in a bash `trap` so node is a **child**, not PID 1 |
+| `websocket` | `node apps/frappe/socketio.js` | `socketio.js` registers no listeners; Node's own handler resets the disposition to default and re-raises, which the kernel ignores for PID 1 | `args:` wraps `bench socketio` in a bash `trap` so node is a **child**, not PID 1 |
 
 Without these, each ran out the **entire** 180s grace on every `Recreate` rollout —
 measured from the node's CRI view (`talosctl containers -k`), because the API server does
@@ -265,8 +295,13 @@ socket.io websockets through nginx, and a graceful quit waits for those.
 
 gunicorn (`start.sh` does `exec`), both RQ workers (warm shutdown: finish the current job)
 and Valkey (under `tini`) handle SIGTERM correctly. `grep SigCgt /proc/1/status` is a hint
-(SIGTERM is bit 15, mask `0x4000`) but not proof — node had it clear and *still* did not
-exit; the node-level container list during a delete is the only reliable check.
+(SIGTERM is bit 15, mask `0x4000`) but not proof — node shows the bit *set* (its handler)
+and still does not exit, and the bit reads clear once that handler has fired and reset
+itself. The node-level container list during a delete is the only reliable check.
+
+The two init containers run their long `bench` calls in the background and `wait` on
+them for the same reason: bash only runs a trap once the foreground command returns, so
+without that a delete during a 76s bootstrap would also ride out the grace.
 
 ## Secrets
 
@@ -286,17 +321,13 @@ credentials.
 ## Post-deploy
 
 1. Log in at `https://erpnext.${SECRET_DOMAIN}` as **`Administrator`** with
-   `ADMIN_PASSWORD` from the secret.
-2. Set the time zone. `get_system_timezone()` falls back to `Asia/Kolkata` and System
-   Settings ships no default, so every timestamp is IST-shifted until this is done —
-   via the Setup Wizard, or:
-   ```
-   bench --site erpnext.turner.haus execute frappe.db.set_single_value \
-     --args "['System Settings','time_zone','America/Los_Angeles']"
-   ```
-3. Check the devtools console for `Invalid origin` / `Invalid namespace` — realtime is
+   `ADMIN_PASSWORD` from the secret, and run the Setup Wizard (the time zone is already
+   America/Los_Angeles — see Bootstrap).
+2. Check the devtools console for `Invalid origin` / `Invalid namespace` — realtime is
    effectively untested upstream (the weekly CI brings the websocket service up but
    asserts nothing about it), so this is the only real signal.
+3. Confirm the scheduler is really running: `SELECT count(last_execution) FROM
+   "tabScheduled Job Type"` on the site database should be `> 0`.
 
 ## Known issues
 
@@ -317,9 +348,12 @@ credentials.
   `02-configurator`.
 - **`chromium_path`.** `/usr/bin/chromium-headless-shell` is present in the image
   (verified); the setting matches upstream compose.
-- **Secret exposure.** The CNPG superuser password reaches `bench new-site` on the
-  command line, so it is visible in `/proc` for the life of that init container, and the
-  generated per-site DB password sits in plaintext in `site_config.json` on the PVC.
-  Acceptable on a LAN test instance; note it before reusing this pattern.
+- **Secret exposure.** The generated per-site DB password sits in plaintext in
+  `site_config.json` on the PVC. frappe's DDL log also wrote it (`CREATE USER … WITH
+  PASSWORD`) into `sites/<site>/logs/database.log*` during bootstrap, so `03-create-site`
+  deletes those files once the sentinel is written. The `Administrator` password is still
+  on `bench new-site`'s argv (visible in `/proc` and `logs/bench.log` for that init
+  container) — it is bootstrap-only and rotated in the UI. Acceptable on a LAN test
+  instance; note it before reusing this pattern.
 - **Never run `bench build` in a running container** — it writes new assets into the
   writable layer, desynchronises `assets.json`, and needs pod *recreation* to recover.

@@ -45,8 +45,9 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     controllers:
       erpnext:
-        annotations:
-          reloader.stakater.com/auto: "true"
+        # No reloader annotation on purpose: both Secrets are consumed only by
+        # the 03-create-site init container, so a rotation would otherwise
+        # trigger a needless Recreate + bench migrate of the whole ERP.
         # One RWO PVC shared by eight frappe containers in one pod. RWO restricts
         # a volume to one NODE, not one pod — collapsing the six upstream
         # Deployments into one pod is what removes the ReadWriteMany requirement
@@ -181,6 +182,14 @@ spec:
                 set -e
                 SITE="$SITE_NAME"
                 SENTINEL="sites/$SITE/.bootstrap-complete"
+                # bash is PID 1 here and only runs a trap once the foreground
+                # command returns, so long bench calls run in the background and
+                # are awaited (wait is interruptible): a delete mid-bootstrap is
+                # then honoured instead of burning the grace period, and the
+                # sentinel/orphan-drop logic below handles the interrupted attempt.
+                child=""
+                trap 'kill -TERM "$child" 2>/dev/null; exit 143' TERM INT
+                run() { "$@" & child=$!; wait "$child"; }
                 until jq -e '.db_host and .redis_queue' sites/common_site_config.json >/dev/null 2>&1; do
                   echo "waiting for common_site_config.json"; sleep 2
                 done
@@ -188,6 +197,7 @@ spec:
                 # Backstop for the native-sidecar ordering gate, which is Beta (on
                 # by default) on Kubernetes 1.32, not GA.
                 wait-for-it -t 60 127.0.0.1:6379
+                psql_root() { PGPASSWORD="$POSTGRES_ROOT_PASSWORD" psql -h "$DB_HOST" -U "$POSTGRES_ROOT_USER" -v ON_ERROR_STOP=1 -q "$@"; }
                 if [ -f "$SENTINEL" ]; then
                   echo "site $SITE already bootstrapped"
                   # No `bench backup` here, deliberately: the image ships pg_dump
@@ -197,7 +207,7 @@ spec:
                   # WAL archiving to Ceph RGW, which is a better backup than a local
                   # dump on the same PVC would be. `bench migrate` is one-way and
                   # Flux will NOT roll the image back (upgrade.remediation above).
-                  bench --site "$SITE" migrate
+                  run bench --site "$SITE" migrate
                 else
                   # No sentinel => a previous attempt never completed. _new_site()
                   # writes site_config.json BEFORE it contacts the database and its
@@ -208,12 +218,14 @@ spec:
                   # That half-built attempt also left an orphaned database and role
                   # behind on CNPG (frappe names both _<16 hex>), which nothing else
                   # ever cleans up. Drop them before retrying — the same statements
-                  # frappe's own drop_user_and_database() runs.
+                  # frappe's own drop_user_and_database() runs. The DROP gates the
+                  # rm -rf: site_config.json is the only record of the orphan's
+                  # name, so a failed DROP must exit here (the kubelet retries with
+                  # backoff) rather than destroy that record and move on.
                   OLD_DB=$(jq -r '.db_name // empty' "sites/$SITE/site_config.json" 2>/dev/null || true)
                   if [ -n "$OLD_DB" ]; then
                     echo "dropping orphaned database/role $OLD_DB left by a failed attempt"
-                    PGPASSWORD="$POSTGRES_ROOT_PASSWORD" psql -h "$DB_HOST" -U "$POSTGRES_ROOT_USER" -d postgres -v ON_ERROR_STOP=0 \
-                      -c "DROP DATABASE IF EXISTS \"$OLD_DB\";" -c "DROP ROLE IF EXISTS \"$OLD_DB\";" || true
+                    psql_root -d postgres -c "DROP DATABASE IF EXISTS \"$OLD_DB\";" -c "DROP ROLE IF EXISTS \"$OLD_DB\";"
                   fi
                   rm -rf "sites/$SITE"
                   # NEVER add --force: setup_database() drops the database first,
@@ -224,12 +236,46 @@ spec:
                   # connects as the generated _<16 hex> role. The image's psql 15
                   # restores the bootstrap SQL into a 17.x server without complaint
                   # (only pg_dump is version-strict).
-                  bench new-site "$SITE" \
+                  # The superuser password goes in on STDIN, not argv: with no
+                  # --db-root-password, get_root_connection() falls through to
+                  # getpass(), which reads one line from the pipe when there is no
+                  # tty. bench logs every invocation's full argv to logs/bench.log
+                  # (a CRI host directory that outlives the container), and argv is
+                  # readable in /proc — neither should ever hold the CNPG superuser.
+                  printf '%s\n' "$POSTGRES_ROOT_PASSWORD" | run bench new-site "$SITE" \
                     --db-type postgres --db-host "$DB_HOST" --db-port 5432 \
-                    --db-root-username "$POSTGRES_ROOT_USER" --db-root-password "$POSTGRES_ROOT_PASSWORD" \
+                    --db-root-username "$POSTGRES_ROOT_USER" \
                     --admin-password "$ADMIN_PASSWORD" \
                     --install-app erpnext --set-default
                   touch "$SENTINEL"
+                  # ---- post-bootstrap hardening, AFTER the sentinel: a failure ----
+                  # ---- here must not trigger the destructive retry above.      ----
+                  DB=$(jq -r .db_name "sites/$SITE/site_config.json")
+                  # setup_db.py's "best-effort" GRANT pg_read_all_stats and CREATE
+                  # EXTENSION pg_stat_statements both SUCCEED on CNPG (the extension
+                  # needs only superuser; the preload is checked at query time).
+                  # pg_read_all_stats lets this role read the live query text of
+                  # every other tenant on the shared cluster. Revoke it, and drop
+                  # the extension, which is inert without shared_preload_libraries.
+                  psql_root -d postgres -c "REVOKE pg_read_all_stats FROM \"$DB\";" \
+                    && psql_root -d "$DB" -c "DROP EXTENSION IF EXISTS pg_stat_statements;" \
+                    || echo "WARNING: could not revoke pg_read_all_stats / drop pg_stat_statements for $DB"
+                  # frappe's DDL log wrote CREATE USER ... PASSWORD for the site
+                  # role into sites/<site>/logs/database.log* — on the PVC, next
+                  # to site_config.json. The bootstrap logs are only CREATE TABLE
+                  # noise; remove them.
+                  rm -f "sites/$SITE/logs/database.log"*
+                  # System Settings ships no time_zone and frappe falls back to
+                  # Asia/Kolkata. Setting it LATER is a trap: every Scheduled Job
+                  # Type was stamped in IST at creation, and the scheduler's cold
+                  # start computes the next run from that stamp — moving the site
+                  # clock back 12.5 h means nothing is due for 12.5 h, silently.
+                  # So set the zone now and re-base last_execution to the same
+                  # local clock the scheduler compares against.
+                  run bench --site "$SITE" execute frappe.db.set_single_value \
+                    --args "['System Settings','time_zone','$SITE_TZ']" \
+                    && psql_root -d "$DB" -c "UPDATE \"tabScheduled Job Type\" SET last_execution = (now() AT TIME ZONE '$SITE_TZ');" \
+                    || echo "WARNING: could not set time_zone / re-base scheduler"
                 fi
                 bench --site "$SITE" set-maintenance-mode off
                 # MANDATORY, not optional. _new_site() probes a database that does
@@ -241,6 +287,7 @@ spec:
             env:
               TZ: "America/Los_Angeles"
               SITE_NAME: "erpnext.${SECRET_DOMAIN}"
+              SITE_TZ: "America/Los_Angeles"
               DB_HOST: *dbHost
             envFrom:
               - secretRef:
@@ -424,9 +471,11 @@ spec:
             probes:
               # No listening port. Mirrors frappe/helm's worker.healthProbe, but
               # checks ONLY the in-pod Valkey: restarting a worker cannot fix an
-              # unreachable database, and a bare TCP probe against CNPG every 15s
-              # from three containers would only add "incomplete startup packet"
-              # noise to the Postgres log.
+              # unreachable database, and a wait-for-it exec probe against CNPG
+              # every 15s from three containers would write one "incomplete
+              # startup packet" LOG line per probe (its /dev/tcp path sends a
+              # newline before closing; a kubelet tcpSocket probe would be silent
+              # but equally pointless).
               # Do NOT use `healthcheck.sh --ping-service` — that script is not in
               # the frappe image and the probe would fail with "executable file not
               # found", crashlooping an otherwise healthy worker.
