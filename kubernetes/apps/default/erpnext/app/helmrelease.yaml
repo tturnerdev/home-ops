@@ -160,6 +160,17 @@ spec:
                 bench set-config -g  webserver_host 127.0.0.1
                 bench set-config -gp webserver_port 8000
                 bench set-config -g  chromium_path /usr/bin/chromium-headless-shell
+                # frappe's Python realtime server (asyncio + uvicorn,
+                # frappe/realtime/server.py) instead of the legacy node
+                # socketio.js. This is the one genuinely bleeding-edge knob the
+                # image exposes: `bench socketio` (bench 5.31.0) reads this key
+                # and execs `env/bin/python -m frappe.realtime.server` when the
+                # module is present (it is), falling back to node otherwise. It
+                # reads the same keys as node (socketio_port, redis_queue,
+                # webserver_host/port). Revert = set this to node; the key lives
+                # in common_site_config.json on the PVC, so it must be re-set here,
+                # not merely removed.
+                bench set-config -g  socketio_backend python
                 echo "common_site_config.json configured"
             env:
               TZ: "America/Los_Angeles"
@@ -414,22 +425,21 @@ spec:
             image: *img
             securityContext: *hardened
             # `bench socketio` reads `socketio_backend` from common_site_config
-            # (default "node") and execs apps/frappe/socketio.js. It does NOT probe
-            # for availability, and only ever falls back python -> node, never the
-            # reverse. If a future weekly build drops socketio.js this container
-            # crash-loops until `bench set-config -g socketio_backend python` is
-            # added to 02-configurator.
-            #
-            # Wrapped in bash so node is NOT PID 1. socketio.js registers no signal
-            # listeners, and node as PID 1 leaves SIGTERM at its default
-            # disposition, which the kernel ignores for an init process — measured
-            # via the node's CRI view: every other container had exited within
-            # seconds while this one ran out the whole 180s grace (and held the
-            # RWO volume) on every rollout. A preStop hook cannot fix it: the
-            # image has no tini/dumb-init, and `kill -KILL 1` from INSIDE a pid
-            # namespace is ignored too. As a child of a trapping bash, node gets
-            # the default action and exits 143. The ENTRYPOINT still runs first
-            # (assets symlink), because this is args:, not command:.
+            # (set to "python" by 02-configurator) and execs
+            # `env/bin/python -m frappe.realtime.server` — uvicorn installs
+            # SIGTERM/SIGINT handlers on its main thread, so it exits cleanly even
+            # as PID 1 (verified: gone within 3s of SIGTERM). If the module ever
+            # disappears from a weekly build it falls back to
+            # `node apps/frappe/socketio.js` (python -> node only, never the
+            # reverse), and node as PID 1 does NOT exit on SIGTERM: its own
+            # handler resets the disposition and re-raises, which the kernel
+            # ignores for an init process — measured via the node's CRI view,
+            # it ran out the whole 180s grace on every rollout. Hence the bash
+            # wrapper stays: as a child of a trapping bash either backend gets a
+            # real SIGTERM. A preStop cannot do this (no tini/dumb-init in the
+            # image; SIGKILL to an init from inside its pid namespace is
+            # ignored). The ENTRYPOINT still runs first (assets symlink), because
+            # this is args:, not command:.
             args:
               - bash
               - -c

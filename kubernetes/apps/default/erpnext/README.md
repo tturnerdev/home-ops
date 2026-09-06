@@ -40,6 +40,36 @@ reason: by the time a failed upgrade is noticed the database is already migrated
 Flux's default rollback would put **old code on a new schema**. A failed upgrade stays
 failed, visibly, for a human.
 
+## bench: why not its `develop` branch
+
+The `bench` CLI in the image is the **PyPI 5.31.0 wheel** (system python; not a git
+install). It is not on the PostgreSQL path at all: every database-touching command this
+pod runs — `new-site`, `migrate`, `set-config`, `execute`, `enable-scheduler`,
+`set-maintenance-mode`, `schedule`, `worker` — is a frappe command that bench merely
+`os.execv`s into `env/bin/python -m frappe.utils.bench_helper frappe …`, so the code that
+runs is frappe **17.0.0-dev**, which the pinned digest already builds from frappe
+`develop`. The installed wheel contains zero PostgreSQL code (its only database-flavoured
+code is MariaDB-specific and never runs here). The one bench-native command in the pod is
+`bench socketio`.
+
+bench's `develop` is also not an edge channel: releases are cut from `v5.x`
+(v5.31.0 = PyPI 5.31.0 = latest on both, as of 2026-09-05), `develop` is 10 commits
+ahead / 277 behind, and its delta is shell completions, `easy-install.py`, an
+nginx-template regex and a git-worktree filter — every file on this pod's executed path
+(`cli.py`, `commands/socketio.py`, `utils/*`, `config/common_site_config.py`) is
+byte-identical. It self-labels `5.0.0-dev`, which pip sorts *below* 5.31.0. No upstream
+bleeding-edge image installs bench from git: frappe_docker's production Containerfile does
+an unpinned `pip3 install frappe-bench` (a PR adding a `BENCH_VERSION` arg was closed), and
+Frappe Cloud pins a PyPI version. So bench is left exactly as shipped.
+
+If a from-git bench were ever genuinely needed, the right shape is a one-layer derived
+image `FROM` the pinned digest that `pip install`s a pinned bench **SHA** as root, built in
+GitHub Actions and digest-pinned like `atrelix-sign` — not a frappe_docker fork, and never
+a boot-time install.
+
+The genuinely bleeding-edge knob bench 5.31.0 exposes is the realtime backend — see
+*Realtime* below.
+
 ## PostgreSQL on CloudNativePG
 
 The site's database lives in the shared CNPG cluster (`postgres-rw.database`,
@@ -276,7 +306,7 @@ ignored unless the process installs a handler. Three of the upstream entrypoints
 | --- | --- | --- | --- |
 | `frontend` | `/bin/bash nginx-entrypoint.sh` | the script ends with a bare `nginx -g 'daemon off;'`, no `exec` | preStop `nginx -s stop` |
 | `scheduler` | `python … frappe schedule` | `start_scheduler()` is `while True: sleep`, no handler; Python catches only SIGINT | preStop `kill -INT 1` |
-| `websocket` | `node apps/frappe/socketio.js` | `socketio.js` registers no listeners; Node's own handler resets the disposition to default and re-raises, which the kernel ignores for PID 1 | `args:` wraps `bench socketio` in a bash `trap` so node is a **child**, not PID 1 |
+| `websocket` (node fallback) | `node apps/frappe/socketio.js` | `socketio.js` registers no listeners; Node's own handler resets the disposition to default and re-raises, which the kernel ignores for PID 1 | `args:` wraps `bench socketio` in a bash `trap` so the child gets a real SIGTERM (the default Python backend handles it natively; the wrapper covers the node fallback) |
 
 Without these, each ran out the **entire** 180s grace on every `Recreate` rollout —
 measured from the node's CRI view (`talosctl containers -k`), because the API server does
@@ -339,13 +369,17 @@ credentials.
   fix if it recurs: `command: ["/bin/bash","-c"]` with
   `args: ["ln -sfn /home/frappe/frappe-bench/assets /home/frappe/frappe-bench/sites/assets; exec <real command>"]`
   (`ln -sfn` is atomic via rename, and there is no `rm -rf`).
-- **Node vs Python realtime.** frappe develop ships a Python socket.io server alongside
-  the Node one, but `bench socketio` does **not** probe for availability: it reads
-  `socketio_backend` from `common_site_config.json` (default `"node"`) and execs
-  `apps/frappe/socketio.js` with no existence check. It only ever falls back
-  python → node, never the reverse. If a future weekly build drops `socketio.js`, this
-  container crash-loops until `bench set-config -g socketio_backend python` is added to
-  `02-configurator`.
+- **Realtime backend.** `02-configurator` sets `socketio_backend: python`, so
+  `bench socketio` execs frappe's **Python realtime server**
+  (`python -m frappe.realtime.server`, asyncio + uvicorn, rewritten 2026-08-25 — five
+  days before this image was built; no upstream image, compose file or CI runs it). It
+  reads the same keys as node (`socketio_port`, `redis_queue`, `webserver_host`/`port`)
+  and, unlike node, exits cleanly on SIGTERM even as PID 1 (uvicorn installs handlers).
+  Verified in-pod: authenticated namespace connect with a session cookie and
+  `publish_realtime` → delivered event. `bench socketio` only ever falls back
+  python → node (if `frappe.realtime.server` vanishes from a build), never the reverse;
+  the bash wrapper stays so that fallback is signal-safe too. Revert = set the key to
+  `node` in `02-configurator` (it persists on the PVC, so removing the line is not enough).
 - **`chromium_path`.** `/usr/bin/chromium-headless-shell` is present in the image
   (verified); the setting matches upstream compose.
 - **Secret exposure.** The generated per-site DB password sits in plaintext in
