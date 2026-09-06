@@ -36,7 +36,7 @@ spec:
               # that serves Claude + ChatGPT subscriptions to Claude Code, Cursor,
               # Aider, the Agent SDK, etc. Multi-arch; tags track npm releases.
               repository: ghcr.io/askalf/dario
-              tag: v6.0.9
+              tag: v6.0.28
               pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
