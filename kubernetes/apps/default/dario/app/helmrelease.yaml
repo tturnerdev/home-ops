@@ -58,6 +58,17 @@ spec:
             envFrom:
               - secretRef:
                   name: dario-secret # DARIO_API_KEY, DARIO_ADMIN_TOKEN
+            # The image entrypoint leaves node as PID 1, which only spawns
+            # `bun run cli.js proxy` and waits for it. Node installs no SIGTERM
+            # handler and an init process drops the default action, so a plain
+            # SIGTERM was ignored and every stop ate the full 30s grace period.
+            # The bun child does handle SIGTERM (flushes tokens, closes the
+            # server, force-exits after 5s) and the parent exits with it, so
+            # signal the child directly.
+            lifecycle:
+              preStop:
+                exec:
+                  command: ["sh", "-c", "kill -TERM $(pidof bun) 2>/dev/null || true"]
             probes:
               # TCP on purpose. /health is 503 "degraded" until the first account
               # is provisioned (a liveness probe there would crashloop; a readiness
