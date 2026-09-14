@@ -135,14 +135,24 @@ spec:
                   identifier: app
                   port: http
     persistence:
-      # Whole home dir on the PVC: ~/.dario holds credentials.json,
-      # accounts/*.json, codex-accounts/, the OAuth config cache and compare/
-      # output; bun/node caches land in ~ too, and the root fs is read-only.
-      # (The image has nothing under /home/dario besides an empty .dario.)
-      home:
+      # The PVC must sit EXACTLY at /home/dario/.dario. The image declares
+      # `VOLUME /home/dario/.dario`, and containerd honours image volumes by
+      # bind-mounting a fresh per-container directory there unless a pod mount
+      # covers that exact path. Mounting the PVC one level up at /home/dario
+      # (as this release did until 2026-09-13) left ~/.dario on that ephemeral
+      # overlay, so accounts/*.json vanished on every pod replacement.
+      # Holds accounts/*.json, codex-accounts/, backends/, the OAuth config
+      # cache and compare/ output. (lost+found at the volume root is harmless.)
+      config:
         existingClaim: dario
         globalMounts:
-          - path: /home/dario
+          - path: /home/dario/.dario
+      # Root fs is read-only; bun wants a writable ~/.bun for its transpiler
+      # cache. Best-effort cache, so ephemeral is fine.
+      bun-cache:
+        type: emptyDir
+        globalMounts:
+          - path: /home/dario/.bun
       tmp:
         type: emptyDir
         globalMounts:
