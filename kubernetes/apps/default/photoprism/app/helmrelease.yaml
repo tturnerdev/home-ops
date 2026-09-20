@@ -37,7 +37,7 @@ spec:
           app:
             image:
               repository: docker.io/photoprism/photoprism
-              tag: latest@sha256:db16ee6b1ba3e5bc5ad787a3141a082532d1b30932c8b1396fa609394374b83f
+              tag: latest@sha256:cea1af8ce28bd4c4da1ed40d57c86cbe9e58199bea1a6467eaaea10b1b32a925
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
