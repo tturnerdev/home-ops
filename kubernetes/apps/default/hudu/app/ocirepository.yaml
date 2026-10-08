@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+# Hudu's official chart, published as an OCI artifact on ECR Public (anonymous
+# pulls). Browse versions at https://artifacthub.io/packages/helm/hudu/hudu-helm-chart
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: hudu
+spec:
+  interval: 12h
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 0.3.4
+  url: oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart

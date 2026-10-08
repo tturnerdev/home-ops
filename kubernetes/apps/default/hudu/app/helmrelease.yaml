@@ -1,0 +1,154 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: hudu
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: hudu
+  maxHistory: 3
+  # The post-install/pre-upgrade migration hook runs `rails db:prepare` and
+  # can take minutes on a fresh or freshly-restored database
+  timeout: 10m
+  install:
+    createNamespace: true
+    # The chart loads the schema in a post-install hook, but Hudu's web and
+    # worker refuse to boot until that schema exists (boot queries
+    # "accounts"). With Flux's default wait, Helm waits for the pods before
+    # running the hook: a deadlock. Not waiting lets the hook run while the
+    # pods crash-loop; they recover on their next restart. Upgrades keep the
+    # wait (the migration is a pre-upgrade hook there).
+    disableWait: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  # Chart values reference: https://artifacthub.io/packages/helm/hudu/hudu-helm-chart
+  # Everything stateful is external: Postgres on the shared CNPG cluster,
+  # Redis on the shared Dragonfly, uploads in the existing MinIO bucket the
+  # lab1 instance already uses (Hudu hands browsers presigned S3 URLs, so the
+  # object store must be reachable from LAN and WAN — the in-cluster Ceph RGW
+  # is not). Nothing in the chart's bundled Postgres/Redis/MinIO is used.
+  values:
+    # Release name "hudu" + chart name "hudu-helm-chart" would otherwise yield
+    # resources named hudu-hudu-helm-chart-*
+    fullnameOverride: hudu
+    # Reloader restarts web/worker when hudu-app-secret changes (the chart's
+    # own checksum annotations only cover the Secret it would render itself)
+    commonAnnotations:
+      reloader.stakater.com/auto: "true"
+    image:
+      repository: hududocker/hudu
+      tag: 2.46.1
+      pullPolicy: IfNotPresent
+    config:
+      # Production hostname (took over from the lab1 instance on 2026-10-08).
+      # DOMAIN drives every generated URL and the CSRF/ActionCable origin
+      # checks, so it must match the Ingress host.
+      domain: "docs.${SECRET_DOMAIN_2}"
+      # ingress-nginx terminates TLS and forwards X-Forwarded-Proto; Rails
+      # keeps force_ssl on (plain http is redirected)
+      behindTlsProxy: true
+      disableSsl: false
+      railsMaxThreads: 6
+      maxFileSize: 200
+      smtp:
+        domain: "docs.${SECRET_DOMAIN_2}"
+        address: smtp.sendgrid.net
+        port: 587
+        startTlsAuto: true
+    secrets:
+      # All app secrets come from the sops Secret, under the chart's default
+      # key names (SECRET_KEY_BASE, PASSWORD_KEY, TWO_FACTOR_KEY,
+      # DISCOVERY_CLIENT_SECRET, SMTP_USERNAME, SMTP_PASSWORD). Setting
+      # existingSecret suppresses the chart's own Secret entirely, which is
+      # why hudu-app-secret also carries REDIS_URL.
+      existingSecret: hudu-app-secret
+    postgresql:
+      enabled: false
+    externalDatabase:
+      host: postgres-rw.database.svc.cluster.local
+      port: 5432
+      username: hudu
+      database: hudu_production
+      existingSecret: hudu-app-secret
+      existingSecretPasswordKey: INIT_POSTGRES_PASS
+    redis:
+      enabled: false
+    externalRedis:
+      host: dragonfly.database.svc.cluster.local
+      port: 6379
+      existingSecret: hudu-app-secret
+      existingSecretUrlKey: REDIS_URL
+    storage:
+      type: s3
+      s3:
+        # bucket comes from hudu-app-secret via valuesFrom (S3_BUCKET)
+        region: us-east-1
+        endpoint: "https://minio.${SECRET_DOMAIN_2}"
+        forcePathStyle: true
+        existingSecret: hudu-app-secret
+        existingSecretAccessKeyIdKey: S3_ACCESS_KEY_ID
+        existingSecretSecretAccessKeyKey: S3_SECRET_ACCESS_KEY
+    web:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          memory: 2Gi
+      extraEnv: &extraEnv
+        - name: TZ
+          value: America/Los_Angeles
+        # MinIO rejects the SSE header Hudu adds to uploads by default
+        - name: S3_REMOVE_ENCRYPTION_HEADER
+          value: "true"
+        - name: SMTP_AUTHENTICATION
+          value: login
+        # The app's own default is "none"; SendGrid presents a valid certificate
+        - name: SMTP_OPENSSL_VERIFY_MODE
+          value: peer
+        - name: SMTP_FROM_ADDRESS
+          value: "info@docs.${SECRET_DOMAIN_2}"
+    worker:
+      # The chart refuses >1: the worker owns Sidekiq's cron scheduler
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          memory: 1536Mi
+      extraEnv: *extraEnv
+    migrate:
+      backoffLimit: 3
+      extraEnv: *extraEnv
+    ingress:
+      enabled: true
+      className: external
+      host: "docs.${SECRET_DOMAIN_2}"
+      # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
+      # plus a cloudflared ingress rule (cloudflare external-dns excludes this
+      # zone). LAN DNS: unifi-dns publishes this host -> ingress LB IP.
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-production
+        # Above Hudu's MAX_FILE_SIZE (200 MB)
+        nginx.ingress.kubernetes.io/proxy-body-size: 256m
+      tls:
+        enabled: true
+        secretName: hudu-tls
+  valuesFrom:
+    # Keeps the bucket name (it embeds the domain) out of plaintext git
+    - kind: Secret
+      name: hudu-app-secret
+      valuesKey: S3_BUCKET
+      targetPath: storage.s3.bucket
