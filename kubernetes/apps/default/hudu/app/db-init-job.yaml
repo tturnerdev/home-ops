@@ -1,0 +1,64 @@
+---
+# One-shot, idempotent bootstrap of Hudu's database on the shared CNPG cluster
+# (the role, the database, and its extensions). It replaces the usual
+# postgres-init initContainer because the official chart has no initContainer
+# hook, and because pgvector is NOT a "trusted" extension: only a superuser can
+# CREATE EXTENSION vector, and Hudu's 2.46 migration silently skips its
+# semantic-search tables when it cannot (Hudu's stated baseline for v2.46+ is
+# PostgreSQL 18 + pgvector 0.8; this cluster is PG 17 with pgvector 0.8.0, which
+# the app accepts — see README.md).
+#
+# Re-runs are harmless: CREATE only when missing, ALTER ROLE re-asserts the
+# password from hudu-app-secret. The force annotation lets Flux replace the
+# immutable Job when this file changes. Bare $VARS below are shell variables
+# (Flux only substitutes ${...}).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hudu-db-init
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          image: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: hudu-ext-secret
+            - secretRef:
+                name: hudu-app-secret
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              export PGPASSWORD="$INIT_POSTGRES_SUPER_PASS"
+              until pg_isready -q -h "$INIT_POSTGRES_HOST" -U "$INIT_POSTGRES_SUPER_USER"; do
+                echo "waiting for $INIT_POSTGRES_HOST"; sleep 3
+              done
+              psql -h "$INIT_POSTGRES_HOST" -U "$INIT_POSTGRES_SUPER_USER" -d postgres \
+                -v ON_ERROR_STOP=1 -v role="$INIT_POSTGRES_USER" -v pass="$INIT_POSTGRES_PASS" \
+                -v db="$INIT_POSTGRES_DBNAME" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pass')
+                WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') \gexec
+              SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'role', :'pass') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'role')
+                WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') \gexec
+              SQL
+              psql -h "$INIT_POSTGRES_HOST" -U "$INIT_POSTGRES_SUPER_USER" -d "$INIT_POSTGRES_DBNAME" \
+                -v ON_ERROR_STOP=1 <<'SQL'
+              CREATE EXTENSION IF NOT EXISTS vector;
+              CREATE EXTENSION IF NOT EXISTS pg_trgm;
+              CREATE EXTENSION IF NOT EXISTS unaccent;
+              CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
+              SQL
+              echo "hudu database bootstrap complete"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
