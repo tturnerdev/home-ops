@@ -30,14 +30,6 @@ spec:
               pullPolicy: IfNotPresent
             args:
               - serve
-            env:
-              # iOS push: a self-hosted server can only wake the iPhone app via
-              # Apple, so it relays a content-free poll request (SHA-256 of
-              # base-url/topic + message ID) through ntfy.sh, and the app then
-              # fetches the message from here. The hash needs base-url set.
-              # Android ignores both. First user: dario-notify (topic "homelab").
-              NTFY_BASE_URL: "https://ntfy.${SECRET_DOMAIN}"
-              NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
     service:
       # Configure a service for the main application
       app:
