@@ -37,7 +37,7 @@ spec:
           app:
             image:
               repository: ghcr.io/paperless-ngx/paperless-ngx
-              tag: 2.20.15@sha256:6c86cad803970ea782683a8e80e7403444c5bf3cf70de63b4d3c8e87500db92f
+              tag: 3.3.3@sha256:dba0242c1df1843643df4eb50ce5639f3a7900f414879088fd5bed8eaf2d456d
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
@@ -52,7 +52,13 @@ spec:
               PAPERLESS_CONSUMPTION_DIR: "/consume"
               PAPERLESS_DATA_DIR: "/data"
               PAPERLESS_MEDIA_ROOT: "/media"
-              # Database
+              # ingress-nginx always overwrites X-Real-IP with the peer address;
+              # without a trusted source, allauth (v3) rate-limits logins by the
+              # proxy's IP instead of the client's
+              PAPERLESS_ALLAUTH_TRUSTED_CLIENT_IP_HEADER: "X-Real-IP"
+              # Database. v3 no longer infers PostgreSQL from DBHOST: without
+              # DBENGINE it silently starts on an empty SQLite file
+              PAPERLESS_DBENGINE: "postgresql"
               PAPERLESS_DBHOST: "postgres-rw.database.svc.cluster.local"
               PAPERLESS_DBPORT: "5432"
               PAPERLESS_DBNAME: "paperless-ngx"
