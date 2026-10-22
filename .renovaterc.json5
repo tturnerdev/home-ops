@@ -194,6 +194,20 @@
       allowedVersions: '<5',
     },
     {
+      // Spegel 0.7 dropped containerd 2.0 support (it only advertises new
+      // images through content events, which containerd 2.1 introduced) and
+      // 0.8 refuses to start below containerd 2.2; 0.8's registry Service also
+      // sets trafficDistribution: PreferSameNode, which Kubernetes 1.32 rejects.
+      // The nodes run Talos 1.9.5 (containerd 2.0.3, Kubernetes 1.32.3). Raise
+      // this to '<0.8.0' once Talos is on 1.11+ (containerd 2.1) and drop it
+      // once Talos is on 1.13+ (containerd 2.2.3) with Kubernetes 1.33+.
+      description: 'Hold Spegel on 0.6',
+      matchPackageNames: [
+        'ghcr.io/spegel-org/helm-charts/spegel',
+      ],
+      allowedVersions: '<0.7.0',
+    },
+    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
