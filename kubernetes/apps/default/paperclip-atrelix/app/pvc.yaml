@@ -1,0 +1,16 @@
+---
+# PAPERCLIP_HOME (also $HOME): agent workspaces, uploaded attachments, run
+# logs, instance config, and the CLI homes (~/.claude, ~/.codex) holding
+# subscription logins. Not backed up; the database is (CNPG).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperclip-atrelix-data
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: ceph-block
