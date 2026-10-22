@@ -38,9 +38,10 @@ function status() {
 
     printf '\n/health: %s\n\n' "${health}"
     jq -r '
-        ["SEAT", "GRANT", "AGE", "WALL (~28d after grant)", "ACCESS TOKEN", "AUTH FAILS"],
+        ["SEAT", "STATUS", "GRANT", "AGE", "WALL (~28d after grant)", "ACCESS TOKEN", "AUTH FAILS"],
         (.accounts[] | [
             .alias,
+            (if .status == "rejected" and .reset_at then "rate-limited until \(.reset_at / 1000 | strflocaltime("%H:%M"))" else .status end),
             .grant_level,
             (if .grant_age_days then "\(.grant_age_days)d" else "?" end),
             (if .refresh_wall_at then (.refresh_wall_at / 1000 | strflocaltime("%a %b %d %H:%M")) else "-" end),
@@ -49,8 +50,12 @@ function status() {
         ]) | @tsv' <<<"${accounts}" | column -t -s $'\t'
     echo
 
-    if [[ "${health}" != 200 ]] || jq -e '.accounts | any(.grant_level != "ok")' <<<"${accounts}" >/dev/null; then
+    if jq -e '.accounts | any(.grant_level != "ok")' <<<"${accounts}" >/dev/null; then
         log warn "Re-grant needed: task dario:login [SEAT=<seat>]"
+    elif [[ "${health}" != 200 ]] && jq -e '.accounts | length > 0 and all(.status == "rejected")' <<<"${accounts}" >/dev/null; then
+        log warn "Rate-limited: dario resumes by itself at the reset time (docs/dario.md, \"When it's rate-limited\")"
+    elif [[ "${health}" != 200 ]]; then
+        log warn "dario isn't serving; see docs/dario.md"
     fi
 }
 
