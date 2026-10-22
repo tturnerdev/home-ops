@@ -28,7 +28,7 @@ spec:
           app:
             image:
               repository: ghcr.io/homarr-labs/homarr
-              tag: v1.77.2
+              tag: v2.8.0
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
@@ -76,8 +76,13 @@ spec:
         existingClaim: homarr-config
         globalMounts:
           - path: /app/data/configs
+      # Homarr 1.x+ keeps its SQLite DB, Redis dump and trusted certs in
+      # /appdata, which the image declares a VOLUME: unless a pod mount covers
+      # that exact path, containerd gives each container a throwaway directory
+      # there. This PVC sat at /data (an old 0.x path) until 2026-10-22, so
+      # every pod replacement started Homarr from scratch.
       data:
         enabled: true
         existingClaim: homarr-data
         globalMounts:
-          - path: /data
+          - path: /appdata
