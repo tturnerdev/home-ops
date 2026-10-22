@@ -135,14 +135,15 @@
       // List B (docs/renovate.md): apps that update unattended, matched by
       // folder, so an image shared with a list-A app (say, Postgres) still
       // waits for review. Majors wait for a PR here too. Same early-morning
-      // window as dario.
+      // window as dario. Homebox is held out while a switch to
+      // hay-kot/homebox, uncommitted on 2026-10-22, edits the same lines as
+      // its pending update.
       description: 'Auto-merge less critical apps',
       matchFileNames: [
         'kubernetes/apps/default/echo/**',
         'kubernetes/apps/default/echo-envoy/**',
         'kubernetes/apps/default/echo-internal/**',
         'kubernetes/apps/default/homarr/**',
-        'kubernetes/apps/default/homebox/**',
         'kubernetes/apps/default/homepage/**',
         'kubernetes/apps/default/httpbin/**',
         'kubernetes/apps/default/httpbin2/**',
