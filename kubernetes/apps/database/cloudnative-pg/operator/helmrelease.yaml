@@ -6,7 +6,7 @@ metadata:
   name: cloudnative-pg
   namespace: flux-system
 spec:
-  interval: 24h
+  interval: 1h
   url: https://cloudnative-pg.github.io/charts
 # ---
 # # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
