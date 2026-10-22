@@ -35,8 +35,10 @@ Hex values keep the password usable verbatim in postgres-init's SQL and in
    account, and choose **Claim this instance**. In `authenticated` + `private`
    mode the first signed-in browser to claim becomes instance admin, so do this
    right after the first deploy.
-2. Close sign-up: add `PAPERCLIP_AUTH_DISABLE_SIGN_UP: "true"` to the
-   HelmRelease env. Add people through invites from then on.
+2. Close sign-up with `PAPERCLIP_AUTH_DISABLE_SIGN_UP: "true"` in the
+   HelmRelease env (set since the claim on 2026-10-22). Add people through
+   invites from then on. Starting over on a fresh database means removing the
+   flag again until the claim is done.
 3. **Apps → Connections**: sign in to the Claude and Codex subscriptions, or
    add API keys. Logins land on the data volume and in the database (encrypted
    with the master key).
@@ -65,6 +67,11 @@ Hex values keep the password usable verbatim in postgres-init's SQL and in
   cert-manager Cloudflare token (`kubernetes`) therefore has DNS:Edit and
   Zone:Read on this zone as well, and the ClusterIssuer pins only this host to
   DNS-01. Other secondary-domain hosts keep HTTP-01.
+- **Harmless startup noise.** The banner's `Agent JWT: missing (run npx
+  paperclipai onboard)` only checks `PAPERCLIP_AGENT_JWT_SECRET`; agent JWTs
+  are signed with the `BETTER_AUTH_SECRET` fallback instead. postgres-init
+  16.2 logs `database_init_file: command not found` from a bug in its script;
+  it still finishes.
 - **Upgrades.** Bump tag and digest together (stable tags look like
   `2026.1012.0`; the digest is the multi-arch index). Migrations apply on
   start; read the release notes for breaking changes first. A downgrade after
