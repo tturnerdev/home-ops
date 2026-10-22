@@ -100,8 +100,8 @@ dario serves within your subscription's usage limits. When Anthropic answers
 429 (the 5-hour or weekly window is used up), dario parks the seat until that
 window resets, and until then answers 429 itself without asking Anthropic:
 `/status` says `all accounts rate-limited`, `task dario:status` shows the seat
-`rejected`, and the pod logs `pool parked ... nothing sent upstream`. It
-resumes on its own at the reset time.
+`rate-limited until <time>`, and the pod logs `pool parked ... nothing sent
+upstream`. It resumes on its own at the reset time.
 
 To make it retry sooner (say, after raising the limit), send one request
 pinned to the seat. A pinned request skips the parked check, and a successful
