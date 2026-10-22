@@ -165,6 +165,10 @@ set the field, so Flux leaves it alone:
   which would crash-loop a liveness probe and, on readiness, cut off the
   ingress you re-grant through.
 - `No Claude Code device identity found` at startup is harmless in pool mode.
+- **A new model answers `400 claude_code_version_too_old`** ("Claude Code
+  2.1.270 does not support this model"): Anthropic gates new models on the
+  Claude Code version dario's bundled template claims, so bump the dario image.
+  Opus 5.5 needed 2.1.280+, which came with the move to 6.13.28 (CC 2.1.306).
 
 ## History
 
