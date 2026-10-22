@@ -6,7 +6,9 @@ metadata:
   name: tailscale
   namespace: network # Required for Renovate lookups
 spec:
-  interval: 168h
+  # A weekly index refresh left a new chart version unresolvable for days
+  # ("no chart version matching", 2026-10-22); the other repos poll 5m-12h
+  interval: 1h
   url: https://pkgs.tailscale.com/helmcharts
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
