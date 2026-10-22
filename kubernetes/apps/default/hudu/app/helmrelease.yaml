@@ -140,6 +140,14 @@ spec:
       # plus a cloudflared ingress rule (cloudflare external-dns excludes this
       # zone). LAN DNS: unifi-dns publishes this host -> ingress LB IP.
       annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/group: "Atrelix"
+        gethomepage.dev/name: "Hudu"
+        gethomepage.dev/icon: "mdi-book-open-page-variant"
+        gethomepage.dev/description: "IT documentation"
+        # The chart labels pods app.kubernetes.io/name=hudu-helm-chart, so
+        # Homepage's default name-based status lookup finds nothing
+        gethomepage.dev/pod-selector: "app.kubernetes.io/instance=hudu,app.kubernetes.io/component=web"
         cert-manager.io/cluster-issuer: letsencrypt-production
         # Above Hudu's MAX_FILE_SIZE (200 MB)
         nginx.ingress.kubernetes.io/proxy-body-size: 256m

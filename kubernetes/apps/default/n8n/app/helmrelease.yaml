@@ -146,6 +146,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/name: "n8n"
+          gethomepage.dev/icon: "n8n.svg"
+          gethomepage.dev/description: "Home automations"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "auto.${SECRET_DOMAIN}"

@@ -96,6 +96,11 @@ spec:
         # LAN DNS: unifi-dns publishes this host -> internal ingress alias.
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Atrelix"
+          gethomepage.dev/name: "Workflow Console"
+          gethomepage.dev/icon: "mdi-sitemap-outline"
+          gethomepage.dev/description: "n8n workflow console"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "flow.${SECRET_DOMAIN_2}"

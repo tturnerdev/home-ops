@@ -71,6 +71,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/name: "Mealie"
+          gethomepage.dev/icon: "mealie.svg"
+          gethomepage.dev/description: "Recipes"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "cook.${SECRET_DOMAIN}"
