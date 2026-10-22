@@ -183,6 +183,17 @@
       ignoreTests: true,
     },
     {
+      // Sonarr v5 is still a pre-release (GitHub flags every 5.0.0.x build as
+      // one as of 2026-10-22) and its database migration is one-way. The
+      // home-operations image publishes those builds under plain tags, so hold
+      // it here. Drop this rule once Sonarr ships v5 as a stable release.
+      description: 'Hold Sonarr on v4',
+      matchPackageNames: [
+        'ghcr.io/home-operations/sonarr',
+      ],
+      allowedVersions: '<5',
+    },
+    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
