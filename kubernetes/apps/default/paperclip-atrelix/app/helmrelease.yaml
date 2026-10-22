@@ -63,6 +63,9 @@ spec:
               # Canonical URL: auth base URL, invite links, and the private
               # hostname allowlist (any other Host header gets a 403)
               PAPERCLIP_PUBLIC_URL: "https://paperclip.${SECRET_DOMAIN_2}"
+              # First admin claimed 2026-10-22; people join by invite from here
+              # on. A fresh database needs this off again for the browser claim.
+              PAPERCLIP_AUTH_DISABLE_SIGN_UP: "true"
               # No TTY to answer the pending-migrations prompt
               PAPERCLIP_MIGRATION_AUTO_APPLY: "true"
               # The shared CNPG cluster's backups cover the database; skip
