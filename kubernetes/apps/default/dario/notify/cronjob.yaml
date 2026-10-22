@@ -3,8 +3,9 @@
 # WARN from day 21 of a seat's grant and URGENT from day 26, but its only other
 # outlet is a desktop toast, which a pod doesn't have: the October 2026 lapse
 # sat in the pod log for 9 days. notify.py reads the same verdict from
-# /admin/accounts, plus /health, and emails + pushes it to ntfy topic
-# "homelab". It exits quietly while all is well.
+# /admin/accounts, plus /health, and emails + pushes it to ntfy (server and
+# topic in secret.sops.yaml). It exits quietly while all is well, and while a
+# seat is merely rate-limited: dario resumes that by itself.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -40,7 +41,10 @@ spec:
                       name: dario-secret
                       key: DARIO_ADMIN_TOKEN
                 - name: NTFY_URL
-                  value: http://ntfy.infra.svc.cluster.local/homelab
+                  valueFrom:
+                    secretKeyRef:
+                      name: dario-notify-ntfy
+                      key: NTFY_URL
                 - name: MAIL_TO
                   value: "tturner@${SECRET_DOMAIN_2}"
                 - name: RUNBOOK_URL
