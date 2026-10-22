@@ -1,0 +1,72 @@
+---
+# Daily nag for dario's ~28-day re-grant (runbook: docs/dario.md). dario logs
+# WARN from day 21 of a seat's grant and URGENT from day 26, but its only other
+# outlet is a desktop toast, which a pod doesn't have: the October 2026 lapse
+# sat in the pod log for 9 days. notify.py reads the same verdict from
+# /admin/accounts, plus /health, and emails + pushes it to ntfy topic
+# "homelab". It exits quietly while all is well.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dario-notify
+spec:
+  schedule: "0 9 * * *"
+  timeZone: America/Los_Angeles
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: notify
+              image: docker.io/library/python:3.14.9-alpine3.24@sha256:d55673c233e28839c1c0c69766428cb6d50174a2ecfdcf915b6f58a0b0991562
+              command: ["python", "/app/notify.py"]
+              env:
+                - name: DARIO_URL
+                  value: http://dario.default.svc.cluster.local:3456
+                - name: DARIO_ADMIN_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: dario-secret
+                      key: DARIO_ADMIN_TOKEN
+                - name: NTFY_URL
+                  value: http://ntfy.infra.svc.cluster.local/homelab
+                - name: MAIL_TO
+                  value: "tturner@${SECRET_DOMAIN_2}"
+                - name: RUNBOOK_URL
+                  value: https://github.com/tturnerdev/home-ops/blob/main/docs/dario.md
+                - name: TZ
+                  value: America/Los_Angeles
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              envFrom:
+                - secretRef:
+                    name: dario-notify-secret # SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: dario-notify
