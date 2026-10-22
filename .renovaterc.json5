@@ -95,6 +95,7 @@
       automerge: true,
       automergeType: 'branch',
       matchUpdateTypes: [
+        'major',
         'minor',
         'patch',
         'digest',
@@ -128,6 +129,78 @@
       automergeSchedule: [
         '* 9-14 * * *',
       ],
+      ignoreTests: true,
+    },
+    {
+      // List B (docs/renovate.md): apps that update unattended, matched by
+      // folder, so an image shared with a list-A app (say, Postgres) still
+      // waits for review. Majors wait for a PR here too. Same early-morning
+      // window as dario.
+      description: 'Auto-merge less critical apps',
+      matchFileNames: [
+        'kubernetes/apps/default/echo/**',
+        'kubernetes/apps/default/echo-envoy/**',
+        'kubernetes/apps/default/echo-internal/**',
+        'kubernetes/apps/default/homarr/**',
+        'kubernetes/apps/default/homebox/**',
+        'kubernetes/apps/default/homepage/**',
+        'kubernetes/apps/default/httpbin/**',
+        'kubernetes/apps/default/httpbin2/**',
+        'kubernetes/apps/default/mealie/**',
+        'kubernetes/apps/default/n8n/**',
+        'kubernetes/apps/default/paperless-ngx/**',
+        'kubernetes/apps/default/photoprism/**',
+        'kubernetes/apps/default/podinfo/**',
+        'kubernetes/apps/default/shlink/**',
+        'kubernetes/apps/default/shlink-web-client/**',
+        'kubernetes/apps/infra/ntfy/**',
+        'kubernetes/apps/infra/organizr/**',
+        'kubernetes/apps/infra/podinfo2/**',
+        'kubernetes/apps/infra/podinfo3/**',
+        'kubernetes/apps/media/audiobookshelf/**',
+        'kubernetes/apps/media/overseerr/**',
+        'kubernetes/apps/media/plex/**',
+        'kubernetes/apps/media/prowlarr/**',
+        'kubernetes/apps/media/radarr/**',
+        'kubernetes/apps/media/readarr/**',
+        'kubernetes/apps/media/sabnzbd/**',
+        'kubernetes/apps/media/sonarr/**',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+        'digest',
+      ],
+      schedule: [
+        '* 9-14 * * *',
+      ],
+      automerge: true,
+      automergeType: 'branch',
+      automergeSchedule: [
+        '* 9-14 * * *',
+      ],
+      ignoreTests: true,
+    },
+    {
+      // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
+      // should move with the cluster's versions, not ahead of them.
+      description: 'Auto-merge CLI tools',
+      matchManagers: [
+        'mise',
+      ],
+      matchDepNames: [
+        '!aqua:siderolabs/talos',
+        '!aqua:budimanjojo/talhelper',
+        '!aqua:kubernetes/kubernetes/kubectl',
+        '!aqua:fluxcd/flux2',
+        '!aqua:cilium/cilium-cli',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      automerge: true,
+      automergeType: 'branch',
       ignoreTests: true,
     },
     {
