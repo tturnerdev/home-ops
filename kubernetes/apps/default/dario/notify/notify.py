@@ -138,7 +138,7 @@ def main():
     except Exception as err:  # unreachable, DNS, a body that isn't JSON: all mean "go look"
         level, lines, aliases = "down", [f"The check could not read dario: {err}"], set()
     if level is None:
-        print("ok: /health is 200 and every seat is inside its grant window")
+        print("ok: dario isn't down and no seat needs a re-grant")
         return 0
 
     subject, priority, tag = LEVELS[level]
