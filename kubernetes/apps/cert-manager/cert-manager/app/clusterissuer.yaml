@@ -17,8 +17,19 @@ spec:
               key: api-token
         selector:
           dnsZones: ["${SECRET_DOMAIN}"]
-      # Secondary domain: the Cloudflare token is zone-scoped to the primary
-      # domain, so validate over HTTP through the cloudflared tunnel instead
+      # Secondary-domain hosts on the INTERNAL ingress: no tunnel route, so
+      # HTTP-01 can't reach them. The token has DNS:Edit on this zone too; a
+      # dnsNames match outranks the dnsZones selector below, so only the hosts
+      # listed here use DNS-01.
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cert-manager-secret
+              key: api-token
+        selector:
+          dnsNames: ["paperclip.${SECRET_DOMAIN_2}"]
+      # Secondary domain, public hosts: validate over HTTP through the
+      # cloudflared tunnel (predates the token covering this zone)
       - http01:
           ingress:
             ingressClassName: external
