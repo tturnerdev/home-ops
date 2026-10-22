@@ -1,6 +1,6 @@
 # Hudu
 
-IT documentation platform (Hudu 2.46.1, self-hosted) deployed with Hudu's
+IT documentation platform (Hudu 2.48.0, self-hosted) deployed with Hudu's
 official Helm chart at `docs.${SECRET_DOMAIN_2}`. It took over from the
 docker-compose instance on lab1 (10.13.37.20) on 2026-10-08; the "Migration
 from lab1" section below records how, and doubles as the restore runbook.
@@ -9,7 +9,7 @@ from lab1" section below records how, and doubles as the restore runbook.
 
 | Piece | Where | Notes |
 |---|---|---|
-| Chart | `OCIRepository/hudu` → `oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart` 0.3.4 | ECR Public, anonymous pulls. Image `hududocker/hudu:2.46.1` pinned in the HelmRelease |
+| Chart | `OCIRepository/hudu` → `oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart` 0.3.6 | ECR Public, anonymous pulls. Image `hududocker/hudu:2.48.0` pinned in the HelmRelease |
 | Web / worker | `Deployment/hudu-web`, `Deployment/hudu-worker` | `fullnameOverride: hudu`. The worker must stay at 1 replica (it owns Sidekiq's cron scheduler; the chart refuses more) |
 | Migrations | `Job/hudu-migrate` (Helm hook, `post-install,pre-upgrade`) | Runs `rails db:prepare`. The completed Job stays around until the next upgrade, so its logs are inspectable |
 | Postgres | shared CNPG cluster `postgres` (PG 17.6), database `hudu_production`, role `hudu` | Created by `Job/hudu-db-init`, which also creates the extensions `vector`, `pg_trgm`, `unaccent`, `fuzzystrmatch` as superuser. Covered by the cluster's daily `ScheduledBackup` (02:00 → Ceph RGW) like every other app DB |
@@ -51,9 +51,14 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   PostgreSQL 17.2 with no pgvector at all. The shared CNPG cluster is 17.6
   *with* pgvector 0.8.0 (the `standard` CNPG image ships it), so the
   `vector_embeddings` table and its HNSW index are created normally — verified
-  in the migration rehearsal below. When the shared cluster moves to 18
-  (Renovate branch `renovate/ghcr.io-cloudnative-pg-postgresql-18.x`), Hudu
-  rides along; no dedicated cluster needed.
+  in the migration rehearsal below. The 2.47 and 2.48 release notes repeat
+  the PG 18 requirement, but 2.48.0's four new migrations (an API-key
+  `integration_slug` column and its backfill, two `recordings` index rebuilds)
+  are plain PostgreSQL and nothing in the code checks the server version, so
+  it runs on 17.6 as well (checked 2026-10-22). Before each upgrade, list the
+  new image's `db/migrate` entries newer than `max(version)` in
+  `schema_migrations` and read them. When the shared cluster moves to 18 (on
+  the platform upgrade list), Hudu rides along; no dedicated cluster needed.
 - **pgvector is not a "trusted" extension**, so only a superuser can
   `CREATE EXTENSION vector`; the app role cannot. That is why `hudu-db-init`
   runs as the CNPG superuser instead of the usual `postgres-init`
