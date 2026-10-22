@@ -103,6 +103,34 @@
       ignoreTests: true,
     },
     {
+      // Each dario release bundles a newer Claude Code template, and Anthropic
+      // gates new models on it (docs/dario.md), so dario skips the weekend
+      // schedule and merges straight to main; majors still wait for a PR.
+      // 09:00-14:59 UTC = 02:00-07:59 PDT: the Recreate restart lands before
+      // the day starts and before dario-notify's 09:00 PT check.
+      description: 'Auto-merge dario daily',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/askalf/dario',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+        'digest',
+      ],
+      schedule: [
+        '* 9-14 * * *',
+      ],
+      automerge: true,
+      automergeType: 'branch',
+      automergeSchedule: [
+        '* 9-14 * * *',
+      ],
+      ignoreTests: true,
+    },
+    {
       matchUpdateTypes: [
         'major',
       ],
