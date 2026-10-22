@@ -88,8 +88,6 @@ spec:
       # policy sync, ignoring it would repoint records. Read the legacy prefix
       # until the annotations are migrated (the flag is a temporary aid).
       - --enable-legacy-annotation-prefix
-      # First 0.23 rollout only: log the planned changes, apply nothing
-      - --dry-run
     # triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]
