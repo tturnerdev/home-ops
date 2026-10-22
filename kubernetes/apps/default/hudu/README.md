@@ -52,13 +52,16 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   *with* pgvector 0.8.0 (the `standard` CNPG image ships it), so the
   `vector_embeddings` table and its HNSW index are created normally — verified
   in the migration rehearsal below. The 2.47 and 2.48 release notes repeat
-  the PG 18 requirement, but 2.48.0's four new migrations (an API-key
-  `integration_slug` column and its backfill, two `recordings` index rebuilds)
-  are plain PostgreSQL and nothing in the code checks the server version, so
-  it runs on 17.6 as well (checked 2026-10-22). Before each upgrade, list the
-  new image's `db/migrate` entries newer than `max(version)` in
-  `schema_migrations` and read them. When the shared cluster moves to 18 (on
-  the platform upgrade list), Hudu rides along; no dedicated cluster needed.
+  the PG 18 requirement, but the 11 migrations 2.46.1 → 2.48.0 applied
+  (inet/decimal columns, backfills, concurrent indexes, the client-portal →
+  portal-user conversion) are plain PostgreSQL and nothing in the code checks
+  the server version, so it runs on 17.6 as well (upgraded 2026-10-22).
+  Before each upgrade, diff the new image's `db/migrate` versions against
+  `select version from schema_migrations` and read what's missing: Hudu ships
+  backdated migrations (7 of those 11 predate the old image's newest), so
+  "newer than `max(version)`" misses them. When the shared cluster moves to
+  18 (on the platform upgrade list), Hudu rides along; no dedicated cluster
+  needed.
 - **pgvector is not a "trusted" extension**, so only a superuser can
   `CREATE EXTENSION vector`; the app role cannot. That is why `hudu-db-init`
   runs as the CNPG superuser instead of the usual `postgres-init`
