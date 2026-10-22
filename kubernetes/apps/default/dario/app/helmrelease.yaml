@@ -35,8 +35,12 @@ spec:
               # https://github.com/askalf/dario — Anthropic/OpenAI-compatible proxy
               # that serves Claude + ChatGPT subscriptions to Claude Code, Cursor,
               # Aider, the Agent SDK, etc. Multi-arch; tags track npm releases.
+              # Each release bundles a Claude Code wire template (6.13.28: CC
+              # 2.1.306), and Anthropic gates new models on the CC version it
+              # names: Opus 5.5 answers 400 claude_code_version_too_old below
+              # 2.1.280. A model that fails that way needs a dario bump.
               repository: ghcr.io/askalf/dario
-              tag: v6.7.0
+              tag: v6.13.28@sha256:1b96845dd57644210774480f4aa472abc9cfe32795706469d324b0cca3ab7db4
               pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
