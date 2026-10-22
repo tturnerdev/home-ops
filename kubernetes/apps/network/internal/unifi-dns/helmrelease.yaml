@@ -11,7 +11,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 1.16.1
+    tag: 1.23.0
   url: oci://ghcr.io/home-operations/charts-mirror/external-dns
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
@@ -24,7 +24,7 @@ spec:
   chart:
     spec:
       chart: external-dns
-      version: 1.16.1
+      version: 1.23.0
       sourceRef:
         kind: HelmRepository
         name: external-dns
@@ -43,8 +43,11 @@ spec:
       name: webhook
       webhook:
         image:
-          repository: ghcr.io/kashalls/external-dns-unifi-webhook
-          tag: v0.8.1@sha256:e9b7bf621768c490110fb154c94a4f610f254c9f0c540140ea429c601a8475dd
+          # Moved from kashalls/ to home-operations/ at 0.10.0, which switched to
+          # the UniFi Network Integration API (needs Network >= 10.3.58; this
+          # controller runs 10.6.106)
+          repository: ghcr.io/home-operations/external-dns-unifi-webhook
+          tag: 0.10.14@sha256:2d56637e230de7eaeda83388a79ec633c94910e77503141bc6a1a5492eecdd7e
         env:
           - name: &name UNIFI_HOST
             valueFrom:
@@ -80,6 +83,13 @@ spec:
       - --ignore-ingress-tls-spec
       - --ingress-class=internal
       - --ingress-class=external
+      # v0.22 made external-dns.kubernetes.io/ the only annotation prefix; every
+      # ingress here still uses external-dns.alpha.kubernetes.io/target, and with
+      # policy sync, ignoring it would repoint records. Read the legacy prefix
+      # until the annotations are migrated (the flag is a temporary aid).
+      - --enable-legacy-annotation-prefix
+      # First 0.23 rollout only: log the planned changes, apply nothing
+      - --dry-run
     # triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "ingress"]

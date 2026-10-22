@@ -9,7 +9,7 @@ spec:
   chart:
     spec:
       chart: external-dns
-      version: 1.16.1
+      version: 1.23.0
       sourceRef:
         kind: HelmRepository
         name: external-dns
@@ -39,6 +39,11 @@ spec:
       - --events
       - --ignore-ingress-tls-spec
       - --ingress-class=external
+      # v0.22 made external-dns.kubernetes.io/ the only annotation prefix; every
+      # ingress here still uses external-dns.alpha.kubernetes.io/target, and with
+      # policy sync, ignoring it would repoint records. Read the legacy prefix
+      # until the annotations are migrated (the flag is a temporary aid).
+      - --enable-legacy-annotation-prefix
     policy: sync
     sources: ["crd", "ingress"]
     txtPrefix: k8s.
