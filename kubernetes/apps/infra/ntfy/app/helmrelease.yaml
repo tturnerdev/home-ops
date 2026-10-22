@@ -26,7 +26,7 @@ spec:
           app:
             image:
               repository: docker.io/binwiederhier/ntfy
-              tag: v2.16.0@sha256:115357a63dd35e3d08ad03c93ade7d7eef63761726572b809da13f2999f1958f
+              tag: v2.32.0@sha256:59250e1d8be2ee2186c4560322f625faef22ace380331f05b63f8842dbd62602
               pullPolicy: IfNotPresent
             args:
               - serve
