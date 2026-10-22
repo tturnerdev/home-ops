@@ -79,6 +79,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/name: "Sonarr"
+          gethomepage.dev/icon: "sonarr.svg"
+          gethomepage.dev/description: "TV shows"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "tv.${SECRET_DOMAIN}"

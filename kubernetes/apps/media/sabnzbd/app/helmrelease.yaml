@@ -71,6 +71,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/name: "SABnzbd"
+          gethomepage.dev/icon: "sabnzbd.svg"
+          gethomepage.dev/description: "Downloads"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "downloads.${SECRET_DOMAIN}"

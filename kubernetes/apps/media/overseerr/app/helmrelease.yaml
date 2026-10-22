@@ -62,6 +62,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/name: "Overseerr"
+          gethomepage.dev/icon: "overseerr.svg"
+          gethomepage.dev/description: "Requests"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "request.${SECRET_DOMAIN}"

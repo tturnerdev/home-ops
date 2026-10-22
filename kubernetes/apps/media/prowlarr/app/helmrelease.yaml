@@ -82,6 +82,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/name: "Prowlarr"
+          gethomepage.dev/icon: "prowlarr.svg"
+          gethomepage.dev/description: "Indexers"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "index.${SECRET_DOMAIN}"

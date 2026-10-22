@@ -24,41 +24,10 @@ spec:
   values:
     controllers:
       homepage:
-        initContainers:
-          init-config:
-            image:
-              repository: alpine
-              tag: 3.24.3
-              pullPolicy: IfNotPresent
-            command:
-              - /bin/sh
-              - -c
-              - |
-                mkdir -p /app/config
-                if [ ! -f /app/config/bookmarks.yaml ]; then
-                  echo "Bookmarks file not found, copying default..."
-                  cp /dummy-config/bookmarks.yaml /app/config/bookmarks.yaml
-                fi
-                if [ ! -f /app/config/services.yaml ]; then
-                  echo "Services file not found, copying default..."
-                  cp /dummy-config/services.yaml /app/config/services.yaml
-                fi
-                if [ ! -f /app/config/settings.yaml ]; then
-                  echo "Settings file not found, copying default..."
-                  cp /dummy-config/settings.yaml /app/config/settings.yaml
-                fi
-                if [ ! -f /app/config/widgets.yaml ]; then
-                  echo "Widgets file not found, copying default..."
-                  cp /dummy-config/widgets.yaml /app/config/widgets.yaml
-                fi
-                if [ ! -f /app/config/custom.css ]; then
-                  echo "Custom CSS file not found, creating empty..."
-                  touch /app/config/custom.css
-                fi
-                if [ ! -f /app/config/custom.js ]; then
-                  echo "Custom JS file not found, creating empty..."
-                  touch /app/config/custom.js
-                fi
+        annotations:
+          # The config files are subPath mounts, which never see ConfigMap
+          # updates; restart the pod instead
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -105,55 +74,67 @@ spec:
                   identifier: app
                   port: http
 
+    # Services are discovered from the apps' own Ingresses/HTTPRoutes: an app
+    # shows up once it carries gethomepage.dev/* annotations (enabled, group,
+    # name, icon). This read-only role is what discovery and the kubernetes
+    # widget need, per the Homepage k8s install docs (Traefik rule dropped).
+    serviceAccount:
+      create: true
+      name: homepage
+
+    rbac:
+      roles:
+        homepage:
+          type: ClusterRole
+          rules:
+            - apiGroups: [""]
+              resources: [namespaces, pods, nodes]
+              verbs: [get, list]
+            - apiGroups: [extensions, networking.k8s.io]
+              resources: [ingresses]
+              verbs: [get, list]
+            - apiGroups: [gateway.networking.k8s.io]
+              resources: [httproutes, gateways]
+              verbs: [get, list]
+            - apiGroups: [metrics.k8s.io]
+              resources: [nodes, pods]
+              verbs: [get, list]
+      bindings:
+        homepage:
+          type: ClusterRoleBinding
+          roleRef:
+            identifier: homepage
+          subjects:
+            - identifier: default
+
     persistence:
+      # Logs and the files Homepage generates for itself (docker.yaml,
+      # proxmox.yaml, custom.css/js) live here
       config:
         enabled: true
         existingClaim: homepage
         globalMounts:
           - path: /app/config
-
-      # ConfigMaps for default configuration
-      bookmarks-config:
+      # The dashboard config, mounted straight from git. Until 2026-10-22 an
+      # init container copied these onto the PVC only when missing, so edits
+      # here never reached the dashboard.
+      config-files:
         enabled: true
         type: configMap
         name: homepage-config
         globalMounts:
-          - path: /dummy-config/bookmarks.yaml
+          - path: /app/config/bookmarks.yaml
             subPath: bookmarks.yaml
             readOnly: true
-
-      services-config:
-        enabled: true
-        type: configMap
-        name: homepage-config
-        globalMounts:
-          - path: /dummy-config/services.yaml
+          - path: /app/config/services.yaml
             subPath: services.yaml
             readOnly: true
-
-      settings-config:
-        enabled: true
-        type: configMap
-        name: homepage-config
-        globalMounts:
-          - path: /dummy-config/settings.yaml
+          - path: /app/config/settings.yaml
             subPath: settings.yaml
             readOnly: true
-
-      widgets-config:
-        enabled: true
-        type: configMap
-        name: homepage-config
-        globalMounts:
-          - path: /dummy-config/widgets.yaml
+          - path: /app/config/widgets.yaml
             subPath: widgets.yaml
             readOnly: true
-
-      kubernetes-config:
-        enabled: true
-        type: configMap
-        name: homepage-config
-        globalMounts:
           - path: /app/config/kubernetes.yaml
             subPath: kubernetes.yaml
             readOnly: true
@@ -164,95 +145,53 @@ spec:
         data:
           bookmarks.yaml: |
             ---
-            - Developer:
-                - Github:
-                    - abbr: GH
-                      href: https://github.com/
+            []
 
-            - Social:
-                - Reddit:
-                    - abbr: RE
-                      href: https://reddit.com/
-
-            - Entertainment:
-                - YouTube:
-                    - abbr: YT
-                      href: https://youtube.com/
-
+          # Hand-written entries go here; discovered apps need none
           services.yaml: |
             ---
-            - Arr:
-                - My First Service:
-                    href: http://localhost/
-                    description: Homepage is awesome
-
-            - Media:
-                - My Second Service:
-                    href: http://localhost/
-                    description: Homepage is the best
-
-            - Infra:
-                - My Third Service:
-                    href: http://localhost/
-                    description: Homepage is 😎
+            []
 
           settings.yaml: |
             ---
-            providers:
-              openweathermap: openweathermapapikey
-              weatherapi: weatherapiapikey
+            title: Home Ops
+            headerStyle: clean
+            # Group order on the page; groups come from gethomepage.dev/group
+            layout:
+              Media:
+                style: row
+                columns: 4
+              Home:
+                style: row
+                columns: 4
+              Atrelix:
+                style: row
+                columns: 4
+              Admin:
+                style: row
+                columns: 4
 
           widgets.yaml: |
             ---
-            - resources:
-                cpu: true
-                memory: true
-                disk: /
+            - kubernetes:
+                cluster:
+                  show: true
+                  cpu: true
+                  memory: true
+                  showLabel: true
+                  label: home-ops
+                nodes:
+                  show: true
+                  cpu: true
+                  memory: true
+                  showLabel: true
 
             - search:
                 provider: duckduckgo
                 target: _blank
 
           kubernetes.yaml: |
+            ---
             mode: cluster
-
-    # serviceAccount:
-    #   create: true
-    #   name: homepage
-
-    # rbac:
-    #   create: true
-    #   rules:
-    #     - apiGroups:
-    #         - ""
-    #       resources:
-    #         - namespaces
-    #         - pods
-    #         - nodes
-    #       verbs:
-    #         - get
-    #         - list
-    #     - apiGroups:
-    #         - extensions
-    #         - networking.k8s.io
-    #       resources:
-    #         - ingresses
-    #       verbs:
-    #         - get
-    #         - list
-    #     - apiGroups:
-    #         - traefik.containo.us
-    #         - traefik.io
-    #       resources:
-    #         - ingressroutes
-    #       verbs:
-    #         - get
-    #         - list
-    #     - apiGroups:
-    #         - metrics.k8s.io
-    #       resources:
-    #         - nodes
-    #         - pods
-    #       verbs:
-    #         - get
-    #         - list
+            ingress: true
+            gateway: true

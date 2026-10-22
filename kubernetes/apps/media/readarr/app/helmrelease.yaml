@@ -84,6 +84,11 @@ spec:
         enabled: true
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/name: "Readarr"
+          gethomepage.dev/icon: "readarr.svg"
+          gethomepage.dev/description: "Books"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
           - host: "books.${SECRET_DOMAIN}"

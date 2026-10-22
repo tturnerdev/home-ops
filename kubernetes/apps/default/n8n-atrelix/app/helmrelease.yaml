@@ -151,6 +151,11 @@ spec:
         enabled: true
         className: external
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Atrelix"
+          gethomepage.dev/name: "n8n (Atrelix)"
+          gethomepage.dev/icon: "n8n.svg"
+          gethomepage.dev/description: "Business automations"
           # Matches n8n's default 16 MiB payload cap (N8N_PAYLOAD_SIZE_MAX)
           nginx.ingress.kubernetes.io/proxy-body-size: 16m
           cert-manager.io/cluster-issuer: letsencrypt-production

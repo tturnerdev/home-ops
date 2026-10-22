@@ -179,6 +179,10 @@ spec:
         # LAN DNS: unifi-dns publishes this host -> internal ingress alias.
         className: internal
         annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Atrelix"
+          gethomepage.dev/name: "Paperclip"
+          gethomepage.dev/icon: "mdi-paperclip"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
           # The internal default cert only covers the primary domain, and the
           # secondary zone's HTTP-01 path only reaches tunnel-routed hosts, so
