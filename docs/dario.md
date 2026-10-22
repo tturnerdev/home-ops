@@ -94,6 +94,34 @@ prints `/health` and one row per seat: grant level (`ok`, `warn`, `urgent`,
 consecutive auth failures. The raw data is
 `curl -s -H "authorization: Bearer $T" https://dario.turner.haus/admin/accounts | jq`.
 
+## When it's rate-limited
+
+dario serves within your subscription's usage limits. When Anthropic answers
+429 (the 5-hour or weekly window is used up), dario parks the seat until that
+window resets, and until then answers 429 itself without asking Anthropic:
+`/status` says `all accounts rate-limited`, `task dario:status` shows the seat
+`rejected`, and the pod logs `pool parked ... nothing sent upstream`. It
+resumes on its own at the reset time.
+
+To make it retry sooner (say, after raising the limit), send one request
+pinned to the seat. A pinned request skips the parked check, and a successful
+answer replaces the parked reading:
+
+```sh
+curl -s https://dario.turner.haus/v1/messages -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "x-dario-account: main" -H "x-dario-admin-token: $T" \
+  -H 'anthropic-version: 2023-06-01' -H 'content-type: application/json' \
+  -d '{"model":"claude-haiku-5-5","max_tokens":8,"messages":[{"role":"user","content":"ping"}]}'
+```
+
+If the limit was lifted by turning on extra usage, that answer bills as extra
+usage, and dario's overage guard halts the whole proxy. That is deliberate:
+it never spends money quietly. The halt clears by itself after 30 minutes, or
+at once with
+`curl -X POST -H "authorization: Bearer $T" https://dario.turner.haus/admin/resume`.
+For dario to keep serving on paid extra usage, set `DARIO_OVERAGE_BEHAVIOR: warn`
+in `app/helmrelease.yaml`.
+
 ## Alerts
 
 `notify/` runs `notify.py` daily at 09:00 PT. It stays silent while `/health`
@@ -101,10 +129,9 @@ is 200 and every seat is `ok`. Otherwise it sends one message two ways:
 
 - **Email** to `tturner@${SECRET_DOMAIN_2}`, through the Gmail relay that n8n
   and Documenso use (1Password item `n8n`).
-- **ntfy push** to topic `homelab` on `https://ntfy.turner.haus`. To receive
-  it, add a subscription in the ntfy app, choose "use another server", and
-  enter server `https://ntfy.turner.haus`, topic `homelab`. The server is
-  internal, so the phone has to be at home or on Tailscale. Tapping the
+- **ntfy push** to topic `homelab` on your public ntfy server. Its URL lives
+  in `notify/secret.sops.yaml` (the in-cluster `ntfy.turner.haus` isn't
+  used). Subscribe to `homelab` on that server in the ntfy app. Tapping the
   notification opens this page.
 
 | Level | Trigger | ntfy priority |
@@ -112,6 +139,9 @@ is 200 and every seat is `ok`. Otherwise it sends one message two ways:
 | warn | a grant 21-25 days old, or of unknown age | default |
 | urgent | a grant 26+ days old, or 3+ auth failures in a row | high |
 | down | `/health` not 200, or the check can't read dario | urgent |
+
+A seat that's only rate-limited doesn't alert, even though `/health` is 503
+then: dario resumes it by itself (see below).
 
 Run it now:
 

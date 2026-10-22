@@ -50,16 +50,22 @@ def check():
     well), one line per problem, and the seats that need a re-grant."""
     found, lines, aliases = set(), [], set()
 
-    status, _ = fetch("/health")
-    if status != 200:
-        found.add("down")
-        lines.append(f"The proxy is not serving: /health answered {status}, so clients get 401/503 errors.")
-
+    health, _ = fetch("/health")
     status, body = fetch("/admin/accounts", os.environ["DARIO_ADMIN_TOKEN"])
     if status != 200:
         lines.append(f"/admin/accounts answered {status}: {body[:200].decode(errors='replace')}")
         return "down", lines, aliases
     accounts = json.loads(body)["accounts"]
+
+    # Seats parked over their 5h/7d usage window (status "rejected") turn
+    # /health 503 too, but dario resumes them by itself at reset_at and a
+    # re-grant wouldn't help, so that alone isn't an outage.
+    limited = bool(accounts) and all(acct.get("status") == "rejected" for acct in accounts)
+    if health != 200 and not limited:
+        found.add("down")
+        lines.append(f"The proxy is not serving: /health answered {health}, so clients get 401/503 errors.")
+    elif health != 200:
+        print("rate-limited: every seat is over its usage window; dario resumes it at reset_at")
     if not accounts:
         found.add("down")
         lines.append("No Claude seat is configured.")
