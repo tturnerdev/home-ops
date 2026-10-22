@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/notification.toolkit.fluxcd.io/alert_v1beta3.json
+# Push every failed reconcile to ntfy, chiefly so an auto-merged Renovate
+# update that doesn't deploy gets noticed (docs/renovate.md). eventSources
+# take no namespace wildcard: a new namespace with Flux objects goes here too.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: ntfy
+spec:
+  providerRef:
+    name: ntfy
+  eventSeverity: error
+  eventSources:
+    - { kind: GitRepository, name: flux-system, namespace: flux-system }
+    - { kind: Kustomization, name: "*", namespace: cert-manager }
+    - { kind: HelmRelease, name: "*", namespace: cert-manager }
+    - { kind: Kustomization, name: "*", namespace: database }
+    - { kind: HelmRelease, name: "*", namespace: database }
+    - { kind: Kustomization, name: "*", namespace: default }
+    - { kind: HelmRelease, name: "*", namespace: default }
+    - { kind: Kustomization, name: "*", namespace: external-secrets }
+    - { kind: HelmRelease, name: "*", namespace: external-secrets }
+    - { kind: Kustomization, name: "*", namespace: flux-system }
+    - { kind: HelmRelease, name: "*", namespace: flux-system }
+    - { kind: Kustomization, name: "*", namespace: infra }
+    - { kind: HelmRelease, name: "*", namespace: infra }
+    - { kind: Kustomization, name: "*", namespace: kube-system }
+    - { kind: HelmRelease, name: "*", namespace: kube-system }
+    - { kind: Kustomization, name: "*", namespace: media }
+    - { kind: HelmRelease, name: "*", namespace: media }
+    - { kind: Kustomization, name: "*", namespace: network }
+    - { kind: HelmRelease, name: "*", namespace: network }
+    - { kind: Kustomization, name: "*", namespace: rook-ceph }
+    - { kind: HelmRelease, name: "*", namespace: rook-ceph }
+    - { kind: Kustomization, name: "*", namespace: topolvm }
+    - { kind: HelmRelease, name: "*", namespace: topolvm }
