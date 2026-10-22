@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+tasks:
+
+  status:
+    desc: Show dario's health and each Claude seat's refresh-grant age
+    cmd: bash {{.SCRIPTS_DIR}}/dario.sh status
+    preconditions:
+      - test -f {{.SOPS_AGE_KEY_FILE}}
+      - which curl jq sops column
+
+  login:
+    desc: Re-grant a dario Claude seat, every ~28 days (approve in a browser, paste the code) [SEAT=main]
+    interactive: true
+    cmd: bash {{.SCRIPTS_DIR}}/dario.sh login {{.SEAT}}
+    vars:
+      SEAT: '{{.SEAT | default "main"}}'
+    preconditions:
+      - test -f {{.SOPS_AGE_KEY_FILE}}
+      - which curl jq sops column
+
+  complete:
+    desc: Finish a dario re-grant started without a terminal [CODE=required] [SEAT=main]
+    cmd: bash {{.SCRIPTS_DIR}}/dario.sh complete '{{.CODE}}' {{.SEAT}}
+    vars:
+      SEAT: '{{.SEAT | default "main"}}'
+    requires:
+      vars: [CODE]
+    preconditions:
+      - test -f {{.SOPS_AGE_KEY_FILE}}
+      - which curl jq sops column
