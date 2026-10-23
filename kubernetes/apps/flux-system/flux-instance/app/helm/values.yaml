@@ -3,7 +3,7 @@ instance:
   distribution:
     artifact: ""
     # renovate: datasource=github-releases depName=controlplaneio-fluxcd/distribution
-    version: 2.7.5
+    version: 2.8.8
   cluster:
     networkPolicy: false
   components:
