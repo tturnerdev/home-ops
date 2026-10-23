@@ -84,28 +84,26 @@ function apply_sops_secrets() {
     done
 }
 
-# CRDs to be applied before the helmfile charts are installed
+# CRDs to be applied before the helmfile charts are installed: the charts in
+# bootstrap/helmfile.d/00-crds.yaml are rendered and everything but their CRDs
+# is dropped (Helm 4 takes nothing but a plugin as a post-renderer, hence the pipe)
 function apply_crds() {
     log debug "Applying CRDs"
 
-    local -r crds=(
-        # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator
-        https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.82.0/stripped-down-crds.yaml
-        # renovate: datasource=github-releases depName=kubernetes-sigs/external-dns
-        https://raw.githubusercontent.com/kubernetes-sigs/external-dns/refs/tags/v0.23.0/config/crd/standard/dnsendpoints.externaldns.k8s.io.yaml
-    )
+    local -r helmfile_file="${ROOT_DIR}/bootstrap/helmfile.d/00-crds.yaml"
 
-    for crd in "${crds[@]}"; do
-        if kubectl diff --filename "${crd}" &>/dev/null; then
-            log info "CRDs are up-to-date" "crd=${crd}"
-            continue
-        fi
-        if kubectl apply --server-side --filename "${crd}" &>/dev/null; then
-            log info "CRDs applied" "crd=${crd}"
-        else
-            log error "Failed to apply CRDs" "crd=${crd}"
-        fi
-    done
+    if [[ ! -f "${helmfile_file}" ]]; then
+        log error "File does not exist" "file=${helmfile_file}"
+    fi
+
+    if helmfile --file "${helmfile_file}" template --quiet \
+        | yq ea -e 'select(.kind == "CustomResourceDefinition")' \
+        | kubectl apply --server-side --force-conflicts --filename - &>/dev/null;
+    then
+        log info "CRDs applied" "file=${helmfile_file}"
+    else
+        log error "Failed to apply CRDs" "file=${helmfile_file}"
+    fi
 }
 
 # Apply Helm releases using helmfile
