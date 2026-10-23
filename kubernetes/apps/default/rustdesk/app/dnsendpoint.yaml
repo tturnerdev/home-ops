@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/externaldns.k8s.io/dnsendpoint_v1alpha1.json
+# LAN half of the split-horizon name. unifi-dns (sources crd+ingress, domain
+# filter includes ${SECRET_DOMAIN_2}) publishes this A record to the UniFi
+# gateway, so LAN clients hit the LoadBalancer IP directly. The Cloudflare
+# external-dns instance filters on the primary domain and ignores it: the public
+# record (A -> WAN IP, DNS only, never proxied) is maintained by hand in the
+# Cloudflare dashboard, like the other names on this domain.
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: rustdesk
+spec:
+  endpoints:
+    - dnsName: "rdesk.${SECRET_DOMAIN_2}"
+      recordType: A
+      targets: ["10.13.38.93"]

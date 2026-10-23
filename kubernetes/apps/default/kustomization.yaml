@@ -26,5 +26,6 @@ resources:
   - ./homarr/ks.yaml
   - ./photoprism/ks.yaml
   - ./paperclip-atrelix/ks.yaml
+  - ./rustdesk/ks.yaml
   # - ./shlink/ks.yaml
   # - ./shlink-web-client/ks.yaml
