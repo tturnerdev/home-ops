@@ -229,17 +229,6 @@
       allowedVersions: '<1.21.0',
     },
     {
-      // CoreDNS charts from 1.45.0 on are signed only as cosign v3 bundles;
-      // the OCIRepository verifies signatures, and source-controller reads
-      // that format from Flux 2.8 (Kubernetes 1.33). Drop this once Flux is
-      // on 2.8.
-      description: 'Hold CoreDNS chart below 1.45',
-      matchPackageNames: [
-        'ghcr.io/coredns/charts/coredns',
-      ],
-      allowedVersions: '<1.45.0',
-    },
-    {
       // Envoy Gateway 1.9 is supported on Kubernetes 1.33-1.36; 1.8 is the
       // last line for 1.32. Drop this at Kubernetes 1.33 (CRDs go first; see
       // the envoy-gateway ocirepository.yaml).
