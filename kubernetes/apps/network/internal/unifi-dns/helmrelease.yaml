@@ -91,8 +91,10 @@ spec:
     # triggerLoopOnEvent: true
     policy: sync
     # gateway-httproute: an HTTPRoute hostname becomes an A record to its
-    # parent Gateway's status address (the Gateways carry no target
-    # annotation, which would turn routes into CNAMEs to a name UniFi lacks)
+    # parent Gateway's status address (envoy-internal, no target annotation)
+    # or a CNAME to the Gateway's external-dns.kubernetes.io/target
+    # (envoy-external -> external.<d>, the manual UniFi record for the public
+    # path) - the same records the Ingresses produced.
     sources: ["crd", "ingress", "gateway-httproute"]
     txtPrefix: k8s.
     txtOwnerId: default
