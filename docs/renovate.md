@@ -41,12 +41,14 @@ update (PR #180). Restore its folder in the rule once that switch lands.
 
 ## Version holds
 
-One rule caps a package with `allowedVersions`: Sonarr's waits on
-upstream. Each rule's comment carries the detail.
+Two rules cap a package with `allowedVersions`: Sonarr's waits on
+upstream, PostgreSQL's on a planned major upgrade. Each rule's comment
+carries the detail.
 
 | Rule | Caps | Why | Relax or drop |
 |---|---|---|---|
 | Hold Sonarr on v4 | `ghcr.io/home-operations/sonarr` at `<5` | v5 is still a pre-release (GitHub flags every 5.0.0.x build as one, as of 2026-10-22) with a one-way database migration, and the home-operations image publishes those builds under plain tags | drop once Sonarr ships v5 as a stable release |
+| Hold PostgreSQL on 17 | `ghcr.io/cloudnative-pg/postgresql` at `<18` | a major in CloudNativePG is an offline in-place upgrade (pg_upgrade job, minutes of downtime) that needs a fresh backup and its own window | raise when PostgreSQL 18 is planned |
 
 Relax a hold by raising its `allowedVersions`, drop one by deleting its
 rule, and check the edit with the validator below either way.
