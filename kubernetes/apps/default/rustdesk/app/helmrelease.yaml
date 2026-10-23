@@ -176,7 +176,7 @@ spec:
                     name: rustdesk-secret
                     key: KEY_PUB
               # Per-IP captcha/ban counters must see real client addresses, so
-              # honour X-Forwarded-For from ingress-nginx (pod CIDR). Traffic on
+              # honour X-Forwarded-For from envoy-external (pod CIDR). Traffic on
               # the VIP port arrives with its real source (DSR) and needs no proxy.
               RUSTDESK_API_GIN_TRUST_PROXY: 10.42.0.0/16
               # Upstream default, made explicit: no self sign-up on an
@@ -268,52 +268,48 @@ spec:
           api:
             port: 21114
             protocol: TCP
-    ingress:
+    route:
       app:
-        enabled: true
-        className: external
-        annotations:
-          cert-manager.io/cluster-issuer: letsencrypt-production
-          # The /ws/* paths carry the web client's long-lived WebSocket
-          # sessions (a relayed desktop session is one connection). nginx's
-          # default 60 s read/send timeouts would cut an idle session.
-          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
         # HTTPS front for the API (login, address book, /_admin/, the web
         # client page) plus the web client's two WebSocket endpoints, which
         # are hbbs/hbbr's ws ports behind TLS. Native clients never use these
         # paths: the ID and relay ports stay on the raw VIP. Sibling hostname
-        # because rdesk.<domain> must remain a plain A record to the WAN IP
-        # for those ports, and this cluster can only issue certificates for
-        # the secondary domain by HTTP-01 through the tunnel.
+        # because rdesk.<domain> must remain a plain A record to the WAN IP.
         # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
-        # plus the cloudflared ingress rule (cloudflare external-dns excludes
-        # this zone). LAN DNS: unifi-dns publishes this host -> ingress LB IP.
-        hosts:
-          - host: "rdesk-api.${SECRET_DOMAIN_2}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: api
-              # hbbs/hbbr ignore the request path; they take the client's
-              # address from X-Real-IP / X-Forwarded-For, which ingress-nginx
-              # sets (use-forwarded-headers), so the relay sees the browser's
-              # real address rather than the controller's.
-              - path: /ws/id
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: id-ws
-              - path: /ws/relay
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: relay-ws
-        tls:
-          - secretName: rustdesk-api-tls
-            hosts: ["rdesk-api.${SECRET_DOMAIN_2}"]
+        # plus the cloudflared ingress rule.
+        # LAN DNS: unifi-dns publishes this host as a CNAME to external.<domain> (the
+        # Gateway's target annotation), the alias that points at envoy-external.
+        # TLS: the secondary-domain wildcard on envoy-external's https listener.
+        # The /ws/* sessions are long-lived WebSockets: upgrades are on by default
+        # and the Gateways' BackendTrafficPolicy disables the request/stream-idle
+        # timeouts (nginx needed 3600s). hbbs/hbbr take the client's address from
+        # X-Forwarded-For, which Envoy appends to (there is no X-Real-IP any more);
+        # the API's GIN_TRUST_PROXY (pod CIDR) still covers the Envoy pods.
+        # Longest path prefix wins, so rule order does not matter.
+        hostnames:
+          - "rdesk-api.${SECRET_DOMAIN_2}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 21118
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /ws/id
+          - backendRefs:
+              - identifier: app
+                port: 21119
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /ws/relay
+          - backendRefs:
+              - identifier: app
+                port: 21114
     persistence:
       data:
         existingClaim: rustdesk

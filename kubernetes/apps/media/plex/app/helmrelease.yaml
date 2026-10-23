@@ -89,55 +89,24 @@ spec:
         ports:
           http:
             port: *port
-    # service:
-    #   app:
-    #     controller: plex
-    #     # type: LoadBalancer
-    #     # type: ClusterIP
-    #     # annotations:
-    #     #   lbipam.cilium.io/ips: 192.168.42.128
-    #     ports:
-    #       http:
-    #         port: *port
-    # route:
-    #   app:
-    #     hostnames: ["{{ .Release.Name }}.devbu.io"]
-    #     parentRefs:
-    #       - name: external
-    #         namespace: kube-system
-    #         sectionName: https
-    #     rules:
-    #       - backendRefs:
-    #           - identifier: app
-    #             port: *port
-    #         filters:
-    #           - type: RequestHeaderModifier
-    #             requestHeaderModifier:
-    #               remove: ["Range"]
-    #         matches:
-    #           - path:
-    #               type: PathPrefix
-    #               value: /library/streams
-    #       - backendRefs:
-    #           - identifier: app
-    #             port: *port
-    ingress:
+    route:
       app:
-        className: external
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Media"
           gethomepage.dev/name: "Plex"
           gethomepage.dev/icon: "plex.svg"
           gethomepage.dev/description: "Media server"
-          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
-        hosts:
-          - host: "{{ .Release.Name }}.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: *port
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
     persistence:
       config:
         enabled: true

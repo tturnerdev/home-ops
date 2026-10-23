@@ -1,10 +1,18 @@
 ---
 originRequest:
+  # SNI and certificate check for the origin connection. envoy-external
+  # answers this SNI with the primary-domain wildcard whatever Host header
+  # follows (it serves the secondary-domain wildcard only for that SNI), so
+  # one name covers every hostname below.
   originServerName: "external.${SECRET_DOMAIN}"
 
 ingress:
   - hostname: "${SECRET_DOMAIN}"
-    service: &svc https://external-ingress-nginx-controller.network.svc.cluster.local:443
+    # envoy-external's https listener (HTTPRoutes with parentRef sectionName
+    # https). Its http listener only carries the 301 redirect, so the origin
+    # must be https. Rollback: the external-ingress-nginx-controller Service
+    # until that controller is retired.
+    service: &svc https://envoy-external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
     service: *svc
   - hostname: "sign.${SECRET_DOMAIN_2}"
