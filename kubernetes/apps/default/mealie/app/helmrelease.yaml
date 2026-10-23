@@ -66,24 +66,24 @@ spec:
         ports:
           http:
             port: 9000
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Home"
           gethomepage.dev/name: "Mealie"
           gethomepage.dev/icon: "mealie.svg"
           gethomepage.dev/description: "Recipes"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "cook.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "cook.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 9000
     persistence:
       data:
         enabled: true

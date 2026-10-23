@@ -141,25 +141,26 @@ spec:
         ports:
           http:
             port: 5678
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
+        # n8n's editor push channel is a WebSocket; upgrades are on by default and the
+        # Gateways' BackendTrafficPolicy disables the request/stream-idle timeouts.
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Home"
           gethomepage.dev/name: "n8n"
           gethomepage.dev/icon: "n8n.svg"
           gethomepage.dev/description: "Home automations"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "auto.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "auto.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 5678
     persistence:
       data:
         enabled: true
