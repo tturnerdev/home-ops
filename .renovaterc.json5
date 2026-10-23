@@ -220,16 +220,6 @@
       allowedVersions: '<2.9.0',
     },
     {
-      // Envoy Gateway 1.9 is supported on Kubernetes 1.33-1.36; 1.8 is the
-      // last line for 1.32. Drop this at Kubernetes 1.33 (CRDs go first; see
-      // the envoy-gateway ocirepository.yaml).
-      description: 'Hold Envoy Gateway on 1.8',
-      matchPackageNames: [
-        'mirror.gcr.io/envoyproxy/gateway-helm',
-      ],
-      allowedVersions: '<1.9.0',
-    },
-    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
