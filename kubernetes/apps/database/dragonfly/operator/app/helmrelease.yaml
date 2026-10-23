@@ -1,6 +1,6 @@
 ---
-# yaml-language-server: $schema=https://kube-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1beta2.json
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+# yaml-language-server: $schema=https://kube-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: dragonfly-operator
@@ -15,7 +15,7 @@ spec:
   url: oci://ghcr.io/dragonflydb/dragonfly-operator/helm/dragonfly-operator
 ---
 # yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/helm.toolkit.fluxcd.io/helmrelease_v2.json
-apiVersion: helm.toolkit.fluxcd.io/v2beta2
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: dragonfly-operator
