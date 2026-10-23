@@ -139,3 +139,12 @@ spec:
             target:
               kind: Deployment
               name: kustomize-controller
+          - # Hold back identical repeat alerts for an hour (default 5m): a failing
+            # source retries every 15m and a failing Kustomization every 2m
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --rate-limit-interval=1h
+            target:
+              kind: Deployment
+              name: notification-controller
