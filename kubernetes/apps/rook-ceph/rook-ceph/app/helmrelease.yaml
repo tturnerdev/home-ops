@@ -19,11 +19,12 @@ spec:
       retries: 4
   values:
     csi:
-      cephFSKernelMountOptions: ms_mode=prefer-crc
-      # NOTE: Enable the driver and shapshotter if you want to use CephFS
-      enableCephfsDriver: false
-      enableCephfsSnapshotter: false
-      enableLiveness: true
+      # Rook >= 1.20: the CSI drivers are admin-managed by the ceph-csi-operator
+      # (../csi-drivers); the operator chart keeps the subchart switch, the image
+      # set and the ServiceMonitor. Keep createCsiOperatorResources explicit: the
+      # 1.21.0 chart still templates it but dropped it from values.yaml, which
+      # renders an empty ROOK_CREATE_CSI_OPERATOR_RESOURCES.
+      createCsiOperatorResources: true
       serviceMonitor:
         enabled: true
     enableDiscoveryDaemon: true
