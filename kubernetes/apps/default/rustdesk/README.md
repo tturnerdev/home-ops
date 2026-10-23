@@ -277,9 +277,9 @@ nc -vz 10.13.38.93 21116 && nc -vz 10.13.38.93 21117
   `kubectl -n default exec deploy/rustdesk -c api -- ./apimain reset-admin-pwd '<new>'`.
   Logins are recorded per client IP (`/_admin/` → Login log) and feed a
   per-IP captcha after 3 failures, so the API must see real addresses: on the
-  VIP port DSR delivers them; on the ingress path ingress-nginx forwards them
-  (`use-forwarded-headers`) and `RUSTDESK_API_GIN_TRUST_PROXY=10.42.0.0/16`
-  makes the API accept the header. Both verified. A request from a Tailscale
+  VIP port DSR delivers them; on the HTTPS path envoy-external forwards them
+  (X-Forwarded-For, one trusted hop) and `RUSTDESK_API_GIN_TRUST_PROXY=10.42.0.0/16`
+  makes the API accept the header. A request from a Tailscale
   node shows the `ts-home-lan` connector pod instead — that is the connector,
   not a bug. Admin file upload (custom client builds) writes under
   `/app/resources/upload` on the read-only root fs and fails; give that path

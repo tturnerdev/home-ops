@@ -17,7 +17,7 @@ state, and traffic rides the tunnel only when away from home.
   tunnel. This is Tailscale's documented pattern for LAN-first behavior.
 - **Split DNS:** the tailnet is configured (admin console, below) to resolve
   `turner.haus` via **k8s-gateway at `10.13.38.53`**, which answers from live
-  Ingress status (internal apps → `10.13.38.81`, external apps → `10.13.38.80`,
+  HTTPRoute/Gateway status (internal apps → `10.13.38.83`, external apps → `10.13.38.84`,
   no Cloudflare hairpin). Non-cluster names fall through to the UniFi resolver
   at `10.13.37.1`. LAN clients without VPN keep using UniFi DNS as before.
 - Because the `/21` also covers the Kube API VIP (`10.13.38.82`) and
@@ -88,12 +88,12 @@ state, and traffic rides the tunnel only when away from home.
 kubectl -n network get connector home-lan     # expects ConnectorReady
 
 # From a remote network with VPN up:
-dig +short echo.turner.haus                   # expect 10.13.38.80/.81, not a Cloudflare IP
+dig +short echo.turner.haus                   # expect 10.13.38.83/.84, not a Cloudflare IP
 curl -sI https://echo.turner.haus | head -3   # valid LE cert, no tunnel hop
 kubectl get nodes                             # API VIP 10.13.38.82 over the tunnel
 
 # At home with VPN up (LAN-first check):
-route get 10.13.38.81 | grep interface        # expect en0/LAN, not utun
+route get 10.13.38.83 | grep interface        # expect en0/LAN, not utun
 ```
 
 ## Notes
