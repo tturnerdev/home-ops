@@ -13,6 +13,10 @@ metadata:
   namespace: database
 spec:
   instances: 3
+  # On a rolling update (operator, plugin sidecar, image), hand the primary
+  # over to an already-updated replica instead of deleting and recreating it
+  # (the default `restart`): writes pause for the switchover only
+  primaryUpdateMethod: switchover
   imageName: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
   storage:
     storageClass: topolvm-thin-provisioner
