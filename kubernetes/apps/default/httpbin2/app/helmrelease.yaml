@@ -24,7 +24,7 @@ spec:
         name: matheusfm
   interval: 168h
   dependsOn:
-    - name: internal-ingress-nginx
+    - name: envoy-gateway
       namespace: network
   values:
     enabled: false
