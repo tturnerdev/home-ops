@@ -544,24 +544,21 @@ spec:
         ports:
           http:
             port: 8080
-    ingress:
+    route:
       app:
-        className: internal
-        annotations:
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-          # nginx defaults to 60s read/send; frappe's socket.io TimeoutManager
-          # worst-case idle is 55s, so the default only just clears it and any
-          # jitter tears the connection down every minute.
-          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-        hosts:
-          - host: "erpnext.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        # frappe's socket.io rides the same port and path; WebSocket upgrades are on
+        # by default and the Gateways' BackendTrafficPolicy disables the request and
+        # stream-idle timeouts (nginx needed 3600s to clear socket.io's 55s idle).
+        hostnames:
+          - "erpnext.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
     persistence:
       # A typo'd CONTROLLER key is a hard template failure, but a typo'd CONTAINER
       # key is SILENT — the volume is added to the pod and simply never mounted.
