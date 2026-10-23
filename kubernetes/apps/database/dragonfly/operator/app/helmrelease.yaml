@@ -11,7 +11,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: v1.2.1
+    tag: v1.7.1
   url: oci://ghcr.io/dragonflydb/dragonfly-operator/helm/dragonfly-operator
 ---
 # yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/helm.toolkit.fluxcd.io/helmrelease_v2.json
@@ -38,14 +38,18 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    image:
-      repository: ghcr.io/dragonflydb/operator
-      tag: v1.2.1
     replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
+    # The chart reads the operator container's settings under manager:; the
+    # top-level image/resources this file used to set were ignored (the
+    # operator ran from docker.dragonflydb.io with no resources). The tag
+    # follows the chart's appVersion.
+    manager:
+      image:
+        repository: ghcr.io/dragonflydb/operator
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
