@@ -220,6 +220,15 @@
       allowedVersions: '<2.8.0',
     },
     {
+      // cert-manager 1.21 is supported on Kubernetes 1.33-1.36; 1.20 is the
+      // last line for 1.32. Drop this at Kubernetes 1.33.
+      description: 'Hold cert-manager on 1.20',
+      matchPackageNames: [
+        'quay.io/jetstack/charts/cert-manager',
+      ],
+      allowedVersions: '<1.21.0',
+    },
+    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
