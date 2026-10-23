@@ -254,7 +254,7 @@ task talos:apply-node IP=? MODE=?
 ### ⬆️ Updating Talos and Kubernetes versions
 
 > [!TIP]
-> Ensure the `talosVersion` and `kubernetesVersion` in `talenv.yaml` are up-to-date with the version you wish to upgrade to.
+> Ensure `talosInstallerVersion` and `kubernetesVersion` in `talenv.yaml` are up-to-date with the version you wish to upgrade to. `talosVersion` there is only talhelper's machine config contract (held at 1.13; see the comment in `talenv.yaml`).
 
 ```sh
 # Upgrade node to a newer Talos version
