@@ -1,8 +1,8 @@
 # Phase 4 runbook — Talos 1.9.5 / Kubernetes 1.32.3 → Talos 1.13.12 / Kubernetes 1.36.5
 
-Prepared 2026-10-23 from a read-only survey of the cluster and the repo (Flux tracks `main`). Plan only: nothing here had been executed when it was written.
-Nothing in this document has been executed. Every command below is for the operator to run; the
-"evidence" lines say where a claim comes from.
+Prepared 2026-10-23 from a read-only survey of the cluster and the repo (Flux tracks `main`). Every command below is for the operator to run; the "evidence" lines say where a claim comes from.
+
+Progress: steps 0–4 were carried out on 2026-10-23 (Talos 1.11.6, Kubernetes 1.34.12, Cilium 1.19.9, Flux 2.9.6; the commits name their step). Step 5 has been corrected from what was learnt on the way.
 
 ---
 
@@ -15,7 +15,7 @@ Nothing in this document has been executed. Every command below is for the opera
 | 2 | Kubernetes 1.32.3 → **1.33.13**, then Flux 2.8.8, CoreDNS chart 1.49.0, cert-manager 1.21.2, Envoy Gateway 1.9.2 (CRDs first) | none | ~15 min; API blips of seconds | Flux `<2.8.0` → `<2.9.0`; **drop** cert-manager hold; **drop** Envoy Gateway hold; **drop** CoreDNS hold (after Flux 2.8 is live) |
 | 3 | Talos 1.10.9 → **1.11.6** (etcd 3.5 → 3.6, containerd 2.1), then Spegel 0.7.4 | 3 | as step 1; etcd storage moves to 3.6 (one-way once all 3 nodes are done) | Spegel `<0.7.0` → `<0.8.0` |
 | 4 | Cilium 1.18.15 → **1.19.9**, then Kubernetes 1.33.13 → **1.34.12**, then Flux 2.9.6 | none | Cilium rollout: seconds of datapath reload per node; K8s as step 2 | **drop** Flux hold |
-| 5 | Talos 1.11.6 → **1.12.12** (kernel 6.18, KSPP sysctls, hardened API-server ciphers) | 3 | as step 1 | none |
+| 5 | Talos 1.11.6 → **1.12.12** (kernel 6.18, KSPP sysctls, hardened API-server ciphers), then the multi-document config contract 1.12 (no reboot) | 3 | as step 1 | none |
 | 6 | Rook 1.18.11 → **1.19.12** (pin Ceph image), Ceph 19.2.3 → **20.2.4 Tentacle** (optional-but-urgent: Squid EOL 2026-10-31), TopoLVM 17.3.0, then Kubernetes 1.34.12 → **1.35.9** | none | Rook: rolling daemon restarts, IO pauses of seconds; Ceph: 15–30 min rolling, no downtime; K8s as step 2 | none |
 | 7 | Talos 1.12.12 → **1.13.12** (containerd 2.2.3, new upgrade API with client-side drain), then Spegel 0.8.0 | 3 | as step 1 | **drop** Spegel hold |
 | 8 | Rook 1.19.12 → **1.20.9** (ceph-csi-drivers chart becomes mandatory), Cilium 1.19.9 → **1.20.3**, decide ingress-nginx, then Kubernetes 1.35.9 → **1.36.5** | none | as steps 4/6 | none |
@@ -181,7 +181,7 @@ task talos:generate-config                       # talhelper genconfig; must suc
 git diff --stat                                   # only talenv.yaml / .mise.toml should change (clusterconfig is gitignored)
 ```
 
-If `talhelper genconfig` ever fails on `patches/controller/admission-controller-patch.yaml` ("remove operation does not apply") the target Talos no longer generates `cluster.apiServer.admissionControl` by default; drop the patch.
+From config contract 1.12 on, `talhelper genconfig` fails on `patches/controller/admission-controller-patch.yaml`: JSON6902 patches do not apply to multi-document configs. Do not drop the patch; step 5 replaces it with a strategic-merge patch. Also from step 5 on, validate the regenerated config with the **current** talosctl (`talosctl validate --mode metal --strict --config …`): if the running Talos rejects it, upgrade the OS on the current config first and move the config contract afterwards (step 5's two passes).
 
 Then, **one node at a time** (order 03 → 02 → 01 is fine; do the node holding the VIP / etcd leader last if you like — `talosctl etcd status` shows the leader):
 
@@ -325,15 +325,40 @@ Run §5 for all three nodes. Then **Spegel 0.6.0 → 0.7.4**: `kubernetes/apps/k
 Breaking/notable (Talos v1.12.0 release notes; "What's new in Talos 1.12"):
 
 * Linux **6.18** (from 6.12). Ceph krbd and dm-thin keep working; nothing in the config references kernel specifics.
-* **Feature lock**: `machine.features.rbac`, `machine.features.apidCheckExtKeyUsage`, `cluster.apiServer.disablePodSecurityPolicy` are ignored (locked to true). talhelper still emits them for older targets; harmless.
-* `.machine.network` (legacy) is **deprecated but supported**; talhelper keeps generating it from `networkInterfaces`. No action; optional later migration to `LinkConfig`/`HostnameConfig`/`ResolverConfig` documents.
+* **Feature lock**: `machine.features.rbac`, `machine.features.apidCheckExtKeyUsage`, `cluster.apiServer.disablePodSecurityPolicy` are ignored (locked to true). talhelper stops emitting them at contract 1.12.
+* **Config contract 1.12 is multi-document.** talhelper 3.1.17 replaces `machine.network.interfaces` with `HostnameConfig`, `LinkAliasConfig` (MAC selector → alias), `LinkConfig` (address, default route, MTU) and `Layer2VIPConfig` documents carrying the same values (checked 2026-10-23), sets `machine.install.grubUseUKICmdline: true` (the factory UKI's cmdline is today's minus `talos.config=none`, plus `module.sig_enforce=1`), and drops a duplicate VIP entry from `cluster.apiServer.certSANs`. Talos 1.11 rejects this config (`grubUseUKICmdline` is an unknown field there), so it can only be applied **after** the OS upgrade.
+* **The JSON6902 admission patch breaks** ("JSON6902 patches are not supported for multi-document machine configuration"). Deleting it would bring back Talos's generated PodSecurity config (`enforce: baseline`, `audit`/`warn: restricted`, only `kube-system` exempt) and start rejecting privileged pods (Rook, TopoLVM, …) as they are recreated. Replace the content of `talos/patches/controller/admission-controller-patch.yaml` with a strategic-merge patch that keeps the plugin and sets every default to privileged:
+  ```yaml
+  cluster:
+    apiServer:
+      admissionControl:
+        - name: PodSecurity
+          configuration:
+            apiVersion: pod-security.admission.config.k8s.io/v1
+            kind: PodSecurityConfiguration
+            defaults:
+              enforce: privileged
+              enforce-version: latest
+              audit: privileged
+              audit-version: latest
+              warn: privileged
+              warn-version: latest
+  ```
+  Leave `exemptions` out: lists merge by appending, so restating `kube-system` duplicates Talos's own entry. Today the apiserver runs with no admission config, which means the built-in privileged defaults, so behaviour does not change.
 * `.machine.registries` deprecated — unused (`machine.files` CRI part is unaffected).
 * kube-apiserver TLS cipher suites hardened (CIS 1.12 list). All API clients here are modern Go (kubectl, Flux, operators, Tailscale, cloudflared); if an old client breaks, extend via `cluster.apiServer.extraArgs.tls-cipher-suites`.
-* **KSPP sysctls now default-on** (`pkg/kernel/kspp/kspp.go`): `dev.tty.ldisc_autoload=0`, `dev.tty.legacy_tiocsti=0`, `fs.protected_{symlinks,hardlinks}=1`, `fs.protected_{fifos,regular}=2`, `fs.suid_dumpable=0`, `kernel.kptr_restrict=2`, `kernel.dmesg_restrict=1`, `kernel.perf_event_paranoid=3`, `kernel.randomize_va_space=2`, `kernel.yama.ptrace_scope=2`, **`user.max_user_namespaces=0`**, `kernel.unprivileged_bpf_disabled=1`, `net.core.bpf_jit_harden=2`, `vm.unprivileged_userfaultfd=0`. Cilium runs privileged (unaffected; `bpf_jit_harden=2` adds a small eBPF cost). `max_user_namespaces=0` breaks any pod that creates user namespaces (rootless container tooling inside pods — check dario/n8n sandboxes); override in `talos/patches/global/machine-sysctls.yaml` if needed. Inspect after the first node: `talosctl -n <ip> -e <ip> get kernelparamstatus`.
-* etcd image now `registry.k8s.io/etcd` (3.6.14); GRUB `grubUseUKICmdline` defaults to **false** for upgraded installs (legacy cmdline kept — nothing to do, no extraKernelArgs); UEFI boot order untouched (BIOS here); persistent logs under `/var/log`; `nft` binary; force reboot mode (`talosctl reboot --mode force`); kernel module signature enforcement stays on.
-* talconfig edits: **none** (optional sysctl override).
+* **KSPP sysctls now default-on** (`pkg/kernel/kspp/kspp.go`). Talos 1.11 already sets most of them, `user.max_user_namespaces=0` included, so nothing running here depends on user namespaces. What actually changes (node 01, read 2026-10-23): `fs.protected_{symlinks,hardlinks}` 0 → 1, `fs.protected_{fifos,regular}` 0 → 2, `kernel.kptr_restrict` 1 → 2, `kernel.yama.ptrace_scope` 1 → 2 (debuggers inside pods then need `CAP_SYS_PTRACE`). `vm.unprivileged_userfaultfd` does not exist on this kernel. No override needed; check after the first node with `talosctl -n <ip> -e <ip> get kernelparamstatus`.
+* etcd image now `registry.k8s.io/etcd` (3.6.14); UEFI boot order untouched (BIOS here); persistent logs under `/var/log`; `nft` binary; force reboot mode (`talosctl reboot --mode force`); kernel module signature enforcement stays on.
 
-Run §5 for all three nodes.
+Two passes:
+
+1. **OS upgrade on the current config.** `.mise.toml` talosctl 1.12.12; leave `talos/talenv.yaml` at v1.11.6 so the generated config keeps matching the nodes. Run §5 c)–e) for each node (skip a and b), passing the image explicitly: `--image factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.12.12`.
+2. **Config contract 1.12**, once all three nodes run 1.12.12. Set `talosVersion: v1.12.12`, replace the admission patch, `task talos:generate-config`, and `talosctl validate --mode metal --strict` each file. Then one node at a time:
+   * `apply-config --mode=auto --dry-run`: expect exactly the four network documents in, `machine.network.hostname`/`interfaces` out, `grubUseUKICmdline`, the dropped feature flags, the certSAN duplicate and the `admissionControl` entry.
+   * `apply-config --mode=try --timeout 2m` first, as a safety net for the network move (Talos reverts on its own when the timeout ends). Meanwhile check `talosctl get addresses`, `get routes` and `get links`, the VIP on its holder (`talosctl get addressstatus | grep 10.13.38.82`) and the probe. Let it revert, then apply with `--mode=auto`.
+   * Afterwards the apiserver carries `--admission-control-config-file`, and `kubectl run pstest -n default --image=busybox --privileged --dry-run=server -- true` is admitted without warnings.
+
+   Commit `talenv.yaml`, the patch and `.mise.toml`.
 
 ### Step 6 — Rook 1.19.12, Ceph Tentacle, TopoLVM 17.3.0, then Kubernetes 1.34.12 → 1.35.9
 
@@ -443,6 +468,6 @@ Biggest single risks: etcd 3.5→3.6 one-way transition (step 3, mitigated by sn
 4. **Cilium chart source**: `oci://quay.io/cilium/charts/cilium` (keeps the OCIRepository pattern; verified) vs. `https://helm.cilium.io` (HelmRepository). The home-operations mirror will prune the 1.18 tags.
 5. **Resolved 2026-10-23** (CNPG 1.30.1 is live). ~~CNPG 1.27 → 1.30 directly~~ (documented as directly upgradable; read the 1.30.0 security-change notes) and installing `kubectl-cnpg` for manual switchovers (optional — CNPG switches over automatically on cordon).
 6. **etcd 3.6 transition**: accept Talos 1.10.9's etcd 3.5.26 as the starting point (upstream now recommends ≥3.5.32, which no Talos 1.10 ships) with the snapshot/downgrade-API safety net.
-7. **KSPP `user.max_user_namespaces=0`** (Talos 1.12): confirm no workload needs user namespaces, or add a sysctl override before step 5.
+7. **Resolved 2026-10-23.** ~~KSPP `user.max_user_namespaces=0` (Talos 1.12)~~: Talos 1.11 already sets it, so no workload here depends on user namespaces; no override (step 5).
 8. **Rook 1.20 CSI hand-over**: accept Helm adoption of the existing OperatorConfig/Driver CRs (annotate/label) rather than letting the driver fail and recreate.
 9. Scheduling: each Talos step ≈ one 45-min window with three reboots; Kubernetes/component steps ≈ 30 min each. Steps 1–2 are time-sensitive (Envoy Gateway 1.8 EOL 2026-11-08, Ceph Squid EOL 2026-10-31).
