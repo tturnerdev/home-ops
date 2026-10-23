@@ -90,7 +90,10 @@ spec:
       - --enable-legacy-annotation-prefix
     # triggerLoopOnEvent: true
     policy: sync
-    sources: ["crd", "ingress"]
+    # gateway-httproute: an HTTPRoute hostname becomes an A record to its
+    # parent Gateway's status address (the Gateways carry no target
+    # annotation, which would turn routes into CNAMEs to a name UniFi lacks)
+    sources: ["crd", "ingress", "gateway-httproute"]
     txtPrefix: k8s.
     txtOwnerId: default
     domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_2}"]
