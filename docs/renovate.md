@@ -41,7 +41,7 @@ update (PR #180). Restore its folder in the rule once that switch lands.
 
 ## Version holds
 
-Five rules cap a package with `allowedVersions`. Four wait on the cluster
+Four rules cap a package with `allowedVersions`. Three wait on the cluster
 (Talos v1.10.9 / Kubernetes v1.33.13 in `talos/talenv.yaml`, as of
 2026-10-23) and lift during the Talos/Kubernetes upgrade; Sonarr's waits
 on upstream. Each rule's comment carries the detail.
@@ -51,7 +51,6 @@ on upstream. Each rule's comment carries the detail.
 | Hold Sonarr on v4 | `ghcr.io/home-operations/sonarr` at `<5` | v5 is still a pre-release (GitHub flags every 5.0.0.x build as one, as of 2026-10-22) with a one-way database migration, and the home-operations image publishes those builds under plain tags | drop once Sonarr ships v5 as a stable release |
 | Hold Spegel on 0.6 | `ghcr.io/spegel-org/helm-charts/spegel` at `<0.7.0` | 0.7 dropped containerd 2.0 (it advertises images only through content events, new in containerd 2.1); 0.8 refuses to start below containerd 2.2 and its registry Service sets `trafficDistribution: PreferSameNode`, which Kubernetes 1.32 rejects; the nodes run containerd 2.0.3 | raise to `<0.8.0` at Talos 1.11+ (containerd 2.1); drop at Talos 1.13+ (containerd 2.2.3) with Kubernetes 1.34+ |
 | Hold Flux on 2.8 | `controlplaneio-fluxcd/distribution` and the flux CLI (`aqua:fluxcd/flux2`), which moves with it, at `<2.9.0` | 2.9 needs Kubernetes 1.34.1, and flux-operator cannot roll a distribution back a minor | drop at Kubernetes 1.34.1 |
-| Hold cert-manager on 1.20 | `quay.io/jetstack/charts/cert-manager` at `<1.21.0` | 1.21 is supported on Kubernetes 1.33-1.36; 1.20 is the last line for 1.32 | drop at Kubernetes 1.33 |
 | Hold Envoy Gateway on 1.8 | `mirror.gcr.io/envoyproxy/gateway-helm` at `<1.9.0` | 1.9 is supported on Kubernetes 1.33-1.36; 1.8 is the last line for 1.32 | drop at Kubernetes 1.33; the CRDs go first (see the envoy-gateway `ocirepository.yaml`) |
 
 Relax a hold by raising its `allowedVersions`, drop one by deleting its
