@@ -79,7 +79,9 @@ spec:
           - name: pg_autoscaler
             enabled: true
           - name: rook
-            enabled: true
+            # Off from Tentacle on: Rook lists "several known stability issues"
+            # with it there; only some dashboard pages go away.
+            enabled: false
       network:
         provider: host
         connections:
