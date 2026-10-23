@@ -1,7 +1,6 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/referencegrant_v1.json
-# Lets the envoy Gateways (network) serve the wildcard certificate, which
-# ingress-nginx also uses as its default certificate.
+# Lets the envoy Gateways (network) serve the two wildcard certificates.
 apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
@@ -15,3 +14,6 @@ spec:
     - group: ""
       kind: Secret
       name: "${SECRET_DOMAIN/./-}-production-tls"
+    - group: ""
+      kind: Secret
+      name: "${SECRET_DOMAIN_2/./-}-production-tls"

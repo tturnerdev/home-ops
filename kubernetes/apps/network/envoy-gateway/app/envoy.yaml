@@ -49,6 +49,15 @@ kind: Gateway
 metadata:
   name: envoy-external
   annotations:
+    # external-dns (both instances, gateway-httproute source): every HTTPRoute
+    # on this Gateway is published as a CNAME to this alias instead of an A
+    # record to 10.13.38.84 - Cloudflare: external.<d> -> <tunnel>.cfargotunnel.com
+    # (the DNSEndpoint in cloudflared/); UniFi: the manual external.<d> A record
+    # (repointed from .80 to 10.13.38.84 at the public cutover). The Cloudflare
+    # instance must never see a LAN address, and this is the CNAME chain the
+    # external Ingresses used. envoy-internal deliberately carries no target
+    # annotation: its routes stay A records to 10.13.38.83.
+    external-dns.kubernetes.io/target: external.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       client:
         dns-resolver: tcp://1.1.1.1:53
@@ -58,7 +67,7 @@ spec:
   infrastructure:
     annotations:
       # Read only by k8s-gateway (VPN clients); external-dns takes route
-      # targets from the Gateway's status address instead
+      # targets from the Gateway's target annotation above instead
       external-dns.alpha.kubernetes.io/hostname: external-envoy.${SECRET_DOMAIN}
       # NOTE: 10.13.38.82 is the Kube API VIP (talos/talconfig.yaml vip.ip + cluster.yaml cluster_api_addr).
       # It must NOT be used as a LoadBalancer IP. Using a free address until external-nginx (.80) is retired.
@@ -76,12 +85,16 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
-      # The wildcard certificate, shared through the ReferenceGrant in
-      # kubernetes/apps/cert-manager/cert-manager/tls
+      # The two wildcard certificates, shared through the ReferenceGrant in
+      # kubernetes/apps/cert-manager/cert-manager/tls. Envoy picks one by SNI;
+      # cloudflared's originServerName stays on the primary domain.
       tls:
         certificateRefs:
           - kind: Secret
             name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: cert-manager
+          - kind: Secret
+            name: "${SECRET_DOMAIN_2/./-}-production-tls"
             namespace: cert-manager
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
@@ -117,12 +130,16 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
-      # The wildcard certificate, shared through the ReferenceGrant in
-      # kubernetes/apps/cert-manager/cert-manager/tls
+      # The two wildcard certificates, shared through the ReferenceGrant in
+      # kubernetes/apps/cert-manager/cert-manager/tls. Envoy picks one by SNI;
+      # cloudflared's originServerName stays on the primary domain.
       tls:
         certificateRefs:
           - kind: Secret
             name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: cert-manager
+          - kind: Secret
+            name: "${SECRET_DOMAIN_2/./-}-production-tls"
             namespace: cert-manager
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/backendtrafficpolicy_v1alpha1.json
@@ -153,11 +170,17 @@ spec:
       requestTimeout: 0s
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/clienttrafficpolicy_v1alpha1.json
+# One ClientTrafficPolicy per Gateway because clientIPDetection differs
+# (Envoy Gateway takes exactly one detection mode per policy). Everything
+# else is identical in both - change them together.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: ClientTrafficPolicy
 metadata:
-  name: envoy
+  name: envoy-external
 spec:
+  # Public clients arrive through cloudflared, which puts the visitor's
+  # address in X-Forwarded-For: trust that one hop (the tunnel pod) and
+  # append it, as ingress-nginx did with use-forwarded-headers.
   clientIPDetection:
     xForwardedFor:
       numTrustedHops: 1
@@ -169,9 +192,44 @@ spec:
     initialConnectionWindowSize: 32Mi
     onInvalidMessage: TerminateStream
   http3: {}
-  targetSelectors:
+  targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
+      name: envoy-external
+  tcpKeepalive: {}
+  timeout:
+    http:
+      requestReceivedTimeout: 0s
+  tls:
+    minVersion: "1.2"
+    alpnProtocols:
+      - h2
+      - http/1.1
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/clienttrafficpolicy_v1alpha1.json
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: envoy-internal
+spec:
+  # LAN and VPN clients connect directly (Cilium preserves the source
+  # address), so the TCP peer is the client and an X-Forwarded-For a client
+  # sends is not trusted. Envoy still appends the peer to X-Forwarded-For
+  # for the backends (it never sets X-Real-IP).
+  clientIPDetection:
+    directSourceIP: {}
+  connection:
+    bufferLimit: 8Mi
+    maxAcceptPerSocketEvent: 0
+  http2:
+    initialStreamWindowSize: 2Mi
+    initialConnectionWindowSize: 32Mi
+    onInvalidMessage: TerminateStream
+  http3: {}
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-internal
   tcpKeepalive: {}
   timeout:
     http:
@@ -194,9 +252,11 @@ spec:
     - name: envoy-external
       namespace: network
       sectionName: http
-    # - name: envoy-internal
-    #   namespace: network
-    #   sectionName: http
+    # ingress-nginx parity (force-ssl-redirect): app routes attach to the
+    # https listeners only (sectionName), so plain http is always redirected
+    - name: envoy-internal
+      namespace: network
+      sectionName: http
   rules:
     - filters:
         - type: RequestRedirect
