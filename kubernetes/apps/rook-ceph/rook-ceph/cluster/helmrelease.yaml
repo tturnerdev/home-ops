@@ -38,8 +38,7 @@ spec:
           gethomepage.dev/name: "Ceph"
           gethomepage.dev/icon: "ceph.svg"
           gethomepage.dev/description: "Storage"
-          # The parentRef names no listener, so Homepage would take the scheme
-          # from the Gateway's first listener (http)
+          # Explicit even though sectionName below makes Homepage pick https
           gethomepage.dev/href: "https://rook.${SECRET_DOMAIN}"
           # The default status lookup (app.kubernetes.io/name=<route name>)
           # matches no pod; the mgr pods serve the dashboard
@@ -51,6 +50,8 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+            # https only: the http listener carries the 301 redirect
+            sectionName: https
     cephClusterSpec:
       cephConfig:
         global:

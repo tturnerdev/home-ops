@@ -11,3 +11,19 @@ spec:
     kind: ClusterIssuer
   commonName: "${SECRET_DOMAIN}"
   dnsNames: ["${SECRET_DOMAIN}", "*.${SECRET_DOMAIN}"]
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/cert-manager.io/certificate_v1.json
+# Secondary-domain wildcard, served by both envoy Gateways (SNI-selected next
+# to the primary wildcard) through the ReferenceGrant. Replaces the per-host
+# ingress-shim certificates the ingress-nginx Ingresses carried.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "${SECRET_DOMAIN_2/./-}-production"
+spec:
+  secretName: "${SECRET_DOMAIN_2/./-}-production-tls"
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  commonName: "${SECRET_DOMAIN_2}"
+  dnsNames: ["${SECRET_DOMAIN_2}", "*.${SECRET_DOMAIN_2}"]
