@@ -77,25 +77,24 @@ spec:
         ports:
           http:
             port: *port
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Media"
           gethomepage.dev/name: "Prowlarr"
           gethomepage.dev/icon: "prowlarr.svg"
           gethomepage.dev/description: "Indexers"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "index.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "index.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
     persistence:
       config:
         enabled: true

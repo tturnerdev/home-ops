@@ -101,25 +101,25 @@ spec:
         ports:
           http:
             port: 2342
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
+        # Large uploads: Envoy applies no request-body limit (nginx had proxy-body-size 0).
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Media"
           gethomepage.dev/name: "PhotoPrism"
           gethomepage.dev/icon: "photoprism.svg"
           gethomepage.dev/description: "Photos"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "photos.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "photos.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 2342
     persistence:
       assets:
         enabled: true
