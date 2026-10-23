@@ -5,10 +5,16 @@ kind: OCIRepository
 metadata:
   name: envoy-gateway
 spec:
+  # Flux does not upgrade this chart's CRDs (Helm skips crds/ on upgrade).
+  # Apply them first, then bump the tag here and in bootstrap/helmfile.d/00-crds.yaml:
+  #   helm template envoy-gateway oci://mirror.gcr.io/envoyproxy/gateway-helm --version <v> \
+  #     -n network --include-crds --no-hooks | yq ea 'select(.kind == "CustomResourceDefinition")' \
+  #     | kubectl apply --server-side --force-conflicts -f -
+  # 1.9 is supported on Kubernetes 1.33+ only ('Hold Envoy Gateway on 1.8').
   interval: 15m
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: v1.6.2
+    tag: v1.8.5
   url: oci://mirror.gcr.io/envoyproxy/gateway-helm
