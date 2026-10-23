@@ -15,7 +15,7 @@ spec:
       chart: ceph-csi-drivers
       # Keep in step with the ceph-csi-operator subchart the rook-ceph chart pins
       # (Chart.yaml: 1.0.4 for Rook v1.20.9, 1.1.0 for Rook 1.21.0).
-      version: 1.0.4
+      version: 1.1.0
       sourceRef:
         kind: HelmRepository
         name: ceph-csi-operator
