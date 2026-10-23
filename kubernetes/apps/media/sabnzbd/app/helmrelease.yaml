@@ -66,25 +66,24 @@ spec:
         ports:
           http:
             port: 30055
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Media"
           gethomepage.dev/name: "SABnzbd"
           gethomepage.dev/icon: "sabnzbd.svg"
           gethomepage.dev/description: "Downloads"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "downloads.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "downloads.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 30055
     persistence:
       config:
         enabled: true

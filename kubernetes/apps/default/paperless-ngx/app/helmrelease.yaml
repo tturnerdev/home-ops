@@ -52,10 +52,11 @@ spec:
               PAPERLESS_CONSUMPTION_DIR: "/consume"
               PAPERLESS_DATA_DIR: "/data"
               PAPERLESS_MEDIA_ROOT: "/media"
-              # ingress-nginx always overwrites X-Real-IP with the peer address;
-              # without a trusted source, allauth (v3) rate-limits logins by the
-              # proxy's IP instead of the client's
-              PAPERLESS_ALLAUTH_TRUSTED_CLIENT_IP_HEADER: "X-Real-IP"
+              # Envoy sets no X-Real-IP; it appends the TCP peer (the LAN client -
+              # Cilium keeps source addresses) as the LAST X-Forwarded-For entry.
+              # One trusted hop makes allauth (v3) rate-limit logins per client and
+              # ignore anything a client puts in the header itself.
+              PAPERLESS_ALLAUTH_TRUSTED_PROXY_COUNT: "1"
               # Database. v3 no longer infers PostgreSQL from DBHOST: without
               # DBENGINE it silently starts on an empty SQLite file
               PAPERLESS_DBENGINE: "postgresql"
@@ -115,25 +116,25 @@ spec:
         ports:
           http:
             port: 8000
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
+        # Large uploads: Envoy applies no request-body limit (nginx had proxy-body-size 0).
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Home"
           gethomepage.dev/name: "Paperless"
           gethomepage.dev/icon: "paperless-ngx.svg"
           gethomepage.dev/description: "Documents"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "docs.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "docs.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8000
     persistence:
       data:
         enabled: true

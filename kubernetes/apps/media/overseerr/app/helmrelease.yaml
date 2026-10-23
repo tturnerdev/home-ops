@@ -57,25 +57,24 @@ spec:
         ports:
           http:
             port: 5055
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Media"
           gethomepage.dev/name: "Overseerr"
           gethomepage.dev/icon: "overseerr.svg"
           gethomepage.dev/description: "Requests"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "request.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "request.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 5055
     persistence:
       config:
         enabled: true
