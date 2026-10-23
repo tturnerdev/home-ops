@@ -25,7 +25,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: db-init
-          image: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
+          image: ghcr.io/cloudnative-pg/postgresql:18-standard-trixie
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
