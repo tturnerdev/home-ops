@@ -19,6 +19,12 @@ spec:
     remediation:
       retries: 3
   values:
+    # Rook >= 1.19 sets the Ceph image here (cephClusterSpec.cephVersion stays unset).
+    # Pinned on purpose: the chart default jumps to Tentacle (v20.2.4) in 1.20/1.21,
+    # and an unpinned bump would start a Ceph major upgrade.
+    cephImage:
+      repository: quay.io/ceph/ceph
+      tag: v19.2.6 # Squid; the tested default of Rook 1.19.12
     monitoring:
       enabled: true
       createPrometheusRules: true
