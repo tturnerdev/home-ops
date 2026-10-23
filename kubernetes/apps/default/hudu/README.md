@@ -89,10 +89,10 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   2026-10-08, so the `cloudflared` Kustomization (namespace `network`) was
   suspended and the live `cloudflared-configmap` applied from the branch for
   a few hours; it was resumed right after `feat/hudu` merged. Nothing to do.
-- `config.domain` must match the ingress host: it drives every generated URL
+- `config.domain` must match the HTTPRoute hostname: it drives every generated URL
   and the CSRF/ActionCable origin checks. `behindTlsProxy: true` because
-  ingress-nginx terminates TLS (plain HTTP is 308-redirected by nginx and
-  `force_ssl` stays on in Rails).
+  envoy-external terminates TLS (plain HTTP is 301-redirected by the Gateway's
+  https-redirect route and `force_ssl` stays on in Rails).
 - `SMTP_OPENSSL_VERIFY_MODE=peer` is set explicitly: the app's own default is
   `none`.
 
