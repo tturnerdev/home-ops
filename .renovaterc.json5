@@ -229,6 +229,17 @@
       allowedVersions: '<1.21.0',
     },
     {
+      // CoreDNS charts from 1.45.0 on are signed only as cosign v3 bundles;
+      // the OCIRepository verifies signatures, and source-controller reads
+      // that format from Flux 2.8 (Kubernetes 1.33). Drop this once Flux is
+      // on 2.8.
+      description: 'Hold CoreDNS chart below 1.45',
+      matchPackageNames: [
+        'ghcr.io/coredns/charts/coredns',
+      ],
+      allowedVersions: '<1.45.0',
+    },
+    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
