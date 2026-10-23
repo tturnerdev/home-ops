@@ -17,4 +17,8 @@ ingress:
     service: *svc
   - hostname: "docs.${SECRET_DOMAIN_2}"
     service: *svc
+  # RustDesk API/admin (lejianwen/rustdesk-api) only; the ID/relay server
+  # itself is raw TCP/UDP on its own VIP and cannot ride the tunnel.
+  - hostname: "rdesk-api.${SECRET_DOMAIN_2}"
+    service: *svc
   - service: http_status:404

@@ -1,0 +1,347 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: rustdesk
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      rustdesk:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # One replica only: hbbs keeps peer registrations in SQLite on an RWO
+        # volume and all hole-punching state in memory, so a second pod would
+        # split clients between two servers that don't know about each other.
+        strategy: Recreate
+        containers:
+          hbbs:
+            image: &image
+              # Our build of lejianwen/rustdesk-server (tag v0.1.2, hbbs 1.1.14 base)
+              # from the private mirror atrelixtech/rustdesk-server, branch prod.
+              # Same layout as upstream's "classic" image: FROM scratch with the
+              # static hbbs/hbbr binaries only — no shell, entrypoint or PATH,
+              # hence the absolute command paths below. Chosen over stock
+              # rustdesk/rustdesk-server because only this fork (and Server Pro)
+              # answers the key exchange that signed-in clients >= 1.4.1 require;
+              # see README "Source forks". Digest-pinned; Renovate cannot read
+              # the private package, bump by hand after a prod build.
+              repository: ghcr.io/atrelixtech/rustdesk-server
+              tag: 0.1.2-atrelix@sha256:4fc25359234040c7ecbd3aaf784e48759057729857c12949b97378204dee1335
+              pullPolicy: IfNotPresent
+            # ID / rendezvous server. Binds PORT 21116 (tcp+udp), PORT-1 21115
+            # (NAT type test) and PORT+2 21118 (websocket). No -r/RELAY-SERVERS:
+            # the relay answers on the same hostname at the standard 21117, which
+            # clients derive from the ID server address themselves
+            # (docs/environment-variables.md upstream).
+            command: ["/usr/bin/hbbs"]
+            workingDir: &workdir /data
+            env:
+              RUST_LOG: info
+              # The daily version check (unconditional in hbbs) loads hbb_common's
+              # client-side Config, which generates a throwaway id keypair and
+              # writes $HOME/.config/rustdesk/*.toml. The image sets HOME=/root on
+              # a read-only root fs, which logs two "Failed to store config"
+              # ERRORs at every start. A writable, ephemeral HOME keeps a healthy
+              # start error-free; nothing the server does depends on that file.
+              HOME: /tmp
+              # Peer registrations (id -> device uuid + public key). Default is
+              # ./db_v2.sqlite3 relative to the working dir; explicit so the
+              # PVC location is obvious.
+              DB_URL: /data/db_v2.sqlite3
+              # base64 64-byte ed25519 secret key (libsodium seed||public). hbbs
+              # derives the public key from it, signs with it, and rejects
+              # clients that don't present that public key — the `-k` semantics
+              # without any id_ed25519 files on disk.
+              KEY: &key
+                valueFrom:
+                  secretKeyRef:
+                    name: rustdesk-secret
+                    key: KEY
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 21116
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 21116
+                  initialDelaySeconds: 3
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext: &containerSecurityContext
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources: &resources
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 256Mi
+          hbbr:
+            image: *image
+            # Relay server: PORT 21117 and PORT+2 21119 (websocket). Given the
+            # same KEY so the relay validates clients too — its upstream default
+            # is no validation, which would let anyone relay through it.
+            # Reads optional blacklist.txt / blocklist.txt from the working dir.
+            command: ["/usr/bin/hbbr"]
+            workingDir: *workdir
+            env:
+              RUST_LOG: info
+              KEY: *key
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 21117
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 21117
+                  initialDelaySeconds: 3
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext: *containerSecurityContext
+            resources: *resources
+          api:
+            image:
+              # Our build of lejianwen/rustdesk-api from the private mirror
+              # atrelixtech/rustdesk-api, branch prod, pinned at upstream commit
+              # e318f1fd (2025-09-12). Open-source stand-in for the Pro "API
+              # server" the client's Login button talks to: accounts, synced
+              # address books, device list, login/connection audit and a web
+              # admin at /_admin/. Alpine image with one Go binary
+              # (/app/apimain), no USER directive; runs as uid 1000 given a
+              # writable /app/data (SQLite) and /app/runtime (log file).
+              # Digest-pinned; bump by hand after a prod build.
+              repository: ghcr.io/atrelixtech/rustdesk-api
+              tag: e318f1f-atrelix@sha256:cd64a590bcb49952af1d9cad95c088c795abfec93ae302b3d3dc7604789c4508
+              pullPolicy: IfNotPresent
+            env:
+              TZ: America/Los_Angeles
+              RUSTDESK_API_LANG: en
+              # Server config the API hands to clients / the web client.
+              RUSTDESK_API_RUSTDESK_ID_SERVER: "rdesk.${SECRET_DOMAIN_2}:21116"
+              RUSTDESK_API_RUSTDESK_RELAY_SERVER: "rdesk.${SECRET_DOMAIN_2}:21117"
+              # Canonical (TLS) address of this API: external ingress behind the
+              # cloudflared tunnel, see `ingress` below. On the LAN the plain
+              # VIP port works too (service port `api`).
+              RUSTDESK_API_RUSTDESK_API_SERVER: "https://rdesk-api.${SECRET_DOMAIN_2}"
+              # The bundled web client (/webclient2) can only speak WebSocket.
+              # Served over HTTPS it must use wss://, and without this it derives
+              # wss://<id-server host>/ws/id, i.e. port 443 on rdesk.<domain>,
+              # where nothing listens. Set, it uses <this>/ws/id and
+              # <this>/ws/relay — the two extra paths on the ingress below.
+              RUSTDESK_API_RUSTDESK_WS_HOST: "wss://rdesk-api.${SECRET_DOMAIN_2}"
+              # Public half of the hbbs/hbbr key, handed out with the server config.
+              RUSTDESK_API_RUSTDESK_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: rustdesk-secret
+                    key: KEY_PUB
+              # Per-IP captcha/ban counters must see real client addresses, so
+              # honour X-Forwarded-For from ingress-nginx (pod CIDR). Traffic on
+              # the VIP port arrives with its real source (DSR) and needs no proxy.
+              RUSTDESK_API_GIN_TRUST_PROXY: 10.42.0.0/16
+              # Upstream default, made explicit: no self sign-up on an
+              # internet-facing endpoint — accounts are created in /_admin/.
+              RUSTDESK_API_APP_REGISTER: "false"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 21114
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 21114
+                  initialDelaySeconds: 3
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext: *containerSecurityContext
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+    defaultPodOptions:
+      # Both images are private packages in the atrelixtech org
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        # Scratch (hbbs/hbbr) and alpine (api) images, no passwd entry needed:
+        # any numeric uid works. The only writes are the SQLite files on the
+        # two claims, which fsGroup makes writable, and the api's log emptyDir.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: rustdesk
+        type: LoadBalancer
+        annotations:
+          # Own LB IP (Cilium LB-IPAM + L2 announcement): RustDesk is raw
+          # TCP/UDP, so neither the HTTP ingresses nor the cloudflared tunnel
+          # can front it. The UniFi port-forward and the LAN DNS record both
+          # target this address.
+          lbipam.cilium.io/ips: 10.13.38.93
+        # Cilium's LB runs in DSR mode, so hbbs sees the real client source
+        # address and port even when the pod lives on another node — NAT
+        # traversal depends on that. Cluster policy keeps every node able to
+        # answer for the VIP.
+        externalTrafficPolicy: Cluster
+        ports:
+          nat-test:
+            port: 21115
+            protocol: TCP
+          id-tcp:
+            port: 21116
+            protocol: TCP
+          id-udp:
+            port: 21116
+            protocol: UDP
+          relay:
+            port: 21117
+            protocol: TCP
+          # WebSocket variants, only used by the browser web client. Also the
+          # backends of the /ws/id and /ws/relay ingress paths below, which is
+          # how the web client actually reaches them (wss:// on 443).
+          id-ws:
+            port: 21118
+            protocol: TCP
+          relay-ws:
+            port: 21119
+            protocol: TCP
+          # lejianwen/rustdesk-api, plain HTTP. A client whose "API server"
+          # field is empty assumes http://<id-server>:21114, so LAN clients
+          # need no extra setting. Do NOT port-forward this one — remote
+          # clients use the TLS name below instead.
+          api:
+            port: 21114
+            protocol: TCP
+    ingress:
+      app:
+        enabled: true
+        className: external
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-production
+          # The /ws/* paths carry the web client's long-lived WebSocket
+          # sessions (a relayed desktop session is one connection). nginx's
+          # default 60 s read/send timeouts would cut an idle session.
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        # HTTPS front for the API (login, address book, /_admin/, the web
+        # client page) plus the web client's two WebSocket endpoints, which
+        # are hbbs/hbbr's ws ports behind TLS. Native clients never use these
+        # paths: the ID and relay ports stay on the raw VIP. Sibling hostname
+        # because rdesk.<domain> must remain a plain A record to the WAN IP
+        # for those ports, and this cluster can only issue certificates for
+        # the secondary domain by HTTP-01 through the tunnel.
+        # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
+        # plus the cloudflared ingress rule (cloudflare external-dns excludes
+        # this zone). LAN DNS: unifi-dns publishes this host -> ingress LB IP.
+        hosts:
+          - host: "rdesk-api.${SECRET_DOMAIN_2}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: api
+              # hbbs/hbbr ignore the request path; they take the client's
+              # address from X-Real-IP / X-Forwarded-For, which ingress-nginx
+              # sets (use-forwarded-headers), so the relay sees the browser's
+              # real address rather than the controller's.
+              - path: /ws/id
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: id-ws
+              - path: /ws/relay
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: relay-ws
+        tls:
+          - secretName: rustdesk-api-tls
+            hosts: ["rdesk-api.${SECRET_DOMAIN_2}"]
+    persistence:
+      data:
+        existingClaim: rustdesk
+        advancedMounts:
+          rustdesk:
+            hbbs:
+              - path: /data
+            hbbr:
+              - path: /data
+      api-data:
+        # The API's SQLite (users, address books, tokens, audit). Its own claim
+        # rather than a subPath of `data`: kubelet creates subPath directories
+        # as root, which uid 1000 could not write.
+        existingClaim: rustdesk-api
+        advancedMounts:
+          rustdesk:
+            api:
+              - path: /app/data
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          rustdesk:
+            hbbs:
+              - path: /tmp
+      api-runtime:
+        # logger.path defaults to ./runtime/log.txt under /app.
+        type: emptyDir
+        advancedMounts:
+          rustdesk:
+            api:
+              - path: /app/runtime
