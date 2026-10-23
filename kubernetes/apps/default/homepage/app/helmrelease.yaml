@@ -53,6 +53,11 @@ spec:
             #     drop:
             #       - ALL
 
+    defaultPodOptions:
+      # app-template 5.x stops mounting the ServiceAccount token by default;
+      # the kubernetes widget and ingress/route discovery need it
+      automountServiceAccountToken: true
+
     service:
       app:
         controller: homepage
@@ -79,8 +84,7 @@ spec:
     # name, icon). This read-only role is what discovery and the kubernetes
     # widget need, per the Homepage k8s install docs (Traefik rule dropped).
     serviceAccount:
-      create: true
-      name: homepage
+      homepage: {}
 
     rbac:
       roles:
@@ -105,7 +109,7 @@ spec:
           roleRef:
             identifier: homepage
           subjects:
-            - identifier: default
+            - identifier: homepage
 
     persistence:
       # Logs and the files Homepage generates for itself (docker.yaml,
@@ -121,7 +125,7 @@ spec:
       config-files:
         enabled: true
         type: configMap
-        name: homepage-config
+        identifier: config
         globalMounts:
           - path: /app/config/bookmarks.yaml
             subPath: bookmarks.yaml

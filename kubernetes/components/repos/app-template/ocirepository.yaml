@@ -10,7 +10,8 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 3.7.3
-  url: oci://ghcr.io/bjw-s/helm/app-template
+    tag: 5.3.0
+  # The chart moved to the bjw-s-labs org; ghcr.io/bjw-s/helm stopped at 3.7.3
+  url: oci://ghcr.io/bjw-s-labs/helm/app-template
   verify:
     provider: cosign
