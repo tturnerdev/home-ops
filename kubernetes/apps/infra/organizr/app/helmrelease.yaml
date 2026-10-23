@@ -19,7 +19,7 @@ spec:
     remediation:
       retries: 3
   dependsOn:
-    - name: internal-ingress-nginx
+    - name: envoy-gateway
       namespace: network
   values:
     # enabled: false
@@ -41,28 +41,24 @@ spec:
         ports:
           http:
             port: 80
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Admin"
           gethomepage.dev/name: "Organizr"
           gethomepage.dev/icon: "organizr.png"
           gethomepage.dev/description: "Dashboard"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: &host "home.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
-        tls:
-          - hosts:
-              - *host
+        hostnames:
+          - "home.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 80
     persistence:
       # Doesn't appear to be used, /var/www/data seems to be empty
       data:
