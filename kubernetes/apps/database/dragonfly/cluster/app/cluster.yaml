@@ -7,7 +7,7 @@ metadata:
   namespace: database
 spec:
   replicas: 3
-  image: ghcr.io/dragonflydb/dragonfly:v1.23.1
+  image: ghcr.io/dragonflydb/dragonfly:v2.0.2
   resources:
     requests:
       cpu: 100m
@@ -16,9 +16,13 @@ spec:
       cpu: 1000m
       memory: 1Gi
   args:
-    - --maxmemory=2Gi
+    # Below the 1Gi limit: at 2Gi the kernel would OOM-kill the pod before
+    # Dragonfly evicted anything (it needs at least 256Mi per thread)
+    - --maxmemory=768Mi
     - --proactor_threads=2
     - --cluster_mode=emulated
     - --default_lua_flags=allow-undeclared-keys
+    # v2.0's daily version check also sends anonymous deployment info
+    - --version_check=false
   # serviceSpec:
   #   type: ClusterIP
