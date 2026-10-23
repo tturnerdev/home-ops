@@ -68,7 +68,7 @@ spec:
     annotations:
       # Read only by k8s-gateway (VPN clients); external-dns takes route
       # targets from the Gateway's target annotation above instead
-      external-dns.alpha.kubernetes.io/hostname: external-envoy.${SECRET_DOMAIN}
+      external-dns.kubernetes.io/hostname: external-envoy.${SECRET_DOMAIN}
       # NOTE: 10.13.38.82 is the Kube API VIP (talos/talconfig.yaml vip.ip + cluster.yaml cluster_api_addr).
       # It must NOT be used as a LoadBalancer IP. Using a free address until external-nginx (.80) is retired.
       lbipam.cilium.io/ips: 10.13.38.84
@@ -115,7 +115,7 @@ spec:
     annotations:
       # Read only by k8s-gateway (VPN clients); external-dns takes route
       # targets from the Gateway's status address instead
-      external-dns.alpha.kubernetes.io/hostname: internal-envoy.${SECRET_DOMAIN}
+      external-dns.kubernetes.io/hostname: internal-envoy.${SECRET_DOMAIN}
       lbipam.cilium.io/ips: 10.13.38.83
   listeners:
     - name: http
@@ -246,7 +246,9 @@ kind: HTTPRoute
 metadata:
   name: https-redirect
   annotations:
-    external-dns.alpha.kubernetes.io/controller: none
+    # Keeps both DNS controllers' gateway-httproute source off this
+    # hostname-less route
+    external-dns.kubernetes.io/controller: none
 spec:
   parentRefs:
     - name: envoy-external
