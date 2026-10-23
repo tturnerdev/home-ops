@@ -146,33 +146,31 @@ spec:
         ports:
           http:
             port: 5678
-    ingress:
+    route:
       app:
-        enabled: true
-        className: external
+        # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
+        # (the cloudflare external-dns domain filter excludes this zone).
+        # LAN DNS: unifi-dns publishes this host as a CNAME to external.<domain> (the
+        # Gateway's target annotation), the alias that points at envoy-external.
+        # TLS: the secondary-domain wildcard on envoy-external's https listener
+        # (cert-manager/tls, DNS-01); no per-host certificate any more.
+        # No body-size cap on Envoy; n8n enforces its own 16 MiB (N8N_PAYLOAD_SIZE_MAX).
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Atrelix"
           gethomepage.dev/name: "n8n (Atrelix)"
           gethomepage.dev/icon: "n8n.svg"
           gethomepage.dev/description: "Business automations"
-          # Matches n8n's default 16 MiB payload cap (N8N_PAYLOAD_SIZE_MAX)
-          nginx.ingress.kubernetes.io/proxy-body-size: 16m
-          cert-manager.io/cluster-issuer: letsencrypt-production
-        # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
-        # (cloudflare external-dns domain filter excludes this zone).
-        # LAN DNS: unifi-dns publishes this host -> ingress LB IP for direct access.
-        hosts:
-          - host: "automate.${SECRET_DOMAIN_2}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
-        tls:
-          - secretName: n8n-atrelix-tls
-            hosts: ["automate.${SECRET_DOMAIN_2}"]
+        hostnames:
+          - "automate.${SECRET_DOMAIN_2}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 5678
     persistence:
       data:
         enabled: true

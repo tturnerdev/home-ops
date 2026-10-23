@@ -8,3 +8,4 @@ resources:
   - ./secret.sops.yaml
   - ./db-init-job.yaml
   - ./helmrelease.yaml
+  - ./httproute.yaml

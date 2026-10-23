@@ -52,9 +52,9 @@ spec:
     config:
       # Production hostname (took over from the lab1 instance on 2026-10-08).
       # DOMAIN drives every generated URL and the CSRF/ActionCable origin
-      # checks, so it must match the Ingress host.
+      # checks, so it must match the HTTPRoute hostname.
       domain: "docs.${SECRET_DOMAIN_2}"
-      # ingress-nginx terminates TLS and forwards X-Forwarded-Proto; Rails
+      # envoy-external terminates TLS and forwards X-Forwarded-Proto; Rails
       # keeps force_ssl on (plain http is redirected)
       behindTlsProxy: true
       disableSsl: false
@@ -132,28 +132,11 @@ spec:
     migrate:
       backoffLimit: 3
       extraEnv: *extraEnv
+    # Served by the HTTPRoute in ./httproute.yaml (envoy-external); the chart
+    # can only render an Ingress. config.behindTlsProxy stays true: Envoy sets
+    # X-Forwarded-Proto on the TLS listener exactly like ingress-nginx did.
     ingress:
-      enabled: true
-      className: external
-      host: "docs.${SECRET_DOMAIN_2}"
-      # Public DNS: manual proxied CNAME in the zone -> <tunnel-id>.cfargotunnel.com
-      # plus a cloudflared ingress rule (cloudflare external-dns excludes this
-      # zone). LAN DNS: unifi-dns publishes this host -> ingress LB IP.
-      annotations:
-        gethomepage.dev/enabled: "true"
-        gethomepage.dev/group: "Atrelix"
-        gethomepage.dev/name: "Hudu"
-        gethomepage.dev/icon: "mdi-book-open-page-variant"
-        gethomepage.dev/description: "IT documentation"
-        # The chart labels pods app.kubernetes.io/name=hudu-helm-chart, so
-        # Homepage's default name-based status lookup finds nothing
-        gethomepage.dev/pod-selector: "app.kubernetes.io/instance=hudu,app.kubernetes.io/component=web"
-        cert-manager.io/cluster-issuer: letsencrypt-production
-        # Above Hudu's MAX_FILE_SIZE (200 MB)
-        nginx.ingress.kubernetes.io/proxy-body-size: 256m
-      tls:
-        enabled: true
-        secretName: hudu-tls
+      enabled: false
   valuesFrom:
     # Keeps the bucket name (it embeds the domain) out of plaintext git
     - kind: Secret
