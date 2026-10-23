@@ -170,38 +170,31 @@ spec:
         ports:
           http:
             port: *port
-    ingress:
+    route:
       app:
-        enabled: true
         # INTERNAL ONLY. Agents run unsandboxed in this pod with whatever
         # credentials they are given, and "private" exposure lets the first
         # signed-in browser claim instance admin. Not routed via cloudflared.
-        # LAN DNS: unifi-dns publishes this host -> internal ingress alias.
-        className: internal
+        # LAN DNS: unifi-dns publishes this host as an A record to envoy-internal
+        # (10.13.38.83); VPN clients get the same from k8s-gateway.
+        # TLS: the secondary-domain wildcard on envoy-internal's https listener
+        # (cert-manager/tls, DNS-01); no per-host certificate any more.
+        # Live-update websocket: upgrades are on by default, no idle timeout.
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Atrelix"
           gethomepage.dev/name: "Paperclip"
           gethomepage.dev/icon: "mdi-paperclip"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-          # The internal default cert only covers the primary domain, and the
-          # secondary zone's HTTP-01 path only reaches tunnel-routed hosts, so
-          # this host validates over DNS-01 (dnsNames solver in the ClusterIssuer)
-          cert-manager.io/cluster-issuer: letsencrypt-production
-          # Live-update websocket: nginx's 60s default would cut idle sockets
-          nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-          nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-        hosts:
-          - host: &host "paperclip.${SECRET_DOMAIN_2}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
-        tls:
-          - secretName: paperclip-atrelix-tls
-            hosts: [*host]
+        hostnames:
+          - "paperclip.${SECRET_DOMAIN_2}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
     persistence:
       data:
         existingClaim: paperclip-atrelix-data

@@ -128,29 +128,29 @@ spec:
         ports:
           http:
             port: *port
-    ingress:
+    route:
       app:
-        enabled: true
         # INTERNAL ONLY. dario holds OAuth refresh tokens for the Claude/ChatGPT
         # subscriptions and the proxy key is the only client auth. Not routed via
-        # cloudflared. LAN DNS: unifi-dns publishes this host -> internal ingress
-        # alias. Clients: ANTHROPIC_BASE_URL=https://dario.<domain>,
+        # cloudflared.
+        # LAN DNS: unifi-dns publishes this host as an A record to envoy-internal
+        # (10.13.38.83); VPN clients get the same from k8s-gateway.
+        # Clients: ANTHROPIC_BASE_URL=https://dario.<domain>,
         # ANTHROPIC_API_KEY=<DARIO_API_KEY> (same for OPENAI_BASE_URL/OPENAI_API_KEY).
-        className: internal
-        annotations:
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-          # LLM calls: long silent gaps on non-streaming responses, long SSE
-          # streams. nginx's default 60s read/send timeouts would 504 them.
-          nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-          nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-        hosts:
-          - host: "dario.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        # LLM calls: long silent gaps on non-streaming responses, long SSE streams.
+        # The Gateways' BackendTrafficPolicy sets requestTimeout 0s, which also
+        # disables Envoy's per-route stream idle timeout, and Envoy streams responses
+        # without buffering (text/event-stream is not a compressed content type).
+        hostnames:
+          - "dario.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
     persistence:
       # The PVC must sit EXACTLY at /home/dario/.dario. The image declares
       # `VOLUME /home/dario/.dario`, and containerd honours image volumes by
