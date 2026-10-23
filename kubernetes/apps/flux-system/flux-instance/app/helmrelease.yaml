@@ -12,8 +12,14 @@ spec:
   values:
     instance:
       distribution:
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.38.1
-        version: 2.x
+        # Empty = the manifests embedded in the operator image (the chart's
+        # default would pull flux-operator-manifests:latest). Flux 2.8 needs
+        # Kubernetes 1.33 and 2.9 needs 1.34.1, and the operator cannot undo
+        # a minor upgrade, so the version is pinned ('Hold Flux on 2.7' in
+        # .renovaterc.json5).
+        artifact: ""
+        # renovate: datasource=github-releases depName=controlplaneio-fluxcd/distribution
+        version: 2.7.5
       cluster:
         networkPolicy: false
       components:

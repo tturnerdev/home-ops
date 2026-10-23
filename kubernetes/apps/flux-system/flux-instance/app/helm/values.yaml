@@ -1,9 +1,9 @@
 ---
 instance:
   distribution:
+    artifact: ""
     # renovate: datasource=github-releases depName=controlplaneio-fluxcd/distribution
-    artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.38.1
-    version: 2.x
+    version: 2.7.5
   cluster:
     networkPolicy: false
   components:
