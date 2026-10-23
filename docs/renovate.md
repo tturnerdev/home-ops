@@ -31,13 +31,9 @@ registry rate limits), and Flux rolls them out within minutes.
 ## List B: update unattended
 
 Media: Plex, Sonarr, Radarr, Prowlarr, Readarr, SABnzbd, Overseerr,
-Audiobookshelf. Dashboards: Homarr, Homepage, Organizr. Home apps: Mealie,
-Paperless-ngx, Photoprism, n8n (personal), ntfy, Shlink and its web client.
-Test apps: echo (all three), podinfo (all three), httpbin (both).
-
-Homebox belongs here but is held out for now. A switch to hay-kot/homebox
-v0.10.3, uncommitted on 2026-10-22, edits the same lines as its pending
-update (PR #180). Restore its folder in the rule once that switch lands.
+Audiobookshelf. Dashboards: Homarr, Homepage, Organizr. Home apps: Homebox,
+Mealie, Paperless-ngx, Photoprism, n8n (personal), ntfy, Shlink and its web
+client. Test apps: echo (all three), podinfo (all three), httpbin (both).
 
 ## Version holds
 
