@@ -2,7 +2,7 @@
 
 Prepared 2026-10-23 from a read-only survey of the cluster and the repo (Flux tracks `main`). Every command below is for the operator to run; the "evidence" lines say where a claim comes from.
 
-Progress: steps 0–4 were carried out on 2026-10-23 (Talos 1.11.6, Kubernetes 1.34.12, Cilium 1.19.9, Flux 2.9.6; the commits name their step). Step 5 has been corrected from what was learnt on the way.
+Progress: steps 0–7, 8.1, 8.2, 9 and 10 were carried out on 2026-10-23: Talos 1.14.4, Kubernetes 1.35.9, Cilium 1.20.3, Flux 2.9.6, Rook 1.21.0 with ceph-csi-drivers 1.1.0, Ceph Tentacle 20.2.4, TopoLVM 17.3.0 and Spegel 0.8.0; the commits name their step. Still open: the ingress-nginx migration and Kubernetes 1.36.5 (step 8.3/8.4). Each step records what was learnt on the way.
 
 ---
 
@@ -20,6 +20,7 @@ Progress: steps 0–4 were carried out on 2026-10-23 (Talos 1.11.6, Kubernetes 1
 | 7 | Talos 1.12.12 → **1.13.12** (new upgrade API with client-side drain); Spegel 0.8.0 moved to the end of step 5 | 3 | as step 1 | — |
 | 8 | Rook 1.19.12 → **1.20.9** (ceph-csi-drivers chart becomes mandatory), Cilium 1.19.9 → **1.20.3**, decide ingress-nginx, then Kubernetes 1.35.9 → **1.36.5** | none | as steps 4/6 | none |
 | 9 | Rook 1.20.9 → **1.21.0** (OCI tag loses the `v`; StorageClass recreate rule) | none | Rook rolling restarts | none |
+| 10 | Talos 1.13.12 → **1.14.4** (etcd 3.6 → 3.7, TLS 1.3 minimum, containerd 2.3); config contract stays 1.13 | 3 | as step 1; etcd storage moves to 3.7 (one-way) | — |
 | — | Kubernetes **1.37 is not reachable on Talos 1.13**: the Talos 1.13 support matrix stops at 1.36; 1.37 needs Talos 1.14 (1.14.4 is current), and today Cilium (1.20 tested ≤1.36, no 1.21 release), cert-manager 1.21 (≤1.36), Envoy Gateway 1.9 (≤1.36) and Flux 2.9 (≤1.36) all stop at 1.36. Stop at 1.36 for this phase. | | | |
 
 Decisions the user must make are collected in §11.
@@ -408,6 +409,15 @@ Run §5 (with `--drain-timeout 10m`), with one change left over from step 5: per
 
 ---
 
+### Step 10 — Talos 1.13.12 → 1.14.4 (Kubernetes 1.35 is inside 1.32–1.37)
+
+Done 2026-10-23, ahead of Kubernetes 1.36, which waits for the ingress migration.
+
+* **Config contract stays 1.13.** talhelper is archived at 3.1.17: its embedded Talos machinery is a 1.14 alpha, and at `talosVersion: v1.14.x` it generates a pre-GA document set that conflicts with the patches. Talos 1.14 accepts the 1.13 contract in full, as deprecated but supported. `talos/talenv.yaml` therefore keeps `talosVersion: v1.13.12` as the contract and gains `talosInstallerVersion` for the Talos the nodes run. `patches/global/machine-install.yaml` puts it into `machine.install.image` (talhelper substitutes talenv variables in patch files), and `task talos:upgrade-node` reads it. `ghcr.io/siderolabs/installer` stopped at 1.13, so Renovate tracks `installer-base`. Moving off talhelper is its own project.
+* Notable: **etcd 3.6.14 → 3.7.2**. The cluster version moved to 3.7 when the last member upgraded, and only a snapshot restore or `etcdctl downgrade` goes back from there. etcd and kube-apiserver now require **TLS 1.3** (a TLS 1.2 handshake to the API gets a protocol-version alert). containerd is 2.3.7, so Spegel's ≥2.2 check still passes. `talosctl validate --strict` fails on the `.machine.files` deprecation, so use it without `--strict`. `talosctl upgrade-k8s --to` now defaults to 1.37.1, so always pass `--to`. `send_redirects=0` is now a default.
+* **Upgrade path trap:** talosctl 1.14 uses the new upgrade API against 1.13 nodes, and that API **drains from the client**. This workstation reaches the LAN through the in-cluster Tailscale subnet router (`network/ts-home-lan-*`; `ip route get 10.13.38.82` shows `dev tailscale0`). Draining a node that hosts a router pod reset the workstation's own API connection mid-drain, and talosctl gave up after installing the new image and before rebooting, leaving the node cordoned. `talosctl upgrade --legacy` makes the node drain itself and avoids this. The legacy path then did not uncordon a node it had not cordoned itself, so `kubectl uncordon` it: until then its Ceph mon and OSD and the node-bound CNPG replica stayed Pending.
+* Procedure used: etcd snapshot, CNPG backup, `ceph osd set noout`, then per node `talosctl upgrade --legacy --image factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.14.4`, with the CNPG primary moved to an upgraded node first and the etcd leader last. Afterwards unset noout, regenerate, and apply the install-image change with `--mode=auto` (no reboot) so every node's stored config matches the repo.
+
 ## 8. Hold / pin changes by step (recap)
 
 | Step | `.renovaterc.json5` | `.mise.toml` | `talos/talenv.yaml` |
@@ -421,6 +431,7 @@ Run §5 (with `--drain-timeout 10m`), with one change left over from step 5: per
 | 6 | — | kubectl 1.35.9 | kubernetesVersion v1.35.9 |
 | 7 | drop Spegel hold | talosctl 1.13.12 | talosVersion v1.13.12 |
 | 8 | — | kubectl 1.36.5 | kubernetesVersion v1.36.5 |
+| 10 | — | talosctl 1.14.4 | talosInstallerVersion v1.14.4 (talosVersion stays v1.13.12) |
 
 `docs/renovate.md` lists Talos/Kubernetes/Cilium/Rook/Flux/Spegel/… as list A (manual PRs), so Renovate will only propose the follow-ups; nothing auto-merges in this plan.
 

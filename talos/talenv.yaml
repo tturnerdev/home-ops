@@ -1,4 +1,11 @@
-# renovate: datasource=docker depName=ghcr.io/siderolabs/installer
+# Machine config contract for talhelper, not the Talos the nodes run.
+# talhelper is archived at 3.1.17 and cannot generate the 1.14 contract
+# (Talos 1.14 still accepts 1.13 configs in full), so this stays on 1.13.
 talosVersion: v1.13.12
+# The Talos the nodes run: the installer image in
+# patches/global/machine-install.yaml and task talos:upgrade-node.
+# ghcr.io/siderolabs/installer stopped at 1.13; installer-base carries 1.14+.
+# renovate: datasource=docker depName=ghcr.io/siderolabs/installer-base
+talosInstallerVersion: v1.14.4
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
 kubernetesVersion: v1.35.9
