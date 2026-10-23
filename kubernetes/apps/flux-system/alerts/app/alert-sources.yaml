@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/notification.toolkit.fluxcd.io/alert_v1beta3.json
+# Chart sources fail silently otherwise: a HelmRelease keeps running on its
+# cached artifact, so a dead repository only shows up when an upgrade needs it
+# (k8s-gateway's GitHub Pages index returned 404 for days in 2026-10). A
+# failing source retries every 15m; notification-controller's
+# --rate-limit-interval (see flux-instance) holds back identical repeats.
+# Registry rate limits are transient and the cached artifact keeps serving, so
+# they are excluded. Same namespace list as alert.yaml.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: ntfy-sources
+spec:
+  providerRef:
+    name: ntfy
+  eventSeverity: error
+  exclusionList:
+    - "(?i)(too ?many ?requests|rate exceeded|rate limit)"
+  eventSources:
+    - { kind: HelmRepository, name: "*", namespace: cert-manager }
+    - { kind: OCIRepository, name: "*", namespace: cert-manager }
+    - { kind: HelmChart, name: "*", namespace: cert-manager }
+    - { kind: HelmRepository, name: "*", namespace: database }
+    - { kind: OCIRepository, name: "*", namespace: database }
+    - { kind: HelmChart, name: "*", namespace: database }
+    - { kind: HelmRepository, name: "*", namespace: default }
+    - { kind: OCIRepository, name: "*", namespace: default }
+    - { kind: HelmChart, name: "*", namespace: default }
+    - { kind: HelmRepository, name: "*", namespace: external-secrets }
+    - { kind: OCIRepository, name: "*", namespace: external-secrets }
+    - { kind: HelmChart, name: "*", namespace: external-secrets }
+    - { kind: HelmRepository, name: "*", namespace: flux-system }
+    - { kind: OCIRepository, name: "*", namespace: flux-system }
+    - { kind: HelmChart, name: "*", namespace: flux-system }
+    - { kind: HelmRepository, name: "*", namespace: infra }
+    - { kind: OCIRepository, name: "*", namespace: infra }
+    - { kind: HelmChart, name: "*", namespace: infra }
+    - { kind: HelmRepository, name: "*", namespace: kube-system }
+    - { kind: OCIRepository, name: "*", namespace: kube-system }
+    - { kind: HelmChart, name: "*", namespace: kube-system }
+    - { kind: HelmRepository, name: "*", namespace: media }
+    - { kind: OCIRepository, name: "*", namespace: media }
+    - { kind: HelmChart, name: "*", namespace: media }
+    - { kind: HelmRepository, name: "*", namespace: network }
+    - { kind: OCIRepository, name: "*", namespace: network }
+    - { kind: HelmChart, name: "*", namespace: network }
+    - { kind: HelmRepository, name: "*", namespace: rook-ceph }
+    - { kind: OCIRepository, name: "*", namespace: rook-ceph }
+    - { kind: HelmChart, name: "*", namespace: rook-ceph }
+    - { kind: HelmRepository, name: "*", namespace: topolvm }
+    - { kind: OCIRepository, name: "*", namespace: topolvm }
+    - { kind: HelmChart, name: "*", namespace: topolvm }
