@@ -194,6 +194,17 @@
       allowedVersions: '<5',
     },
     {
+      // A PostgreSQL major in CloudNativePG is an offline in-place upgrade
+      // (a pg_upgrade job, the cluster down for minutes) and needs a fresh
+      // backup and its own window, so it should not arrive as a routine PR.
+      // Raise this when PostgreSQL 18 is planned.
+      description: 'Hold PostgreSQL on 17',
+      matchPackageNames: [
+        'ghcr.io/cloudnative-pg/postgresql',
+      ],
+      allowedVersions: '<18',
+    },
+    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
@@ -344,6 +355,19 @@
         'datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+/(?<currentValue>(v|\\d)[^/]+)',
       ],
       datasourceTemplate: '{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}',
+    },
+    {
+      // The CloudNativePG Cluster names its image in imageName, which no
+      // built-in manager reads.
+      description: 'Process CloudNativePG cluster images',
+      customType: 'regex',
+      managerFilePatterns: [
+        '/(^|/)kubernetes/apps/database/cloudnative-pg/.+\\.ya?ml$/',
+      ],
+      matchStrings: [
+        'imageName: (?<depName>[^:\\s]+):(?<currentValue>\\S+)',
+      ],
+      datasourceTemplate: 'docker',
     },
   ],
 }
