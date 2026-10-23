@@ -11,7 +11,10 @@ spec:
     operation: copy
   url: oci://ghcr.io/coredns/charts/coredns
   ref:
-    tag: 1.39.2
+    tag: 1.44.3
+  # Charts from 1.45.0 on are signed only as cosign v3 bundles, which
+  # source-controller verifies from Flux 2.8 (Kubernetes 1.33+); 1.44.3 is
+  # the last with a classic signature ('Hold CoreDNS chart below 1.45')
   verify:
     provider: cosign
 ---

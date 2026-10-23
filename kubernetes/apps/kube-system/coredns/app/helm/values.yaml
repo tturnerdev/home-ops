@@ -9,6 +9,19 @@ service:
   name: kube-dns
   clusterIP: "10.43.0.10"
 replicaCount: 2
+# Both replicas used to share one node: keep them apart where possible, and
+# let a node drain (Talos upgrades) take only one at a time
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/instance: coredns
+        app.kubernetes.io/name: coredns
+        k8s-app: kube-dns
+podDisruptionBudget:
+  maxUnavailable: 1
 servers:
   - zones:
       - zone: .
