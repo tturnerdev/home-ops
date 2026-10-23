@@ -17,6 +17,11 @@ spec:
   # over to an already-updated replica instead of deleting and recreating it
   # (the default `restart`): writes pause for the switchover only
   primaryUpdateMethod: switchover
+  # One instance per node. TopoLVM volumes are node-bound, and with two
+  # instances on one node, rebooting it left a single instance: under
+  # synchronous replication with dataDurability required, writes then block
+  affinity:
+    podAntiAffinityType: required
   imageName: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
   storage:
     storageClass: topolvm-thin-provisioner
