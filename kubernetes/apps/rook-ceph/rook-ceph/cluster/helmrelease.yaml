@@ -84,6 +84,18 @@ spec:
         provider: host
         connections:
           requireMsgr2: true
+      security:
+        cephx:
+          # Ceph 19.2.6 / 20.2.4 (CVE-2025-30156) flag the old aes key type and
+          # hold the cluster in HEALTH_ERR until the daemon keys are rotated.
+          # Rook picks aes256k for them; raise keyGeneration to rotate again.
+          daemon:
+            keyRotationPolicy: KeyGeneration
+            keyGeneration: 2
+          # Kernel RBD can use aes256k keys only from Linux 7.0 on (the nodes
+          # run 6.18), so the CSI keys stay aes.
+          csi:
+            keyType: aes
       storage:
         useAllNodes: true
         useAllDevices: false
