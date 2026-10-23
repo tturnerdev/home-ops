@@ -1,0 +1,30 @@
+{{/*
+  The values of the Flux HelmRelease this release mirrors,
+  kubernetes/apps/<namespace>/<name>/app/helmrelease.yaml, composed the way
+  helm-controller composes them: each valuesFrom ConfigMap first, then the
+  inline spec.values on top. The only valuesFrom understood here is the
+  <name>-values ConfigMap that the app's kustomization.yaml generates from
+  app/helm/values.yaml; anything else fails the render rather than quietly
+  installing chart defaults.
+*/}}
+{{- $app := printf "../../kubernetes/apps/%s/%s/app" .Release.Namespace .Release.Name }}
+{{- $hr := dict }}
+{{- range $doc := regexSplit "(?m)^---\\s*$" (readFile (printf "%s/helmrelease.yaml" $app)) -1 }}
+  {{- $obj := fromYaml $doc }}
+  {{- if and $obj (eq (dig "kind" "" $obj) "HelmRelease") (eq (dig "metadata" "name" "" $obj) $.Release.Name) }}
+    {{- $hr = $obj }}
+  {{- end }}
+{{- end }}
+{{- if not $hr }}
+  {{- fail (printf "no HelmRelease %q in %s/helmrelease.yaml" .Release.Name $app) }}
+{{- end }}
+{{- $values := dict }}
+{{- range $from := dig "spec" "valuesFrom" (list) $hr }}
+  {{- $configMap := printf "%s-values" $.Release.Name }}
+  {{- if and (eq (dig "kind" "" $from) "ConfigMap") (eq (dig "name" "" $from) $configMap) (not (hasKey $from "valuesKey")) (not (hasKey $from "targetPath")) }}
+    {{- $values = mergeOverwrite $values (fromYaml (readFile (printf "%s/helm/values.yaml" $app))) }}
+  {{- else }}
+    {{- fail (printf "HelmRelease %q: unsupported valuesFrom entry %v" $.Release.Name $from) }}
+  {{- end }}
+{{- end }}
+{{- mergeOverwrite $values (dig "spec" "values" (dict) $hr) | toYaml }}

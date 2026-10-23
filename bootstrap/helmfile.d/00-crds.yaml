@@ -1,17 +1,25 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/helmfile
 
-# This helmfile is for extracting and installing Custom Resource Definitions (CRDs) from Helm charts.
-# It is not intended to be used with helmfile apply or helmfile sync.
+# Charts whose CRDs the cluster needs outside of Flux: ServiceMonitors,
+# DNSEndpoints and Gateways are applied before (or without) the chart that
+# ships them, and Helm never upgrades a chart's crds/ on its own. Only ever
+# template this file; the CRDs are picked out of the rendered output because
+# Helm 4 accepts nothing but a plugin as a post-renderer:
+#
+#   helmfile --file bootstrap/helmfile.d/00-crds.yaml template \
+#     | yq ea 'select(.kind == "CustomResourceDefinition")' \
+#     | kubectl apply --server-side --force-conflicts --filename -
+#
+# scripts/bootstrap-apps.sh (task bootstrap:apps) runs the same pipeline.
 
 helmDefaults:
   args:
     - --include-crds
     - --no-hooks
-  postRenderer: bash
-  postRendererArgs:
-    - -c
-    - yq ea -e 'select(.kind == "CustomResourceDefinition")'
+  # Rendered with chart defaults, which a chart's values schema may reject
+  # (external-dns insists on a policy); the values never reach the cluster
+  skipSchemaValidation: true
 
 releases:
   - name: cloudflare-dns
