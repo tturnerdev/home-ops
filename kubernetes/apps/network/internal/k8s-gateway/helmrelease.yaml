@@ -13,7 +13,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 3.7.4
+    tag: 4.0.1
   url: oci://codeberg.org/k8s-gateway/charts/k8s-gateway
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
@@ -35,37 +35,67 @@ spec:
       retries: 3
   values:
     fullnameOverride: k8s-gateway
-    domain: "${SECRET_DOMAIN}"
-    ttl: 1
+    # 4.x builds the Corefile from raw CoreDNS server blocks; the 3.x keys
+    # (domain, ttl, watchedResources, fallthrough, extraZonePlugins) are gone
+    # and would be ignored without an error.
+    servers:
+      - zones:
+          - zone: .
+        port: 1053
+        servicePort: 53
+        plugins:
+          - name: k8s_gateway
+            parameters: "${SECRET_DOMAIN}"
+            # HTTPRoute last: a lookup answers from the first resource type
+            # that matches, so Ingress and Service names keep precedence
+            configBlock: |-
+              apex k8s-gateway.network
+              ttl 1
+              resources Ingress Service HTTPRoute
+              fallthrough
+          - name: log
+          - name: errors
+          # Serves a /health endpoint on :8080, required for livenessProbe
+          - name: health
+            configBlock: |-
+              lameduck 5s
+          # Serves a /ready endpoint on :8181, required for readinessProbe
+          - name: ready
+          # Serves a /metrics endpoint on :9153
+          - name: prometheus
+            parameters: 0.0.0.0:9153
+          # Tailscale split DNS sends all *.${SECRET_DOMAIN} queries from VPN
+          # clients here; names the cluster doesn't own go to the UniFi
+          # gateway resolver (which holds the LAN-only records)
+          - name: forward
+            parameters: . 10.13.37.1
+          - name: loop
+          - name: reload
+          - name: loadbalance
+    serviceType: LoadBalancer
     service:
-      type: LoadBalancer
-      port: 53
       annotations:
         lbipam.cilium.io/ips: "10.13.38.53"
       externalTrafficPolicy: Cluster
-    watchedResources: ["Ingress", "Service"]
-    # Tailscale split DNS sends all *.${SECRET_DOMAIN} queries from VPN clients
-    # here; names the cluster doesn't own must keep resolving.
-    fallthrough:
-      enabled: true
-    # Setting extraZonePlugins replaces the chart defaults wholesale, so this
-    # reproduces them with one change: fallthrough queries go to the UniFi
-    # gateway resolver (which holds the LAN-only records) instead of the pod's
-    # resolv.conf.
-    extraZonePlugins:
-      - name: log
-      - name: errors
-      # Serves a /health endpoint on :8080, required for livenessProbe
-      - name: health
-        configBlock: |-
-          lameduck 5s
-      # Serves a /ready endpoint on :8181, required for readinessProbe
-      - name: ready
-      # Serves a /metrics endpoint on :9153, required for serviceMonitor
-      - name: prometheus
-        parameters: 0.0.0.0:9153
-      - name: forward
-        parameters: . 10.13.37.1
-      - name: loop
-      - name: reload
-      - name: loadbalance
+    # The 4.x pod defaults differ from 3.x (dnsPolicy Default, root, a strict
+    # readiness probe, 100m/128Mi); keep the 3.x shape. With one replica,
+    # never stop the old pod before its replacement is ready.
+    deployment:
+      dnsPolicy: ClusterFirst
+    securityContext:
+      runAsUser: 1000
+    rollingUpdate:
+      maxUnavailable: 0
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 5
+    # Explicit rather than null: Flux can drop null values from HelmRelease
+    # values on update (fluxcd/kustomize-controller#372)
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: "1"
+        memory: 128Mi
