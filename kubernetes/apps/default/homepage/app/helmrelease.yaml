@@ -65,19 +65,19 @@ spec:
           http:
             port: 3000
 
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
-        annotations:
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "homepage.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: http
+        # HOMEPAGE_ALLOWED_HOSTS above must keep matching this hostname.
+        hostnames:
+          - "homepage.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 3000
 
     # Services are discovered from the apps' own Ingresses/HTTPRoutes: an app
     # shows up once it carries gethomepage.dev/* annotations (enabled, group,
