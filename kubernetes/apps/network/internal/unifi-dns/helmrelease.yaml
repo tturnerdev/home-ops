@@ -80,22 +80,14 @@ spec:
           timeoutSeconds: 5
     extraArgs:
       - --events
-      - --ignore-ingress-tls-spec
-      - --ingress-class=internal
-      - --ingress-class=external
-      # v0.22 made external-dns.kubernetes.io/ the only annotation prefix; every
-      # ingress here still uses external-dns.alpha.kubernetes.io/target, and with
-      # policy sync, ignoring it would repoint records. Read the legacy prefix
-      # until the annotations are migrated (the flag is a temporary aid).
-      - --enable-legacy-annotation-prefix
     # triggerLoopOnEvent: true
     policy: sync
     # gateway-httproute: an HTTPRoute hostname becomes an A record to its
     # parent Gateway's status address (envoy-internal, no target annotation)
     # or a CNAME to the Gateway's external-dns.kubernetes.io/target
     # (envoy-external -> external.<d>, the manual UniFi record for the public
-    # path) - the same records the Ingresses produced.
-    sources: ["crd", "ingress", "gateway-httproute"]
+    # path) - the same records the Ingresses used to produce.
+    sources: ["crd", "gateway-httproute"]
     txtPrefix: k8s.
     txtOwnerId: default
     domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_2}"]

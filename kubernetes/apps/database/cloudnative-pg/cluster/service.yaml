@@ -4,7 +4,8 @@ kind: Service
 metadata:
   name: postgres-lb
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: postgres.${SECRET_DOMAIN}
+    # Read by k8s-gateway only (neither external-dns instance has the service source)
+    external-dns.kubernetes.io/hostname: postgres.${SECRET_DOMAIN}
     lbipam.cilium.io/ips: "${POSTGRES_IPV4}"
 spec:
   type: LoadBalancer
