@@ -41,15 +41,12 @@ update (PR #180). Restore its folder in the rule once that switch lands.
 
 ## Version holds
 
-Two rules cap a package with `allowedVersions`. Spegel's waits on the
-cluster (Talos v1.11.6 / Kubernetes v1.34.12 in `talos/talenv.yaml`, as of
-2026-10-23) and lifts during the Talos upgrade; Sonarr's waits on
+One rule caps a package with `allowedVersions`: Sonarr's waits on
 upstream. Each rule's comment carries the detail.
 
 | Rule | Caps | Why | Relax or drop |
 |---|---|---|---|
 | Hold Sonarr on v4 | `ghcr.io/home-operations/sonarr` at `<5` | v5 is still a pre-release (GitHub flags every 5.0.0.x build as one, as of 2026-10-22) with a one-way database migration, and the home-operations image publishes those builds under plain tags | drop once Sonarr ships v5 as a stable release |
-| Hold Spegel on 0.7 | `ghcr.io/spegel-org/helm-charts/spegel` at `<0.8.0` | 0.8 refuses to start below containerd 2.2, and its registry Service sets `trafficDistribution: PreferSameNode`, which needs a feature gate that is on by default from Kubernetes 1.34; the nodes run containerd 2.1 (Talos 1.11) | drop at Talos 1.13+ (containerd 2.2.3) with Kubernetes 1.34+ |
 
 Relax a hold by raising its `allowedVersions`, drop one by deleting its
 rule, and check the edit with the validator below either way.
