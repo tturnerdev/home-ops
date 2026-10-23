@@ -88,25 +88,26 @@ spec:
         ports:
           http:
             port: 8080
-    ingress:
+    route:
       app:
-        enabled: true
-        # INTERNAL ONLY — the console has no built-in auth. Not routed via
-        # cloudflared; atrelix zone is excluded from cloudflare external-dns.
-        # LAN DNS: unifi-dns publishes this host -> internal ingress alias.
-        className: internal
+        # INTERNAL ONLY - the console has no built-in auth. Not routed via
+        # cloudflared; the secondary zone is excluded from cloudflare external-dns.
+        # LAN DNS: unifi-dns publishes this host as an A record to envoy-internal
+        # (10.13.38.83); VPN clients get the same from k8s-gateway.
+        # TLS: the secondary-domain wildcard on envoy-internal's https listener.
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: "Atrelix"
           gethomepage.dev/name: "Workflow Console"
           gethomepage.dev/icon: "mdi-sitemap-outline"
           gethomepage.dev/description: "n8n workflow console"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        hosts:
-          - host: "flow.${SECRET_DOMAIN_2}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "flow.${SECRET_DOMAIN_2}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
