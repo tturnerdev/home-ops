@@ -1,2 +1,19 @@
-- op: remove
-  path: /cluster/apiServer/admissionControl
+# Keep PodSecurity admission privileged in every namespace: Rook, TopoLVM and
+# other privileged pods run outside kube-system. This is a strategic merge,
+# not a JSON patch, because JSON6902 patches do not apply to the
+# multi-document configs of contract 1.12+. Talos's own kube-system exemption
+# stays; lists merge by appending, so it is not repeated here.
+cluster:
+  apiServer:
+    admissionControl:
+      - name: PodSecurity
+        configuration:
+          apiVersion: pod-security.admission.config.k8s.io/v1
+          kind: PodSecurityConfiguration
+          defaults:
+            enforce: privileged
+            enforce-version: latest
+            audit: privileged
+            audit-version: latest
+            warn: privileged
+            warn-version: latest
