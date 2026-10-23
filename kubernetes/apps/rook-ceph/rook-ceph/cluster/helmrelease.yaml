@@ -24,7 +24,7 @@ spec:
     # and an unpinned bump would start a Ceph major upgrade.
     cephImage:
       repository: quay.io/ceph/ceph
-      tag: v19.2.6 # Squid; the tested default of Rook 1.19.12
+      tag: v20.2.4 # Tentacle (>= 20.2.2 required with readAffinity); forward-only
     monitoring:
       enabled: true
       createPrometheusRules: true
