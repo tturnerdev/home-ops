@@ -8,4 +8,4 @@ talosVersion: v1.13.12
 # renovate: datasource=docker depName=ghcr.io/siderolabs/installer-base
 talosInstallerVersion: v1.14.4
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
-kubernetesVersion: v1.35.9
+kubernetesVersion: v1.36.5
