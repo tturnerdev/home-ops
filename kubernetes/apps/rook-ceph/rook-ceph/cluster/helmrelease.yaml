@@ -26,6 +26,18 @@ spec:
       enabled: true
     route:
       dashboard:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Admin"
+          gethomepage.dev/name: "Ceph"
+          gethomepage.dev/icon: "ceph.svg"
+          gethomepage.dev/description: "Storage"
+          # The parentRef names no listener, so Homepage would take the scheme
+          # from the Gateway's first listener (http)
+          gethomepage.dev/href: "https://rook.${SECRET_DOMAIN}"
+          # The default status lookup (app.kubernetes.io/name=<route name>)
+          # matches no pod; the mgr pods serve the dashboard
+          gethomepage.dev/pod-selector: "app=rook-ceph-mgr"
         host:
           name: "rook.${SECRET_DOMAIN}"
           path: /
