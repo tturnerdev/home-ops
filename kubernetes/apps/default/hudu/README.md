@@ -278,7 +278,8 @@ MinIO URL), upload a new file, open a password record, check Admin → License K
   (the tunnel ID is `TunnelID` in `cloudflare-tunnel.json`). No cluster token
   can edit this zone. The cloudflared rule for `docs.` is live (hand-patched,
   see "Decisions and gotchas"). Certificate `hudu-tls` issues within minutes
-  of the change.
+  of the change. (Since 2026-10-23 Hudu is an HTTPRoute on envoy-external,
+  served by the Gateway's secondary-zone wildcard; `hudu-tls` is gone.)
 - LAN DNS: remove the manual override `docs.${SECRET_DOMAIN_2} → 10.13.37.20`
   (local DNS server / UniFi) so the unifi-dns record (→ 10.13.38.80) wins; a
   pre-existing manual record of the same name blocks external-dns from
