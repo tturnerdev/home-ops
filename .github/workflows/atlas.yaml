@@ -1,0 +1,97 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# Keeps the Atlas page's state.json in step with main and publishes the page to
+# GitHub Pages. state.json is derived from the manifests only (no cluster
+# access); live.json is pushed by the atlas-live CronJob or `task atlas:live`.
+name: "Atlas"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "kubernetes/**"
+      - "talos/**"
+      - "bootstrap/**"
+      - ".mise.toml"
+      - ".renovaterc.json5"
+      - "scripts/atlas/**"
+      - ".github/workflows/atlas.yaml"
+      # Written by this workflow and by the atlas-live CronJob
+      - "!kubernetes/apps/infra/atlas/app/site/state.json"
+      - "!kubernetes/apps/infra/atlas/app/site/live.json"
+
+concurrency:
+  group: atlas
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  state:
+    name: Rebuild state.json
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet --user pyyaml
+
+      - name: Build state.json
+        run: python3 scripts/atlas/build-state.py
+
+      - name: Commit when more than the timestamp changed
+        run: |
+          file=kubernetes/apps/infra/atlas/app/site/state.json
+          if git diff --quiet -I '"generated_at"' -I '"commit"' -I '"commit_short"' -I '"commit_date"' -I '"subject"' -I '"branch"' -- "$file"; then
+            echo "state.json unchanged apart from provenance; nothing to commit"
+            git checkout -- "$file"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(atlas): refresh state.json" -- "$file"
+          # main moves often (Renovate self-merges): rebase and retry a few times
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
+
+  pages:
+    name: Publish to GitHub Pages
+    needs: state
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      # First run: creates the Pages site with "GitHub Actions" as the source.
+      # If the token may not do that, enable it once in Settings -> Pages.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: kubernetes/apps/infra/atlas/app/site
+
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

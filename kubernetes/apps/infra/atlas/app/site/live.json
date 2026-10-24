@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-24T03:34:30Z",
+  "generated_by": "workstation",
+  "kubernetes_server": "v1.36.5",
+  "nodes": [
+    {
+      "name": "home-ops-01",
+      "ip": "10.13.38.101",
+      "ready": true,
+      "schedulable": true,
+      "kubelet": "v1.36.5",
+      "os": "Talos (v1.14.4)",
+      "kernel": "6.18.24-talos",
+      "runtime": "containerd://2.3.7",
+      "roles": [
+        "control-plane"
+      ],
+      "cpu": "4",
+      "memory": "16Gi"
+    }
+  ],
+  "pods": {
+    "total": 2,
+    "running": 1,
+    "by_namespace": {
+      "default": {
+        "total": 1,
+        "running": 1
+      },
+      "media": {
+        "total": 1,
+        "running": 0
+      }
+    },
+    "not_running": [
+      {
+        "namespace": "media",
+        "name": "b",
+        "phase": "Pending",
+        "node": "home-ops-01",
+        "reason": "ContainerCreating"
+      }
+    ],
+    "restarts": [
+      {
+        "namespace": "default",
+        "name": "a",
+        "node": "home-ops-01",
+        "restarts": 7
+      }
+    ],
+    "nodes": {
+      "home-ops-01": 2
+    }
+  },
+  "flux": {
+    "git": {
+      "revision": null,
+      "ready": "Unknown",
+      "last_update": null
+    },
+    "kustomizations": [
+      {
+        "namespace": "infra",
+        "name": "atlas",
+        "suspended": false,
+        "ready": "False",
+        "message": "boom",
+        "revision": "main@sha1:abc"
+      }
+    ],
+    "helmreleases": [],
+    "not_ready": [
+      "Kustomization infra/atlas"
+    ]
+  },
+  "services_lb": [
+    {
+      "namespace": "network",
+      "name": "envoy-internal",
+      "ip": "10.13.38.83",
+      "ports": [
+        "443/TCP"
+      ],
+      "external_traffic_policy": "Cluster"
+    }
+  ],
+  "l2_leases": [
+    {
+      "service": "network-envoy-internal",
+      "holder": "home-ops-02",
+      "renewed": "2026-10-24T03:00:00Z"
+    }
+  ],
+  "certificates": [
+    {
+      "namespace": "cert-manager",
+      "name": "turner-haus-production",
+      "secret": "turner-haus-production-tls",
+      "dns_names": [
+        "turner.haus",
+        "*.turner.haus"
+      ],
+      "ready": "True",
+      "not_after": "2027-01-10T00:00:00Z",
+      "renewal_time": "2026-12-11T00:00:00Z"
+    }
+  ],
+  "ceph": {
+    "phase": "Ready",
+    "health": "HEALTH_OK",
+    "version": "20.2.4-0",
+    "last_checked": "2026-10-24T03:00:00Z",
+    "details": [
+      {
+        "code": "AUTH_INSECURE_KEYS_ALLOWED",
+        "severity": "HEALTH_WARN",
+        "message": "muted"
+      }
+    ],
+    "capacity": {
+      "bytesTotal": 3600000000000,
+      "bytesUsed": 900000000000
+    },
+    "osds": {
+      "storeType": {
+        "bluestore": 3
+      }
+    }
+  },
+  "postgres": {
+    "phase": "Cluster in healthy state",
+    "primary": "postgres-2",
+    "instances": 3,
+    "ready": 3,
+    "image": "ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie",
+    "last_backup": "2026-10-24T02:03:00Z",
+    "first_recoverability": null,
+    "timeline": null,
+    "pods": []
+  },
+  "dragonfly": {
+    "pods": []
+  },
+  "gateways": [
+    {
+      "namespace": "network",
+      "name": "envoy-internal",
+      "addresses": [
+        "10.13.38.83"
+      ],
+      "programmed": "True",
+      "listeners": [
+        {
+          "name": "https",
+          "attached_routes": 24
+        }
+      ]
+    }
+  ],
+  "httproutes": [
+    {
+      "namespace": "default",
+      "name": "dash",
+      "hostnames": [
+        "dash.turner.haus"
+      ],
+      "parents": [
+        "envoy-internal"
+      ],
+      "accepted": true
+    }
+  ],
+  "tailscale": {
+    "connectors": []
+  },
+  "talos": null
+}

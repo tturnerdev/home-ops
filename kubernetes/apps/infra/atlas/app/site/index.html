@@ -1,0 +1,1399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home-Ops Atlas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: a control room. One sticky instrument bar, wide panels
+   beneath it; traffic flows read left to right as a rail of stops; data
+   tables are dense with tabular numerals. Colors are tokens; the four zone
+   hues are the validated categorical slots blue/orange/aqua/violet. */
+:root {
+  --bg: #f4f6f9; --panel: #ffffff; --panel-2: #eef2f6; --panel-3: #e3e9f1; --line: #d8dee8; --line-2: #c3ccd8;
+  --fg: #0f172a; --fg-2: #334155; --muted: #64748b; --accent: #2a78d6; --accent-soft: #dbe8fa;
+  --ok: #0ca30c; --ok-ink: #006300; --warn: #fab219; --warn-ink: #7a5200; --bad: #d03b3b; --bad-ink: #a12727; --info: #2a78d6;
+  --c-cluster: #2a78d6; --c-wan: #eb6834; --c-lan: #1baf7a; --c-vpn: #6250d6; --c-ext: #64748b;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px -16px rgba(15, 23, 42, .25);
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 10px; --radius-s: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1220; --panel: #131b2c; --panel-2: #1a2438; --panel-3: #223049; --line: #2a364d; --line-2: #3a4862;
+    --fg: #e7edf6; --fg-2: #c3cddc; --muted: #8a98ad; --accent: #3987e5; --accent-soft: #1c2f4d;
+    --ok: #0ca30c; --ok-ink: #5ad15a; --warn: #fab219; --warn-ink: #f2c35b; --bad: #d03b3b; --bad-ink: #ff7b7b; --info: #3987e5;
+    --c-cluster: #3987e5; --c-wan: #d95926; --c-lan: #199e70; --c-vpn: #9085e9; --c-ext: #8a98ad;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1220; --panel: #131b2c; --panel-2: #1a2438; --panel-3: #223049; --line: #2a364d; --line-2: #3a4862;
+  --fg: #e7edf6; --fg-2: #c3cddc; --muted: #8a98ad; --accent: #3987e5; --accent-soft: #1c2f4d;
+  --ok: #0ca30c; --ok-ink: #5ad15a; --warn: #fab219; --warn-ink: #f2c35b; --bad: #d03b3b; --bad-ink: #ff7b7b; --info: #3987e5;
+  --c-cluster: #3987e5; --c-wan: #d95926; --c-lan: #199e70; --c-vpn: #9085e9; --c-ext: #8a98ad;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; margin: 0; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--font-mono); font-size: .92em; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; font-weight: 600; letter-spacing: -.01em; }
+h2 { font-size: 22px; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; left: -9999px; }
+
+/* ----- instrument bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--panel); border-bottom: 1px solid var(--line);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top-inner { max-width: 1320px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand h1 { font-size: 17px; }
+.brand .tag { color: var(--muted); font-size: 12px; }
+.brand-mark { width: 26px; height: 26px; flex: none; }
+nav.tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+nav.tabs a { padding: 6px 10px; border-radius: var(--radius-s); color: var(--fg-2); font-weight: 500; }
+nav.tabs a:hover { background: var(--panel-2); text-decoration: none; }
+nav.tabs a.active { background: var(--accent-soft); color: var(--fg); }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.prov { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); max-width: 100%; min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prov b { color: var(--fg-2); font-weight: 500; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--panel); color: var(--fg); cursor: pointer; font-weight: 500; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn[disabled] { opacity: .6; cursor: progress; }
+.btn svg { width: 14px; height: 14px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ----- settings / refresh drawer */
+.drawer { max-width: 1320px; margin: 10px auto 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.drawer h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.drawer label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.drawer input[type=text] { width: 100%; padding: 7px 9px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--panel); font-family: var(--font-mono); font-size: 13px; }
+.drawer .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.log { font-family: var(--font-mono); font-size: 12px; display: grid; gap: 4px; }
+.log .ln { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; }
+.log .ln i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+.log .ln.ok i { background: var(--ok); } .log .ln.bad i { background: var(--bad); } .log .ln.skip i { background: var(--warn); }
+.hint { font-size: 12px; color: var(--muted); }
+
+/* ----- page */
+main { overflow-wrap: anywhere; max-width: 1320px; margin: 0 auto; padding-block: 18px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+section.page { display: grid; gap: 16px; scroll-margin-top: 84px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.section-head p { color: var(--muted); max-width: 70ch; }
+.eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; box-shadow: var(--shadow); }
+.panel h3 { margin-bottom: 10px; }
+.grid { display: grid; gap: 14px; }
+.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+figure { margin: 0; }
+figure svg { max-width: 100%; height: auto; display: block; }
+figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; max-width: 80ch; }
+.scroll-x { overflow-x: auto; }
+ul.facts { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
+ul.facts li { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: 10px; }
+ul.facts li b { font-weight: 500; color: var(--muted); }
+.callout { border-left: 3px solid var(--warn); background: var(--panel-2); padding: 10px 12px; border-radius: var(--radius-s); font-size: 13px; }
+.callout.bad { border-left-color: var(--bad); }
+.callout.info { border-left-color: var(--accent); }
+.callout + .callout { margin-top: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; border: 1px solid var(--line-2); color: var(--fg-2); background: var(--panel-2); white-space: nowrap; vertical-align: middle; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.pill.ok::before { background: var(--ok); } .pill.warn::before { background: var(--warn); } .pill.bad::before { background: var(--bad); } .pill.info::before { background: var(--info); }
+.pill.internal::before { background: var(--c-lan); } .pill.external::before { background: var(--c-wan); } .pill.lb::before { background: var(--c-cluster); } .pill.gateway::before { background: var(--c-cluster); }
+.pill.none::before { display: none; }
+
+/* ----- stat tiles */
+.tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.tile .v { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+.tile .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tile .s { font-size: 12px; color: var(--fg-2); margin-top: 6px; font-family: var(--font-mono); }
+
+/* ----- flows */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--panel); cursor: pointer; font-size: 12.5px; color: var(--fg-2); }
+.chip:hover { background: var(--panel-2); }
+.chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); }
+.chip.sys { border-style: dashed; }
+.controls { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); align-items: end; }
+.control label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+.seg { display: flex; border: 1px solid var(--line-2); border-radius: var(--radius-s); overflow: hidden; background: var(--panel); }
+.seg button { flex: 1; padding: 8px 6px; border: 0; background: transparent; cursor: pointer; font-weight: 500; color: var(--fg-2); display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.active { background: var(--accent-soft); color: var(--fg); }
+.seg button i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+select, input.text { width: 100%; padding: 8px 9px; border: 1px solid var(--line-2); border-radius: var(--radius-s); background: var(--panel); min-width: 0; }
+select { font-family: var(--font-mono); font-size: 13px; }
+input.text { font-family: var(--font-mono); font-size: 13px; }
+.rail-wrap { overflow-x: auto; padding: 6px 2px 10px; }
+.rail { display: flex; align-items: stretch; gap: 0; min-width: max-content; }
+.zone { display: flex; align-items: stretch; gap: 0; padding: 26px 10px 10px; border-radius: var(--radius); background: var(--panel-2); border: 1px solid var(--line); position: relative; }
+.zone::before { content: attr(data-label); position: absolute; top: 6px; left: 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--zc); }
+.zone { --zc: var(--c-cluster); border-top: 3px solid var(--zc); }
+.zone[data-zone="lan"] { --zc: var(--c-lan); } .zone[data-zone="vpn"] { --zc: var(--c-vpn); } .zone[data-zone="wan"] { --zc: var(--c-wan); } .zone[data-zone="ext"] { --zc: var(--c-ext); } .zone[data-zone="cluster"] { --zc: var(--c-cluster); }
+.stop { width: 168px; flex: none; background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius-s); padding: 10px 10px 9px; display: grid; grid-template-rows: auto auto 1fr; gap: 4px; position: relative; }
+.stop.block { border-color: var(--bad); } .stop.warn { border-color: var(--warn); } .stop.redirect { border-color: var(--info); border-style: dashed; }
+.stop .ic { width: 22px; height: 22px; color: var(--zc); }
+.stop .t { font-weight: 600; font-size: 13px; line-height: 1.25; }
+.stop .s { font-family: var(--font-mono); font-size: 11.5px; color: var(--fg-2); word-break: break-word; }
+.stop .n { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.stop .num { position: absolute; top: -9px; right: 8px; font-size: 10.5px; font-weight: 600; background: var(--panel); border: 1px solid var(--line-2); border-radius: 999px; padding: 0 6px; color: var(--muted); }
+.link { width: 30px; flex: none; align-self: center; height: 3px; background-image: linear-gradient(90deg, var(--zc) 0 55%, transparent 55% 100%); background-size: 12px 3px; animation: flow 1s linear infinite; position: relative; }
+.link::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5.5px solid transparent; border-left-color: var(--zc); border-right: 0; }
+.link.between { width: 36px; --zc: var(--line-2); }
+.link.dead { animation: none; background-image: linear-gradient(90deg, var(--bad) 0 55%, transparent 55% 100%); } .link.dead::after { border-left-color: var(--bad); }
+@keyframes flow { to { background-position: 12px 0; } }
+@media (prefers-reduced-motion: reduce) { .link { animation: none; } .spin { animation: none; } }
+.verdict { flex: none; align-self: center; margin-left: 10px; max-width: 260px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--line-2); background: var(--panel); }
+.verdict .t { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.verdict .t::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.verdict.ok { border-color: var(--ok); } .verdict.ok .t::before { background: var(--ok); }
+.verdict.block { border-color: var(--bad); } .verdict.block .t::before { background: var(--bad); }
+.verdict.warn { border-color: var(--warn); } .verdict.warn .t::before { background: var(--warn); }
+.verdict.redirect { border-color: var(--info); } .verdict.redirect .t::before { background: var(--info); }
+.verdict p { font-size: 12.5px; color: var(--fg-2); margin-top: 4px; }
+ol.hops { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; counter-reset: hop; }
+ol.hops li { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 12px 10px 44px; position: relative; }
+ol.hops li::before { counter-increment: hop; content: counter(hop); position: absolute; left: 12px; top: 10px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; background: var(--panel-2); color: var(--fg-2); border: 1px solid var(--line-2); }
+ol.hops li.block::before { background: var(--bad); color: #fff; border-color: var(--bad); }
+ol.hops li.warn::before { background: var(--warn); color: #0b0b0b; border-color: var(--warn); }
+ol.hops .hh { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+ol.hops .hh b { font-weight: 600; }
+ol.hops .hb { color: var(--fg-2); font-size: 13px; margin-top: 3px; max-width: 90ch; }
+ol.hops .he { margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+ol.hops .he a { font-family: var(--font-mono); }
+.zone-key { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.zone-key span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--kc); }
+
+/* ----- tables */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; white-space: nowrap; position: sticky; top: 0; background: var(--panel); }
+td.mono, .num { font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+tr.dim td { color: var(--muted); }
+.filterbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.filterbar input.text { max-width: 280px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 8px; }
+.kv div { background: var(--panel-2); border-radius: var(--radius-s); padding: 8px 10px; }
+.kv .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.kv .v { font-family: var(--font-mono); font-size: 13px; margin-top: 2px; word-break: break-all; }
+.empty { color: var(--muted); font-size: 13px; padding: 10px; border: 1px dashed var(--line-2); border-radius: var(--radius-s); }
+details summary { cursor: pointer; font-weight: 500; }
+.chart svg text { font-family: var(--font-sans); }
+footer { color: var(--muted); font-size: 12px; max-width: 1320px; margin: 0 auto; padding: 0 16px 30px; }
+@media (max-width: 720px) {
+  .rail { flex-direction: column; min-width: 0; }
+  .zone { flex-direction: column; padding-top: 30px; }
+  .stop { width: 100%; }
+  .link { width: 3px; height: 26px; align-self: center; background-image: linear-gradient(180deg, var(--zc) 0 55%, transparent 55% 100%); background-size: 3px 12px; }
+  .link::after { right: -4px; top: auto; bottom: -1px; border: 5.5px solid transparent; border-top-color: var(--zc); border-bottom: 0; }
+  .link.dead { background-image: linear-gradient(180deg, var(--bad) 0 55%, transparent 55% 100%); } .link.dead::after { border-top-color: var(--bad); }
+  @keyframes flow { to { background-position: 0 12px; } }
+  .verdict { margin-left: 0; margin-top: 10px; max-width: none; }
+  .brand .tag { display: none; }
+  .top-right { flex-basis: 100%; }
+  .seg button { font-size: 12px; padding: 8px 4px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="24" height="24" rx="6" fill="var(--accent)"/><circle cx="8" cy="9" r="2.2" fill="#fff"/><circle cx="18" cy="9" r="2.2" fill="#fff"/><circle cx="13" cy="18" r="2.2" fill="#fff"/><path d="M8 9h10M8 9l5 9M18 9l-5 9" stroke="#fff" stroke-width="1.4" fill="none"/></svg>
+      <div><h1>Home-Ops Atlas</h1><div class="tag" id="brand-tag">turner.haus · Talos · Flux · Cilium · Envoy Gateway</div></div>
+    </div>
+    <nav class="tabs" id="nav">
+      <a href="#overview" data-target="overview" class="active">Overview</a>
+      <a href="#flows" data-target="flows">Flows</a>
+      <a href="#design" data-target="design">Design</a>
+      <a href="#state" data-target="state">State</a>
+    </nav>
+    <div class="top-right">
+      <span class="prov" id="prov" title="Where the data on this page came from">loading…</span>
+      <button class="btn" id="btn-settings" type="button" aria-expanded="false" aria-controls="drawer">Settings</button>
+      <button class="btn primary" id="btn-refresh" type="button" title="Fetch the newest state.json and live.json from the main branch">
+        <svg viewBox="0 0 16 16" aria-hidden="true" id="refresh-ic"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.6 1.8v3.6h-3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+  <div class="drawer" id="drawer" hidden>
+    <div>
+      <h3>Secondary zone</h3>
+      <label for="zone2-input">The second domain is a secret in git. Type it once; it is kept only in this browser and substituted wherever the page shows a zone-2 host.</label>
+      <input type="text" id="zone2-input" placeholder="example.com" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button class="btn" id="zone2-save" type="button">Save</button>
+        <button class="btn" id="zone2-clear" type="button">Clear</button>
+        <span class="hint" id="zone2-status"></span>
+      </div>
+    </div>
+    <div>
+      <h3>Last refresh</h3>
+      <div class="log" id="refresh-log"><div class="ln"><i></i><span>No refresh yet. The page tries the sources in order: GitHub connector (inside Claude), raw.githubusercontent.com (anywhere else), the file next to the page, then the snapshot bundled into the page.</span></div></div>
+    </div>
+    <div>
+      <h3>Keeping it current</h3>
+      <div class="hint">Every push to <code>main</code> that touches the manifests rebuilds <code>state.json</code> (GitHub Action). Live facts come from <code>task atlas:live</code> or the <code>atlas-live</code> CronJob, which commit <code>live.json</code>. Refresh pulls both from <code>main</code>.</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="page" id="overview">
+    <div class="section-head">
+      <div><div class="eyebrow">Overview</div><h2>One cluster, three Talos VMs, everything from git</h2></div>
+      <p id="overview-lede"></p>
+    </div>
+    <div class="tiles" id="stats"></div>
+    <div class="panel"><div id="map"></div></div>
+    <div class="grid cols-2">
+      <div class="panel"><h3>Outside the cluster</h3><div id="outside"></div></div>
+      <div class="panel"><h3>Worth knowing</h3><div id="findings"></div></div>
+    </div>
+  </section>
+
+  <section class="page" id="flows">
+    <div class="section-head">
+      <div><div class="eyebrow">Flow explorer</div><h2>Every stop a request makes</h2></div>
+      <p>Pick where the client is, what it speaks, and where it is going. The rail shows each component in the path, what it decides, and why the request ends where it does.</p>
+    </div>
+    <div class="panel">
+      <div class="eyebrow" style="margin-bottom:8px">Common flows</div>
+      <div class="chips" id="presets"></div>
+      <div class="eyebrow" style="margin:14px 0 8px">System flows</div>
+      <div class="chips" id="sys-presets"></div>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <div class="control"><label>Client location</label><div class="seg" id="loc" role="group" aria-label="Client location">
+          <button type="button" data-loc="lan" class="active"><i style="background:var(--c-lan)"></i>Home LAN</button>
+          <button type="button" data-loc="vpn"><i style="background:var(--c-vpn)"></i>Tailscale, away</button>
+          <button type="button" data-loc="wan"><i style="background:var(--c-wan)"></i>Internet</button>
+        </div></div>
+        <div class="control"><label for="proto">Protocol / port</label><select id="proto"></select></div>
+        <div class="control" id="port-control" hidden><label for="port">Port</label><input class="text" id="port" type="number" min="1" max="65535" value="8080"></div>
+        <div class="control"><label for="dest">Destination</label><select id="dest"></select></div>
+        <div class="control" id="dest-custom-control" hidden><label for="dest-custom">Hostname or IP</label><input class="text" id="dest-custom" type="text" placeholder="app.turner.haus or 10.13.38.83" spellcheck="false"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="zone-key" style="margin-bottom:8px"><span style="--kc:var(--c-lan)">Home LAN 10.13.36.0/22</span><span style="--kc:var(--c-vpn)">Tailscale</span><span style="--kc:var(--c-wan)">Internet</span><span style="--kc:var(--c-ext)">Outside services</span><span style="--kc:var(--c-cluster)">Cluster</span></div>
+      <div class="rail-wrap"><div class="rail" id="rail"></div></div>
+      <h3 id="flow-title" style="margin:10px 0 8px"></h3>
+      <ol class="hops" id="hops"></ol>
+    </div>
+  </section>
+
+  <section class="page" id="design">
+    <div class="section-head">
+      <div><div class="eyebrow">Design</div><h2>How the pieces fit</h2></div>
+      <p>Each drawing is built from the manifests in the repo, so the boxes are the real objects. Links point at the file that defines each one.</p>
+    </div>
+    <div id="design-sections" class="grid" style="gap:18px"></div>
+  </section>
+
+  <section class="page" id="state">
+    <div class="section-head">
+      <div><div class="eyebrow">Current state</div><h2>What main declares, and what the cluster reports</h2></div>
+      <p id="state-prov"></p>
+    </div>
+    <div class="panel"><h3>Platform versions</h3><div class="kv" id="platform"></div></div>
+    <div class="panel"><h3>Live cluster facts</h3><div id="live"></div></div>
+    <div class="panel"><h3>Applications</h3>
+      <div class="filterbar"><input class="text" id="apps-filter" type="search" placeholder="Filter apps, images, hosts…"><div class="chips" id="apps-ns"></div></div>
+      <div class="tbl-wrap" id="apps"></div>
+    </div>
+    <div class="grid cols-2">
+      <div class="panel"><h3>Hostnames</h3><div class="tbl-wrap" id="hosts"></div></div>
+      <div class="panel"><h3>LoadBalancer addresses</h3><div class="tbl-wrap" id="lbips"></div><h3 style="margin-top:16px">Storage classes</h3><div class="tbl-wrap" id="classes"></div></div>
+    </div>
+    <div class="grid cols-2">
+      <div class="panel"><h3>Chart and image sources</h3><div class="tbl-wrap" id="sources"></div></div>
+      <div class="panel"><h3>Update policy (Renovate)</h3><div id="renovate"></div><h3 style="margin-top:16px">Workstation tool pins</h3><div class="kv" id="tools"></div></div>
+    </div>
+    <div class="grid cols-2">
+      <div class="panel chart"><h3>Persistent volume capacity by class</h3><div id="chart-pvc"></div></div>
+      <div class="panel chart"><h3>HelmReleases per namespace</h3><div id="chart-ns"></div></div>
+    </div>
+    <div class="panel" id="runbook"><h3>Refreshing this page</h3><div class="grid cols-3" id="runbook-body"></div></div>
+  </section>
+</main>
+<footer>Home-Ops Atlas is generated from <a href="https://github.com/tturnerdev/home-ops" rel="noopener">tturnerdev/home-ops</a>. Design notes and the refresh runbook live in <code>docs/atlas.md</code>.</footer>
+
+<script type="application/json" id="atlas-embedded">{}</script>
+<script>
+/* ============================================================ core */
+'use strict';
+const REPO = 'tturnerdev/home-ops';
+const SITE_PATH = 'kubernetes/apps/infra/atlas/app/site/';
+const RAW_BASE = 'https://raw.githubusercontent.com/' + REPO + '/main/' + SITE_PATH;
+const BLOB_BASE = 'https://github.com/' + REPO + '/blob/main/';
+const Z2TOKEN = '$' + '{SECRET_DOMAIN_2}';
+const NFSTOKEN = '$' + '{SECRET_NFS_IP}';
+const Z2PLACEHOLDER = '‹zone-2›';
+const LS_ZONE2 = 'atlas.zone2';
+const LS_CACHE = 'atlas.cache.v1';
+
+// The LAN side as confirmed by the operator (not derivable from the repo).
+const LAN = {
+  cidr: '10.13.36.0/22',
+  router: { ip: '10.13.37.1', name: 'UniFi gateway', role: 'Router, DHCP and the LAN DNS resolver. Default route for the nodes. Holds the manual external.<zone> A record and the RustDesk port-forward.' },
+  nas: { ip: '10.13.37.60', name: 'NAS (nas201)', role: 'TrueNAS. NFS exports under /mnt/storage/media mounted straight into the media pods.' },
+  lab1: { ip: '10.13.37.20', name: 'lab1', role: 'Docker host. Ran Hudu until 2026-10-08; still serves the MinIO bucket Hudu uploads to.' },
+  hypervisor: { name: 'Proxmox host', role: 'Runs the three Talos VMs (QEMU disks: 275 GB system, 1.1 TB Ceph OSD, 107 GB TopoLVM per VM).' },
+  tsRouter: { name: 'Standalone Tailscale subnet router', role: 'A container outside the cluster advertising the same 10.13.32.0/21: automatic failover and the break-glass path when the cluster is down.' },
+};
+
+let S = null;        // state.json
+let L = null;        // live.json
+let CFG = {};        // config.json (in-cluster copy only)
+let PROV = { source: 'none' };
+const settings = { zone2: lsGet(LS_ZONE2) };
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } }
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function el(tag, attrs, ...children) {
+  const n = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'html') n.innerHTML = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (k === 'hidden') n.hidden = !!v;
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of children.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+}
+function $(id) { return document.getElementById(id); }
+function zone2() { return settings.zone2 || CFG.secondary_domain || null; }
+function z2(str) { if (str == null) return ''; return String(str).split(Z2TOKEN).join(zone2() || Z2PLACEHOLDER).split(NFSTOKEN).join(CFG.nfs_ip || '‹nas›'); }
+function isZ2(host) { return typeof host === 'string' && (host.includes(Z2TOKEN) || (zone2() && host.endsWith('.' + zone2()))); }
+function blob(path, line) { return BLOB_BASE + path + (line ? '#L' + line : ''); }
+function link(path, label) { return '<a href="' + esc(blob(path)) + '" rel="noopener">' + esc(label || path.split('/').slice(-2).join('/')) + '</a>'; }
+function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return esc(iso); return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'; }
+function ago(iso) { if (!iso) return ''; const ms = Date.now() - new Date(iso).getTime(); if (isNaN(ms)) return ''; const h = ms / 36e5; if (h < 1) return Math.max(1, Math.round(ms / 6e4)) + ' min ago'; if (h < 48) return Math.round(h) + ' h ago'; return Math.round(h / 24) + ' d ago'; }
+function gi(n) { // "20Gi" -> GiB number
+  if (!n) return 0; const m = String(n).match(/^([\d.]+)\s*(Gi|Mi|Ti|G|M|T)?/); if (!m) return 0; const v = parseFloat(m[1]); const u = m[2] || 'Gi';
+  return u.startsWith('T') ? v * 1024 : u.startsWith('M') ? v / 1024 : v;
+}
+function gateways() { return (S && S.network && S.network.gateways) || []; }
+function gwIp(name) { const g = gateways().find(x => x.name === name); return g ? g.lb_ip : null; }
+function appByName(name) { return (S.apps || []).find(a => a.name === name); }
+function hostRec(host) {
+  if (!S) return null; const h = z2(host).toLowerCase();
+  return (S.hostnames || []).find(r => z2(r.host).toLowerCase() === h) || null;
+}
+function lbByIp(ip) { return ((S.network || {}).lb_ips || []).find(x => x.ip === ip) || null; }
+function leaseHolder(ip) {
+  if (!L || !L.services_lb || !L.l2_leases) return null;
+  const svc = L.services_lb.find(s => s.ip === ip); if (!svc) return null;
+  const lease = L.l2_leases.find(l => l.service === svc.namespace + '-' + svc.name); return lease ? lease.holder : null;
+}
+function nodeNames() { return (S.nodes || []).map(n => n.hostname); }
+
+/* ------------------------------------------------------------ icons */
+const ICONS = {
+  device: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  dns: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>',
+  cloud: '<path d="M7 18a4 4 0 0 1-.6-7.95A6 6 0 0 1 18 9.5a3.5 3.5 0 0 1-.5 7z"/>',
+  tunnel: '<path d="M4 19V12a8 8 0 0 1 16 0v7M4 19h3v-7M17 12v7h3"/>',
+  router: '<rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 13V9M12 13V5M17 13V9M7 17h.01M11 17h.01"/>',
+  node: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
+  gateway: '<path d="M4 12h6M14 12h6M10 7h4v10h-4z"/><path d="M4 12l2-2M4 12l2 2M20 12l-2-2M20 12l-2 2"/>',
+  route: '<path d="M4 18c4 0 4-12 8-12s4 12 8 12"/><circle cx="4" cy="18" r="1.5"/><circle cx="20" cy="18" r="1.5"/>',
+  pod: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
+  db: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  disk: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  vpn: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  stop: '<circle cx="12" cy="12" r="9"/><path d="M8 8l8 8M16 8l-8 8"/>',
+  redirect: '<path d="M4 17l6-6-6-6M12 17l6-6-6-6"/>',
+  git: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 4-6 3-9 5"/>',
+  cert: '<circle cx="12" cy="9" r="5"/><path d="M9 13.5L8 21l4-2 4 2-1-7.5"/>',
+  key: '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15 12v2"/>',
+  image: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  robot: '<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 13h.01M16 13h.01M9 17h6"/>',
+};
+function icon(name) { return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || ICONS.pod) + '</svg>'; }
+
+/* ------------------------------------------------------------ loading */
+function parseEmbedded() {
+  try { const t = $('atlas-embedded').textContent.trim(); return t ? JSON.parse(t) : {}; } catch (e) { return {}; }
+}
+function newer(a, b) { // is state a newer than state b
+  if (!b) return true; if (!a) return false;
+  const da = (a.source && a.source.commit_date) || a.generated_at || ''; const db = (b.source && b.source.commit_date) || b.generated_at || '';
+  return da > db || (da === db && (a.generated_at || '') >= (b.generated_at || ''));
+}
+function applyData(state, live, cfg, prov) {
+  if (state && state.schema === 1) { S = state; }
+  if (live && typeof live === 'object') { L = live.generated_at ? live : (L || live); }
+  if (cfg && typeof cfg === 'object') CFG = Object.assign({}, CFG, cfg);
+  if (prov) PROV = prov;
+  if (S) renderAll();
+}
+async function fetchJson(url, opts) {
+  const r = await fetch(url, Object.assign({ cache: 'no-store' }, opts || {}));
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+function logLines(lines) {
+  const box = $('refresh-log'); box.innerHTML = '';
+  for (const l of lines) box.append(el('div', { class: 'ln ' + (l.kind || '') }, el('i'), el('span', { html: l.html || esc(l.text) })));
+}
+function payloadText(res) {
+  // The GitHub connector answers get_file_contents with a short text block and a
+  // resource block that carries the file. Find the first block that parses.
+  const cands = [];
+  if (res && res.structuredContent) cands.push(res.structuredContent);
+  if (res && res.payload != null) cands.push(res.payload);
+  for (const b of (res && res.content) || []) {
+    if (!b) continue;
+    if (typeof b.text === 'string') cands.push(b.text);
+    if (b.resource) { if (typeof b.resource.text === 'string') cands.push(b.resource.text); if (typeof b.resource.blob === 'string') { try { cands.push(atob(b.resource.blob)); } catch (e) { /* not base64 */ } } }
+  }
+  for (const c of cands) {
+    if (c && typeof c === 'object' && !Array.isArray(c) && c.schema) return c;
+    if (typeof c === 'string') { const t = c.trim(); if (t.startsWith('{')) { try { const o = JSON.parse(t); if (o && typeof o === 'object') return o; } catch (e) { /* keep looking */ } } }
+  }
+  throw new Error('no JSON document in the connector result');
+}
+async function viaConnector(lines) {
+  if (!(window.claude && typeof window.claude.use === 'function')) { lines.push({ kind: 'skip', text: 'GitHub connector: not inside Claude, skipped' }); return null; }
+  const mcp = await window.claude.use('mcp');
+  if (!mcp) { lines.push({ kind: 'skip', text: 'GitHub connector: not available in this view' }); return null; }
+  const get = async (file) => mcp.callTool('github', 'get_file_contents', { owner: REPO.split('/')[0], repo: REPO.split('/')[1], path: SITE_PATH + file, ref: 'refs/heads/main' }, { cache: false });
+  try {
+    const st = payloadText(await get('state.json'));
+    let lv = null; try { lv = payloadText(await get('live.json')); } catch (e) { lines.push({ kind: 'skip', text: 'live.json via connector: ' + (e.message || e.code) }); }
+    lines.push({ kind: 'ok', text: 'GitHub connector: state.json from main @ ' + ((st.source && st.source.commit_short) || '?') });
+    return { state: st, live: lv, prov: { source: 'GitHub connector', detail: 'main' } };
+  } catch (e) {
+    const code = e && e.code; let msg;
+    switch (code) {
+      case 'server_not_connected': msg = 'GitHub connector: not connected. Add GitHub in claude.ai Settings → Connectors.'; break;
+      case 'needs_reauth': msg = 'GitHub connector: reconnect GitHub in claude.ai Settings → Connectors.'; break;
+      case 'not_in_manifest': case 'not_granted': case 'approval_required': case 'consent_required': msg = 'GitHub connector: access to GitHub was not granted for this page.'; break;
+      case 'capability_disabled': case 'capability_removed': msg = 'GitHub connector: not usable in this view.'; break;
+      case 'tool_error': msg = 'GitHub connector: the tool reported an error (' + esc(e.message || '') + ').'; break;
+      default: msg = 'GitHub connector: ' + esc(code || (e && e.message) || 'failed');
+    }
+    lines.push({ kind: 'bad', text: msg });
+    return null;
+  }
+}
+async function viaRaw(lines) {
+  try {
+    const st = await fetchJson(RAW_BASE + 'state.json?t=' + Date.now());
+    let lv = null; try { lv = await fetchJson(RAW_BASE + 'live.json?t=' + Date.now()); } catch (e) { /* optional */ }
+    lines.push({ kind: 'ok', text: 'raw.githubusercontent.com: state.json from main @ ' + ((st.source && st.source.commit_short) || '?') });
+    return { state: st, live: lv, prov: { source: 'raw.githubusercontent.com', detail: 'main' } };
+  } catch (e) { lines.push({ kind: 'skip', text: 'raw.githubusercontent.com: unreachable from here (' + esc(e.message) + ')' }); return null; }
+}
+async function viaSibling(lines) {
+  try {
+    const st = await fetchJson('./state.json?t=' + Date.now());
+    let lv = null, cfg = null; try { lv = await fetchJson('./live.json?t=' + Date.now()); } catch (e) { /* optional */ } try { cfg = await fetchJson('./config.json?t=' + Date.now()); } catch (e) { /* optional */ }
+    lines.push({ kind: 'ok', text: 'file next to the page: state.json @ ' + ((st.source && st.source.commit_short) || '?') });
+    return { state: st, live: lv, cfg: cfg, prov: { source: cfg && cfg.source === 'in-cluster' ? 'in-cluster copy (Flux)' : 'file next to the page', detail: 'sibling' } };
+  } catch (e) { lines.push({ kind: 'skip', text: 'file next to the page: not available (' + esc(e.message) + ')' }); return null; }
+}
+async function refresh(opts) {
+  const btn = $('btn-refresh'); btn.disabled = true; $('refresh-ic').classList.add('spin');
+  const lines = [{ text: 'Started ' + new Date().toISOString().slice(11, 19) + ' UTC' }];
+  try {
+    let got = null;
+    if (opts && opts.gesture) got = await viaConnector(lines);
+    if (!got) got = await viaRaw(lines);
+    if (!got) got = await viaSibling(lines);
+    if (got) {
+      applyData(got.state, got.live, got.cfg, Object.assign({ at: new Date().toISOString() }, got.prov));
+      lsSet(LS_CACHE, JSON.stringify({ state: got.state, live: got.live, prov: PROV }));
+      lines.push({ kind: 'ok', text: 'Page re-rendered from ' + got.prov.source + '.' });
+    } else {
+      lines.push({ kind: 'bad', text: 'No source answered; showing the previous data.' });
+    }
+  } finally { btn.disabled = false; $('refresh-ic').classList.remove('spin'); logLines(lines); }
+}
+function initChrome() {
+  $('btn-refresh').addEventListener('click', () => refresh({ gesture: true }));
+  const drawer = $('drawer'), sb = $('btn-settings');
+  sb.addEventListener('click', () => { drawer.hidden = !drawer.hidden; sb.setAttribute('aria-expanded', String(!drawer.hidden)); });
+  const inp = $('zone2-input'); inp.value = settings.zone2 || '';
+  const status = () => { $('zone2-status').textContent = settings.zone2 ? 'Using ' + settings.zone2 + ' (this browser only)' : (CFG.secondary_domain ? 'Using the zone from the in-cluster config.json' : 'Not set: zone-2 hosts show as ' + Z2PLACEHOLDER); };
+  status();
+  $('zone2-save').addEventListener('click', () => { const v = inp.value.trim().replace(/^\.+|\.+$/g, '').toLowerCase(); settings.zone2 = v || null; lsSet(LS_ZONE2, settings.zone2); status(); if (S) renderAll(); });
+  $('zone2-clear').addEventListener('click', () => { inp.value = ''; settings.zone2 = null; lsSet(LS_ZONE2, null); status(); if (S) renderAll(); });
+  // Section highlighting
+  const links = [...document.querySelectorAll('#nav a')];
+  const io = new IntersectionObserver(entries => { for (const e of entries) if (e.isIntersecting) links.forEach(a => a.classList.toggle('active', a.dataset.target === e.target.id)); }, { rootMargin: '-40% 0px -55% 0px' });
+  document.querySelectorAll('section.page').forEach(s => io.observe(s));
+}
+async function boot() {
+  initChrome();
+  const emb = parseEmbedded();
+  let cached = null; try { cached = JSON.parse(lsGet(LS_CACHE) || 'null'); } catch (e) { cached = null; }
+  if (emb && emb.state) applyData(emb.state, emb.live, emb.config, { source: 'snapshot bundled into the page', detail: 'bundled' });
+  if (cached && cached.state && newer(cached.state, S)) applyData(cached.state, cached.live, null, Object.assign({}, cached.prov || {}, { source: (cached.prov && cached.prov.source) || 'cached', cached: true }));
+  const lines = [{ text: 'Page load ' + new Date().toISOString().slice(11, 19) + ' UTC' }];
+  const sib = await viaSibling(lines);
+  if (sib && (newer(sib.state, S) || !S)) applyData(sib.state, sib.live, sib.cfg, sib.prov); else if (sib && sib.cfg) applyData(null, null, sib.cfg, null);
+  const raw = await viaRaw(lines);
+  if (raw && newer(raw.state, S)) { applyData(raw.state, raw.live, null, raw.prov); lsSet(LS_CACHE, JSON.stringify({ state: raw.state, live: raw.live, prov: PROV })); }
+  logLines(lines);
+  if (!S) { $('prov').textContent = 'no state available'; $('stats').append(el('div', { class: 'empty', text: 'state.json could not be loaded. Use Refresh, or run task atlas:state and reload.' })); }
+  const hash = location.hash.replace('#', ''); if (hash && $(hash)) $(hash).scrollIntoView();
+}
+
+/* ------------------------------------------------------------ render: header + overview + state */
+function renderAll() {
+  renderProv(); renderOverview(); renderDesign(); initFlows(); renderState();
+}
+function renderProv() {
+  const src = S.source || {}; const p = $('prov');
+  p.innerHTML = '<b>main@' + esc(src.commit_short || '?') + '</b> · ' + esc(fmtDate(src.commit_date)) + ' · via ' + esc(PROV.source || '?') + (L && L.generated_at ? ' · live ' + esc(ago(L.generated_at)) : ' · no live snapshot');
+  p.title = 'state.json generated ' + fmtDate(S.generated_at) + ' from commit ' + (src.commit || '?') + ' ("' + (src.subject || '') + '"). Source: ' + (PROV.source || '?') + (PROV.at ? ' at ' + fmtDate(PROV.at) : '') + '.';
+  $('state-prov').innerHTML = 'Declared state is read from <b>main @ ' + esc(src.commit_short || '?') + '</b> (' + esc(fmtDate(src.commit_date)) + ', “' + esc(src.subject || '') + '”), generated ' + esc(fmtDate(S.generated_at)) + ', loaded via ' + esc(PROV.source || '?') + '. '
+    + (L && L.generated_at ? 'Live facts were collected ' + esc(fmtDate(L.generated_at)) + ' (' + esc(L.generated_by || '') + ').' : 'No live snapshot has been committed yet.');
+  $('brand-tag').textContent = (S.domains && S.domains.primary) + ' · Talos ' + (S.platform.talos || '').replace(/^v/, '') + ' · Kubernetes ' + (S.platform.kubernetes || '').replace(/^v/, '') + ' · Flux ' + (S.platform.flux || '');
+}
+function renderOverview() {
+  const apps = S.apps || []; const deployed = apps.filter(a => a.deployed && !a.suspended);
+  const hosts = (S.hostnames || []).filter(h => h.exposure === 'internal' || h.exposure === 'external');
+  const pvcs = Object.values(S.storage.pvcs_by_class || {}).flat();
+  const totalGi = pvcs.reduce((n, p) => n + gi(p.size), 0);
+  $('overview-lede').textContent = 'Three Talos control-plane VMs run ' + deployed.length + ' applications from this git repository. Cilium hands out LAN addresses, two Envoy Gateways terminate TLS, and three DNS horizons decide who can reach what.';
+  const tiles = [
+    { v: (S.nodes || []).length, k: 'Talos nodes', s: 'all control-plane, all schedulable' },
+    { v: deployed.length, k: 'apps deployed', s: apps.filter(a => a.suspended).length + ' suspended · ' + apps.filter(a => !a.deployed).length + ' unwired' },
+    { v: hosts.length, k: 'hostnames', s: hosts.filter(h => h.exposure === 'internal').length + ' internal · ' + hosts.filter(h => h.exposure === 'external').length + ' public' },
+    { v: (S.network.lb_ips || []).length, k: 'LoadBalancer IPs', s: 'Cilium LB-IPAM + L2' },
+    { v: Math.round(totalGi), k: 'GiB claimed', s: pvcs.length + ' PVCs on ' + Object.keys(S.storage.pvcs_by_class || {}).filter(Boolean).length + ' classes' },
+    { v: (S.databases.postgres.consumers || []).length, k: 'apps on Postgres', s: 'CNPG ×' + S.databases.postgres.instances + ' · Dragonfly ×' + S.databases.dragonfly.replicas },
+    { v: (S.platform.kubernetes || '').replace(/^v/, ''), k: 'Kubernetes', s: 'Talos ' + (S.platform.talos || '').replace(/^v/, '') + ' · Cilium ' + S.platform.cilium },
+    { v: S.platform.flux, k: 'Flux', s: 'reconciling ' + ((S.flux.git || {}).ref || 'main').replace('refs/heads/', '') },
+  ];
+  $('stats').replaceChildren(...tiles.map(t => el('div', { class: 'tile' }, el('div', { class: 'v', text: String(t.v) }), el('div', { class: 'k', text: t.k }), el('div', { class: 's', text: t.s }))));
+  $('map').innerHTML = drawMap();
+  const out = [
+    ['Internet', 'Cloudflare: DNS zones for both domains, the proxied public hostnames and the Tunnel ' + ((S.network.tunnel.cname || '').split('.')[0] || '') + '. Let’s Encrypt issues the two wildcards over DNS-01. GitHub hosts the repo, the webhook that wakes Flux, and Renovate. 1Password Connect backs external-secrets.'],
+    [LAN.router.name + ' · ' + LAN.router.ip, LAN.router.role],
+    [LAN.hypervisor.name, LAN.hypervisor.role],
+    [LAN.nas.name + ' · ' + LAN.nas.ip, LAN.nas.role],
+    [LAN.lab1.name + ' · ' + LAN.lab1.ip, LAN.lab1.role],
+    [LAN.tsRouter.name, LAN.tsRouter.role],
+    ['Alerts', 'Flux failures and dario’s daily check go to a public ntfy server (topic homelab) and, for dario, email through a Gmail relay.'],
+  ];
+  $('outside').replaceChildren(el('ul', { class: 'facts' }, out.map(([k, v]) => el('li', null, el('b', { text: k }), el('span', { text: v })))));
+  const unwired = apps.filter(a => !a.deployed).map(a => a.namespace + '/' + a.name);
+  const findings = [
+    { kind: 'warn', html: '<b>Six app folders are not wired in.</b> They have manifests but no entry in their namespace kustomization, so Flux never applies them: ' + unwired.map(u => '<code>' + esc(u) + '</code>').join(', ') + '. shlink still declares an <code>ingress:</code> block for the retired <code>internal</code> class; audiobookshelf points at a <code>bjw-s</code> HelmRepository that no longer exists in the repo.' },
+    { kind: 'info', html: '<b>external.' + esc(S.domains.primary) + ' is load-bearing twice.</b> On the LAN it is a hand-kept UniFi A record to ' + esc(gwIp('envoy-external')) + '; publicly it is a CNAME to the Tunnel. Every public hostname is a CNAME to it, so repointing it moves all of them at once.' },
+    { kind: 'info', html: '<b>Two DNS controllers, one owner id.</b> unifi-dns and the Cloudflare external-dns both use <code>txtOwnerId: default</code> with <code>policy: sync</code>; a record created by hand with no <code>k8s.</code> TXT next to it is never corrected or removed by either (the 2026-05 Plex incident).' },
+    { kind: 'info', html: '<b>Node-local volumes.</b> The three Postgres instances live on TopoLVM, so a Postgres pod can only run on the node its volume is on: drains wait for a switchover and a replica stays Pending until its node is back.' },
+    { kind: 'warn', html: '<b>Zone-2 over the VPN.</b> Tailscale split DNS covers only ' + esc(S.domains.primary) + '. Internal-only zone-2 hosts (paperclip, flow) resolve nowhere when away unless the optional second split-DNS entry to UniFi is added (docs/tailscale.md).' },
+  ];
+  $('findings').replaceChildren(...findings.map(f => el('div', { class: 'callout ' + f.kind, html: f.html })));
+}
+function renderState() {
+  const P = S.platform;
+  const plat = [
+    ['Talos (nodes)', P.talos], ['Talos config contract', P.talos_config_contract], ['Kubernetes', P.kubernetes], ['Cilium', P.cilium], ['CoreDNS chart', P.coredns_chart], ['Spegel', P.spegel],
+    ['Flux', P.flux], ['flux-operator', P.flux_operator], ['Envoy Gateway', P.envoy_gateway], ['cert-manager', P.cert_manager], ['external-secrets', P.external_secrets], ['external-dns', P.external_dns],
+    ['UniFi webhook', P.unifi_webhook], ['k8s-gateway', P.k8s_gateway], ['cloudflared', P.cloudflared], ['Tailscale operator', P.tailscale_operator], ['Rook', P.rook], ['Ceph', P.ceph],
+    ['ceph-csi-drivers', P.ceph_csi_drivers], ['TopoLVM', P.topolvm], ['CNPG chart', P.cnpg_operator_chart], ['PostgreSQL', (P.postgres || '').split(':').pop()], ['Barman Cloud plugin', P.barman_cloud_plugin], ['Dragonfly', (P.dragonfly || '').split(':').pop()],
+    ['Dragonfly operator', P.dragonfly_operator], ['app-template', P.app_template], ['metrics-server', P.metrics_server], ['Reloader', P.reloader],
+  ];
+  $('platform').replaceChildren(...plat.map(([k, v]) => el('div', null, el('div', { class: 'k', text: k }), el('div', { class: 'v', text: v || '—' }))));
+  renderLive();
+  renderApps();
+  // hostnames
+  const hs = (S.hostnames || []).slice().sort((a, b) => (a.exposure || '').localeCompare(b.exposure || '') || z2(a.host).localeCompare(z2(b.host)));
+  $('hosts').innerHTML = '<table><thead><tr><th>Host</th><th>App</th><th>Exposure</th><th>LAN answer</th><th>Public</th></tr></thead><tbody>' + hs.map(h => '<tr' + (h.suspended ? ' class="dim"' : '') + '><td class="mono">' + esc(z2(h.host)) + '</td><td>' + esc(h.app) + '</td><td><span class="pill ' + esc(h.exposure) + '">' + esc(h.exposure) + '</span></td><td class="mono">' + esc((h.lan_dns ? h.lan_dns.replace(/\s*\(.*\)$/, '') : (h.vpn_dns || '—')).replace(/->/g, '→')) + '</td><td>' + (h.public_dns ? '<span class="pill ok">' + (h.tunnel_rule ? 'tunnel' : 'no tunnel rule') + '</span>' : '<span class="pill none">none</span>') + '</td></tr>').join('') + '</tbody></table>';
+  // LB IPs
+  const lbs = S.network.lb_ips || [];
+  $('lbips').innerHTML = '<table><thead><tr><th>Address</th><th>Owner</th><th>Ports</th><th>L2 lease</th></tr></thead><tbody>' + lbs.map(x => '<tr><td class="mono">' + esc(x.ip) + '</td><td>' + esc(x.owner) + ' <span class="hint">' + esc(x.namespace) + '</span></td><td class="mono">' + esc([...new Set(x.ports)].join(', ')) + '</td><td class="mono">' + esc(leaseHolder(x.ip) || '—') + '</td></tr>').join('') + '<tr><td class="mono">' + esc(S.network.api_vip) + '</td><td>Kubernetes API VIP <span class="hint">Talos shared IP, not Cilium</span></td><td class="mono">6443</td><td class="mono">—</td></tr></tbody></table>';
+  // classes
+  const cls = S.storage.classes || [];
+  $('classes').innerHTML = '<table><thead><tr><th>Class</th><th>Provisioner</th><th>Default</th><th>Reclaim</th><th>Notes</th></tr></thead><tbody>' + cls.map(c => '<tr><td class="mono">' + esc(c.name) + '</td><td class="mono">' + esc(c.provisioner) + '</td><td>' + (c.default ? 'yes' : '') + '</td><td>' + esc(c.reclaim || '—') + '</td><td class="hint">' + esc([c.replication ? c.replication + '× replicated' : '', c.failure_domain ? 'failure domain ' + c.failure_domain : '', c.fstype ? c.fstype : '', c.node_local ? 'node-local' : '', c.compression ? 'compression ' + c.compression : '', c.note || ''].filter(Boolean).join(' · ')) + '</td></tr>').join('') + '</tbody></table>';
+  // sources
+  const src = (S.flux.sources || []).slice().sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  $('sources').innerHTML = '<table><thead><tr><th>Kind</th><th>Name</th><th>URL</th><th>Ref</th></tr></thead><tbody>' + src.map(s => '<tr><td>' + esc(s.kind.replace('Repository', '')) + '</td><td class="mono">' + esc(s.name) + ' <span class="hint">' + esc(s.namespace || '') + '</span></td><td class="mono">' + esc((s.url || '').replace(/^oci:\/\//, '')) + '</td><td class="mono">' + esc(s.tag || s.semver || '') + (s.verify ? ' <span class="pill ok">' + esc(s.verify) + '</span>' : '') + '</td></tr>').join('') + '</tbody></table>';
+  // renovate
+  const R = S.renovate || {};
+  $('renovate').innerHTML = '<ul class="facts"><li><b>Default</b><span>A pull request on weekends for everything (list A: the platform, the Atrelix apps, Madsonic).</span></li><li><b>Unattended</b><span>' + esc((R.automerge_apps || []).length) + ' app folders (list B) merge minor, patch and digest updates straight to main, daily ' + esc((R.automerge_schedule || []).join(' ')) + ' UTC; dario merges daily too.</span></li>'
+    + (R.holds || []).map(h => '<li><b>Hold</b><span>' + esc(h.description) + ': <code>' + esc((h.packages || []).join(', ')) + '</code> ' + esc(h.allowed) + '</span></li>').join('') + '<li><b>Actions</b><span>GitHub Actions updates merge after three days; CLI tools in .mise.toml merge on weekends except talosctl, talhelper, kubectl, flux and cilium-cli.</span></li></ul>';
+  const tools = S.tools || {};
+  $('tools').replaceChildren(...Object.entries(tools).map(([k, v]) => el('div', null, el('div', { class: 'k', text: k.replace(/^(aqua|ubi|pipx):/, '').split('/').pop() }), el('div', { class: 'v', text: v }))));
+  // charts
+  const byClass = Object.entries(S.storage.pvcs_by_class || {}).filter(([k]) => k && k !== 'null').map(([k, v]) => ({ label: k, value: v.reduce((n, p) => n + gi(p.size), 0), note: v.length + ' PVCs' })).sort((a, b) => b.value - a.value);
+  $('chart-pvc').innerHTML = barChart(byClass, { unit: 'GiB' });
+  const byNs = {}; for (const a of S.apps) { byNs[a.namespace] = byNs[a.namespace] || { label: a.namespace, value: 0, note: '' }; byNs[a.namespace].value += 1; }
+  $('chart-ns').innerHTML = barChart(Object.values(byNs).sort((a, b) => b.value - a.value), { unit: '' });
+  $('runbook-body').innerHTML = '<div><div class="eyebrow">Declared state</div><p class="hint" style="margin-top:4px">Changes on <code>main</code> rebuild <code>state.json</code> automatically (workflow <code>Atlas</code>). Locally: <code>task atlas:state</code>, then commit.</p></div><div><div class="eyebrow">Live facts</div><p class="hint" style="margin-top:4px"><code>task atlas:live</code> runs read-only kubectl queries into <code>live.json</code>; commit and push. The <code>atlas-live</code> CronJob does the same every six hours once its GitHub token exists and <code>suspend</code> is flipped off.</p></div><div><div class="eyebrow">This page</div><p class="hint" style="margin-top:4px">Refresh asks the GitHub connector (inside Claude) or raw.githubusercontent.com (GitHub Pages, in-cluster at atlas.' + esc(S.domains.primary) + ') for the files on <code>main</code>.</p></div>';
+}
+let appsNsFilter = null;
+function renderApps() {
+  const nss = [...new Set(S.apps.map(a => a.namespace))].sort();
+  $('apps-ns').replaceChildren(el('button', { class: 'chip' + (appsNsFilter ? '' : ' active'), type: 'button', text: 'all', onclick: () => { appsNsFilter = null; renderApps(); } }), ...nss.map(ns => el('button', { class: 'chip' + (appsNsFilter === ns ? ' active' : ''), type: 'button', text: ns, onclick: () => { appsNsFilter = appsNsFilter === ns ? null : ns; renderApps(); } })));
+  const q = ($('apps-filter').value || '').toLowerCase();
+  const listB = new Set((S.renovate.automerge_apps || []));
+  const rows = S.apps.filter(a => !appsNsFilter || a.namespace === appsNsFilter).filter(a => !q || JSON.stringify([a.name, a.namespace, a.images, a.routes.map(r => r.hostnames), a.chart]).toLowerCase().replace(/\$\{secret_domain_2\}/g, (zone2() || '').toLowerCase()).includes(q));
+  const tr = rows.map(a => {
+    const img = a.images.filter(i => i.role === 'app').map(i => '<span class="mono">' + esc((i.repository || '').replace(/^(ghcr\.io|docker\.io)\//, '')) + ':' + esc(i.tag || 'chart') + '</span>' + (i.digest ? ' <span class="hint" title="digest-pinned">@</span>' : '')).join('<br>') || '<span class="hint">chart ' + esc(a.chart.version || '') + '</span>';
+    const route = a.routes.map(r => '<span class="pill ' + esc(r.exposure || 'none') + '">' + esc(r.hostnames.map(z2).join(', ')) + '</span>').join(' ') + a.services.filter(s => s.lb_ip).map(s => ' <span class="pill lb">' + esc(s.lb_ip) + '</span>').join('');
+    const store = a.storage.map(s => esc(s.claim) + ' ' + esc(s.size || '') + ' <span class="hint">' + esc(s.storage_class || '') + '</span>').join('<br>') + (a.nfs.length ? (a.storage.length ? '<br>' : '') + '<span class="hint">NFS ×' + a.nfs.length + '</span>' : '');
+    const flags = [a.deployed ? '' : '<span class="pill warn">unwired</span>', a.suspended ? '<span class="pill warn">suspended</span>' : '', listB.has(a.namespace + '/' + a.dir) ? '<span class="pill ok">auto-merge</span>' : '', a.uses_postgres && a.namespace !== 'database' ? '<span class="pill info">postgres</span>' : '', a.uses_dragonfly && a.namespace !== 'database' ? '<span class="pill info">dragonfly</span>' : ''].filter(Boolean).join(' ');
+    return '<tr' + (!a.deployed || a.suspended ? ' class="dim"' : '') + '><td><a href="' + esc(blob(a.file)) + '" rel="noopener">' + esc(a.name) + '</a><br><span class="hint">' + esc(a.namespace) + '</span></td><td class="mono">' + esc(a.chart.name || '') + ' ' + esc(a.chart.version || '') + '</td><td>' + img + '</td><td>' + route + '</td><td>' + store + '</td><td>' + flags + '</td></tr>';
+  }).join('');
+  $('apps').innerHTML = '<table><thead><tr><th>App</th><th>Chart</th><th>Image</th><th>Exposure</th><th>Storage</th><th>Flags</th></tr></thead><tbody>' + (tr || '<tr><td colspan="6" class="hint">No match.</td></tr>') + '</tbody></table>';
+}
+function renderLive() {
+  const box = $('live');
+  if (!L || !L.generated_at) { box.innerHTML = '<div class="empty">No live snapshot yet. Run <code>task atlas:live</code> (read-only kubectl queries) and commit <code>live.json</code>, or enable the <code>atlas-live</code> CronJob. The rest of this page is unaffected.</div>'; return; }
+  const parts = [];
+  parts.push('<p class="hint">Collected ' + esc(fmtDate(L.generated_at)) + ' (' + esc(ago(L.generated_at)) + ') by ' + esc(L.generated_by || '?') + (L.kubernetes_server ? ' · API server ' + esc(L.kubernetes_server) : '') + '</p>');
+  if (L.nodes && L.nodes.length) parts.push('<div class="tbl-wrap"><table><thead><tr><th>Node</th><th>IP</th><th>Ready</th><th>OS</th><th>Kubelet</th><th>Kernel</th><th>Runtime</th><th>Pods</th></tr></thead><tbody>' + L.nodes.map(n => '<tr><td class="mono">' + esc(n.name) + '</td><td class="mono">' + esc(n.ip) + '</td><td><span class="pill ' + (n.ready ? 'ok' : 'bad') + '">' + (n.ready ? 'Ready' : 'NotReady') + (n.schedulable ? '' : ', cordoned') + '</span></td><td>' + esc(n.os) + '</td><td class="mono">' + esc(n.kubelet) + '</td><td class="mono">' + esc(n.kernel) + '</td><td class="mono">' + esc(n.runtime) + '</td><td class="num">' + esc((L.pods && L.pods.nodes && L.pods.nodes[n.name]) || '') + '</td></tr>').join('') + '</tbody></table></div>');
+  const kv = [];
+  if (L.pods) kv.push(['Pods', L.pods.running + ' / ' + L.pods.total + ' running' + (L.pods.not_running && L.pods.not_running.length ? ' · ' + L.pods.not_running.length + ' not running' : '')]);
+  if (L.flux) kv.push(['Flux', (L.flux.not_ready && L.flux.not_ready.length ? L.flux.not_ready.length + ' not ready' : 'all Kustomizations and HelmReleases Ready') + (L.flux.git && L.flux.git.revision ? ' · ' + L.flux.git.revision.split('@').pop().slice(0, 12) : '')]);
+  if (L.ceph) kv.push(['Ceph', (L.ceph.health || '?') + (L.ceph.version ? ' · ' + L.ceph.version : '') + (L.ceph.capacity ? ' · ' + Math.round((L.ceph.capacity.bytesUsed || 0) / 2 ** 30) + ' / ' + Math.round((L.ceph.capacity.bytesTotal || 0) / 2 ** 30) + ' GiB used' : '')]);
+  if (L.postgres) kv.push(['Postgres', (L.postgres.phase || '?') + ' · primary ' + (L.postgres.primary || '?') + (L.postgres.pods ? ' on ' + ((L.postgres.pods.find(p => p.name === L.postgres.primary) || {}).node || '?') : '') + ' · ' + (L.postgres.ready || '?') + '/' + (L.postgres.instances || '?') + ' ready' + (L.postgres.last_backup ? ' · last backup ' + ago(L.postgres.last_backup) : '')]);
+  if (L.dragonfly) kv.push(['Dragonfly', (L.dragonfly.phase || '?') + (L.dragonfly.pods ? ' · master ' + ((L.dragonfly.pods.find(p => p.role === 'master') || {}).name || '?') : '')]);
+  if (L.certificates) { const soon = L.certificates.map(c => ({ c, days: (new Date(c.not_after) - Date.now()) / 864e5 })).sort((a, b) => a.days - b.days)[0]; if (soon) kv.push(['Certificates', L.certificates.length + ' · soonest expiry ' + esc(soon.c.name) + ' in ' + Math.round(soon.days) + ' d']); }
+  if (L.tailscale && L.tailscale.connectors && L.tailscale.connectors.length) kv.push(['Tailscale', L.tailscale.connectors.map(c => c.name + ' ' + (c.ready === 'True' ? 'ready' : c.ready)).join(', ')]);
+  parts.push('<div class="kv" style="margin-top:10px">' + kv.map(([k, v]) => '<div><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div></div>').join('') + '</div>');
+  if (L.l2_leases && L.l2_leases.length) parts.push('<p class="hint" style="margin-top:10px">L2 announcement leases (who answers ARP): ' + L.l2_leases.map(l => '<code>' + esc(l.service) + '</code> → ' + esc(l.holder)).join(' · ') + '</p>');
+  if (L.flux && L.flux.not_ready && L.flux.not_ready.length) parts.push('<div class="callout bad" style="margin-top:10px"><b>Not ready:</b> ' + esc(L.flux.not_ready.join(', ')) + '</div>');
+  if (L.pods && L.pods.not_running && L.pods.not_running.length) parts.push('<div class="callout" style="margin-top:8px"><b>Pods not running:</b> ' + L.pods.not_running.map(p => '<code>' + esc(p.namespace + '/' + p.name) + '</code> ' + esc(p.phase) + (p.reason ? ' (' + esc(p.reason) + ')' : '')).join(', ') + '</div>');
+  box.innerHTML = parts.join('');
+}
+function barChart(items, opts) {
+  // Single series, direct-labelled, hover title per bar; values in text ink.
+  if (!items.length) return '<div class="empty">No data.</div>';
+  const W = 560, rowH = 26, left = 150, right = 70, H = items.length * rowH + 10;
+  const max = Math.max(...items.map(i => i.value), 1);
+  const bars = items.map((it, i) => {
+    const y = 5 + i * rowH, w = Math.max(2, (W - left - right) * it.value / max);
+    const v = (opts.unit === 'GiB' ? Math.round(it.value) + ' GiB' : String(it.value)) + (it.note ? ' · ' + it.note : '');
+    return '<g><title>' + esc(it.label) + ': ' + esc(v) + '</title><text x="' + (left - 8) + '" y="' + (y + 14) + '" text-anchor="end" font-size="12" fill="var(--fg-2)">' + esc(it.label) + '</text><rect x="' + left + '" y="' + (y + 3) + '" width="' + w.toFixed(1) + '" height="16" rx="3" fill="var(--accent)"/><text x="' + (left + w + 6).toFixed(1) + '" y="' + (y + 15) + '" font-size="12" fill="var(--fg)" font-variant-numeric="tabular-nums">' + esc(v) + '</text></g>';
+  }).join('');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Bar chart" style="max-width:100%;height:auto"><line x1="' + left + '" y1="2" x2="' + left + '" y2="' + (H - 2) + '" stroke="var(--line-2)"/>' + bars + '</svg>';
+}
+/* ============================================================ flow explorer */
+const PROTOS = [
+  { id: 'https', label: 'HTTPS · 443', port: 443, l4: 'TCP' },
+  { id: 'http', label: 'HTTP · 80', port: 80, l4: 'TCP' },
+  { id: 'dns', label: 'DNS lookup · 53', port: 53, l4: 'UDP' },
+  { id: 'k8s', label: 'kubectl · 6443', port: 6443, l4: 'TCP' },
+  { id: 'talos', label: 'talosctl · 50000', port: 50000, l4: 'TCP' },
+  { id: 'ssh', label: 'SSH · 22', port: 22, l4: 'TCP' },
+  { id: 'pg', label: 'PostgreSQL · 5432', port: 5432, l4: 'TCP' },
+  { id: 'plex', label: 'Plex · 32400', port: 32400, l4: 'TCP' },
+  { id: 'rdid', label: 'RustDesk ID · 21116', port: 21116, l4: 'TCP/UDP' },
+  { id: 'rdrelay', label: 'RustDesk relay · 21117', port: 21117, l4: 'TCP' },
+  { id: 'nfs', label: 'NFS · 2049', port: 2049, l4: 'TCP' },
+  { id: 'custom', label: 'Custom port…', port: null, l4: 'TCP' },
+];
+const flow = { loc: 'lan', proto: 'https', port: 8080, dest: null, system: null };
+
+function destinations() {
+  const groups = [];
+  const hosts = (S.hostnames || []);
+  const prim = S.domains.primary;
+  const byGroup = (title, pred) => { const items = hosts.filter(pred).map(h => ({ id: 'host:' + h.host, label: z2(h.host) + '  ·  ' + h.app, host: h.host })); if (items.length) groups.push({ title, items }); };
+  byGroup('Internal apps · ' + prim, h => h.exposure === 'internal' && !isZ2(h.host));
+  byGroup('Public apps · ' + prim, h => h.exposure === 'external' && !isZ2(h.host));
+  byGroup('Zone 2 · ' + (zone2() || Z2PLACEHOLDER), h => isZ2(h.host));
+  groups.push({ title: 'Other names', items: [
+    ...hosts.filter(h => h.exposure === 'lb' || h.exposure === 'gateway').map(h => ({ id: 'host:' + h.host, label: z2(h.host) + '  ·  ' + h.app + ' (k8s-gateway only)', host: h.host })),
+    { id: 'host:rdesk.' + Z2TOKEN, label: z2('rdesk.' + Z2TOKEN) + '  ·  RustDesk ID/relay', host: 'rdesk.' + Z2TOKEN },
+    { id: 'host:minio.' + Z2TOKEN, label: z2('minio.' + Z2TOKEN) + '  ·  MinIO on lab1', host: 'minio.' + Z2TOKEN },
+  ] });
+  groups.push({ title: 'Addresses', items: [
+    { id: 'ip:' + S.network.api_vip, label: S.network.api_vip + '  ·  Kubernetes API VIP', ip: S.network.api_vip },
+    ...(S.network.lb_ips || []).map(x => ({ id: 'ip:' + x.ip, label: x.ip + '  ·  ' + x.owner, ip: x.ip })),
+    ...(S.nodes || []).map(n => ({ id: 'ip:' + n.ip, label: n.ip + '  ·  ' + n.hostname, ip: n.ip })),
+    { id: 'ip:' + LAN.router.ip, label: LAN.router.ip + '  ·  ' + LAN.router.name, ip: LAN.router.ip },
+    { id: 'ip:' + LAN.nas.ip, label: LAN.nas.ip + '  ·  ' + LAN.nas.name, ip: LAN.nas.ip },
+    { id: 'ip:' + LAN.lab1.ip, label: LAN.lab1.ip + '  ·  ' + LAN.lab1.name, ip: LAN.lab1.ip },
+  ] });
+  groups.push({ title: 'Anything else', items: [{ id: 'custom', label: 'Custom hostname or IP…' }] });
+  return groups;
+}
+function findDest(id) { for (const g of destinations()) for (const it of g.items) if (it.id === id) return it; return null; }
+
+const PRESETS = [
+  { label: 'LAN browser → Homarr', loc: 'lan', proto: 'https', dest: 'host:dash.turner.haus' },
+  { label: 'Internet → Plex', loc: 'wan', proto: 'https', dest: 'host:plex.turner.haus' },
+  { label: 'Internet → an internal app', loc: 'wan', proto: 'https', dest: 'host:dash.turner.haus' },
+  { label: 'Tailscale → Paperless', loc: 'vpn', proto: 'https', dest: 'host:docs.turner.haus' },
+  { label: 'Plain http → redirect', loc: 'lan', proto: 'http', dest: 'host:cook.turner.haus' },
+  { label: 'kubectl to the API VIP', loc: 'lan', proto: 'k8s', dest: 'ip:10.13.38.82' },
+  { label: 'psql over the VPN', loc: 'vpn', proto: 'pg', dest: 'host:postgres.turner.haus' },
+  { label: 'Plex app, direct', loc: 'lan', proto: 'plex', dest: 'ip:10.13.38.91' },
+  { label: 'The Plex incident (:32400 on the hostname)', loc: 'lan', proto: 'plex', dest: 'host:plex.turner.haus' },
+  { label: 'RustDesk from outside', loc: 'wan', proto: 'rdid', dest: 'host:rdesk.' + Z2TOKEN },
+  { label: 'Hudu from outside (zone 2)', loc: 'wan', proto: 'https', dest: 'host:docs.' + Z2TOKEN },
+  { label: 'SSH to a node', loc: 'lan', proto: 'ssh', dest: 'ip:10.13.38.101' },
+  { label: 'talosctl to a node', loc: 'vpn', proto: 'talos', dest: 'ip:10.13.38.103' },
+  { label: 'A VPN DNS lookup', loc: 'vpn', proto: 'dns', dest: 'host:echo.turner.haus' },
+];
+
+/* ------------------------------------------------------------ engine */
+function stop(zone, iconName, title, sub, note, status, evidence) {
+  return { zone, icon: iconName, title, sub: sub || '', note: note || '', status: status || 'ok', evidence: evidence || [] };
+}
+const ZONE_LABEL = { lan: 'Home LAN', vpn: 'Tailscale', wan: 'Internet', ext: 'Outside services', cluster: 'Cluster' };
+const EV = { // evidence shortcuts
+  envoy: ['kubernetes/apps/network/envoy-gateway/app/envoy.yaml', 'envoy.yaml (Gateways, policies, redirect)'],
+  cilium: ['kubernetes/apps/kube-system/cilium/app/networks.yaml', 'networks.yaml (LB pool, L2 policy)'],
+  ciliumValues: ['kubernetes/apps/kube-system/cilium/app/helm/values.yaml', 'cilium values (DSR, maglev, L2)'],
+  unifi: ['kubernetes/apps/network/internal/unifi-dns/helmrelease.yaml', 'unifi-dns'],
+  cfdns: ['kubernetes/apps/network/external/external-dns/helmrelease.yaml', 'external-dns (Cloudflare)'],
+  kgw: ['kubernetes/apps/network/internal/k8s-gateway/helmrelease.yaml', 'k8s-gateway'],
+  tunnelCfg: ['kubernetes/apps/network/external/cloudflared/configs/config.yaml', 'cloudflared config'],
+  tunnelDns: ['kubernetes/apps/network/external/cloudflared/dnsendpoint.yaml', 'DNSEndpoint external.<zone>'],
+  cloudflared: ['kubernetes/apps/network/external/cloudflared/helmrelease.yaml', 'cloudflared'],
+  connector: ['kubernetes/apps/network/tailscale/connector/connector.yaml', 'Tailscale Connector'],
+  tsdoc: ['docs/tailscale.md', 'docs/tailscale.md'],
+  certs: ['kubernetes/apps/cert-manager/cert-manager/tls/certificate.yaml', 'wildcard Certificates'],
+  talconfig: ['talos/talconfig.yaml', 'talconfig.yaml'],
+  cluster: ['talos/patches/controller/cluster.yaml', 'cluster.yaml (API server, etcd)'],
+  pgsvc: ['kubernetes/apps/database/cloudnative-pg/cluster/service.yaml', 'postgres-lb Service'],
+  pgcluster: ['kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml', 'CNPG Cluster'],
+  plex: ['kubernetes/apps/media/plex/app/helmrelease.yaml', 'plex HelmRelease'],
+  rustdesk: ['kubernetes/apps/default/rustdesk/app/helmrelease.yaml', 'rustdesk HelmRelease'],
+  rustdeskDns: ['kubernetes/apps/default/rustdesk/app/dnsendpoint.yaml', 'rdesk DNSEndpoint'],
+  rustdeskDoc: ['kubernetes/apps/default/rustdesk/README.md', 'rustdesk README'],
+  plexDoc: ['docs/troubleshooting/2026-05-30-plex-dns-external-turner-haus.md', 'the 2026-05 investigation'],
+  hudu: ['kubernetes/apps/default/hudu/README.md', 'hudu README'],
+};
+function vpnAnswer(rec) { return ((rec && rec.vpn_dns) || '').split(/->|→/).pop().trim(); }
+function isLanIp(ip) { const m = String(ip).match(/^10\.13\.(3[6-9])\.(\d+)$/); return !!m; }
+function inTsRoute(ip) { const m = String(ip).match(/^10\.13\.(3[2-9])\.\d+$/); return !!m; } // 10.13.32.0/21
+function isIp(s) { return /^\d{1,3}(\.\d{1,3}){3}$/.test(s); }
+
+function resolve(loc, host) {
+  // returns {stops:[], answer: ip | 'cloudflare' | null, kind}
+  const rec = hostRec(host); const prim = S.domains.primary; const zone2name = zone2();
+  const inPrimary = z2(host).endsWith('.' + prim) || z2(host) === prim;
+  const inZone2 = isZ2(host);
+  const extIp = gwIp('envoy-external'), intIp = gwIp('envoy-internal');
+  const shown = z2(host);
+  const stops = [];
+  const rdesk = z2(host) === z2('rdesk.' + Z2TOKEN), minio = z2(host) === z2('minio.' + Z2TOKEN);
+  if (loc === 'lan') {
+    const base = stop('lan', 'dns', 'UniFi resolver', LAN.router.ip, '', 'ok', [EV.unifi]);
+    if (rdesk) { base.note = 'A ' + shown + ' → 10.13.38.93: a DNSEndpoint that unifi-dns publishes to UniFi'; base.evidence = [EV.rustdeskDns, EV.unifi]; stops.push(base); return { stops, answer: '10.13.38.93' }; }
+    if (minio) { base.note = 'Record kept outside this repo; MinIO runs on lab1'; base.status = 'warn'; base.evidence = [EV.hudu]; stops.push(base); return { stops, answer: LAN.lab1.ip }; }
+    if (!rec) { base.note = 'No record: unifi-dns only publishes HTTPRoute hostnames and DNSEndpoints'; base.status = 'block'; stops.push(base); return { stops, answer: null, reason: 'NXDOMAIN from the LAN resolver' }; }
+    if (rec.exposure === 'internal') { base.note = 'A ' + shown + ' → ' + intIp + ', published by unifi-dns from the HTTPRoute on envoy-internal'; stops.push(base); return { stops, answer: intIp }; }
+    if (rec.exposure === 'external') { base.note = 'CNAME ' + shown + ' → external.' + prim + ' (unifi-dns, from the Gateway’s target annotation), then the hand-kept A record external.' + prim + ' → ' + extIp; base.evidence = [EV.unifi, EV.envoy]; stops.push(base); return { stops, answer: extIp }; }
+    base.note = 'Not in UniFi: this name is only served by k8s-gateway (VPN resolver). On the LAN use the address ' + vpnAnswer(rec) + ' or add a UniFi record.'; base.status = 'block'; stops.push(base);
+    return { stops, answer: null, reason: 'the LAN resolver has no record for a k8s-gateway-only name' };
+  }
+  if (loc === 'vpn') {
+    const magic = stop('vpn', 'dns', 'MagicDNS', '100.100.100.100', 'Split DNS: *.' + prim + ' → k8s-gateway 10.13.38.53 across the tunnel; other names → the device’s own resolver', 'ok', [EV.tsdoc]);
+    stops.push(magic);
+    if (inPrimary) {
+      const kg = stop('cluster', 'dns', 'k8s-gateway', '10.13.38.53 · CoreDNS', '', 'ok', [EV.kgw]);
+      if (!rec) { kg.note = 'Not a Service or HTTPRoute hostname → falls through to the UniFi resolver ' + LAN.router.ip + ' (over the tunnel) → NXDOMAIN'; kg.status = 'block'; stops.push(kg); return { stops, answer: null, reason: 'no record anywhere' }; }
+      if (rec.exposure === 'internal' || rec.exposure === 'external') { const ip = gwIp(rec.gateway); kg.note = 'Answers from live Gateway status: ' + shown + ' → ' + ip + ' (' + rec.gateway + '). No Cloudflare hairpin even for public names.'; stops.push(kg); return { stops, answer: ip }; }
+      const ip = vpnAnswer(rec); kg.note = 'Service hostname annotation → ' + ip; stops.push(kg); return { stops, answer: ip };
+    }
+    if (rdesk) { const u = stop('lan', 'dns', 'UniFi resolver', LAN.router.ip, 'Zone 2 is not in split DNS; with the optional second entry the UniFi resolver answers A → 10.13.38.93. Without it the device asks public DNS.', 'warn', [EV.tsdoc, EV.rustdeskDns]); stops.push(u); return { stops, answer: '10.13.38.93' }; }
+    if (inZone2 && rec && rec.exposure === 'external') { const p = stop('wan', 'dns', 'Public DNS', '1.1.1.1 / ISP', 'Zone 2 is not in split DNS, so the name resolves publicly: proxied CNAME → Cloudflare. The request takes the Internet path even though you are on the VPN (the optional split-DNS entry to UniFi would keep it on the LAN).', 'warn', [EV.tsdoc, EV.hudu]); stops.push(p); return { stops, answer: 'cloudflare' }; }
+    if (inZone2 && rec && rec.exposure === 'internal') { const p = stop('wan', 'dns', 'Public DNS', '1.1.1.1 / ISP', 'Zone 2 is not in split DNS and internal apps have no public record: NXDOMAIN. Add the optional split-DNS entry (zone 2 → ' + LAN.router.ip + ') to reach it over the VPN.', 'block', [EV.tsdoc]); stops.push(p); return { stops, answer: null, reason: 'internal zone-2 hosts are invisible from the VPN without the second split-DNS entry' }; }
+    if (minio) { const p = stop('wan', 'dns', 'Public DNS', '1.1.1.1 / ISP', 'Zone-2 name kept outside this repo; resolution depends on the zone’s own records.', 'warn', [EV.hudu]); stops.push(p); return { stops, answer: 'cloudflare' }; }
+    const p = stop('wan', 'dns', 'Public DNS', '1.1.1.1 / ISP', 'Not a cluster name; resolves like any Internet name.', 'warn'); stops.push(p); return { stops, answer: 'internet' };
+  }
+  // wan
+  const pub = stop('wan', 'dns', 'Public DNS', 'recursive resolver → Cloudflare authoritative', '', 'ok', [EV.cfdns]);
+  if (rdesk) { pub.note = 'A record to the home WAN address (kept in the Cloudflare zone by hand; the repo only publishes the LAN record)'; pub.status = 'warn'; pub.evidence = [EV.rustdeskDoc]; stops.push(pub); return { stops, answer: 'home-wan' }; }
+  if (minio) { pub.note = 'Record kept outside this repo (lab1’s MinIO is reachable from LAN and WAN per the Hudu notes)'; pub.status = 'warn'; pub.evidence = [EV.hudu]; stops.push(pub); return { stops, answer: 'internet' }; }
+  if (!rec) { pub.note = 'No public record for this name'; pub.status = 'block'; stops.push(pub); return { stops, answer: null, reason: 'NXDOMAIN' }; }
+  if (rec.exposure === 'external') {
+    pub.note = inPrimary ? 'Proxied CNAME ' + shown + ' → external.' + prim + ' (external-dns from the HTTPRoute) → ' + (S.network.tunnel.cname || 'tunnel') + ' (DNSEndpoint). The answer is a Cloudflare anycast address, never the LAN.' : 'Hand-kept proxied CNAME in the zone-2 Cloudflare zone → ' + (S.network.tunnel.cname || 'tunnel') + '. The Cloudflare external-dns filters on ' + prim + ' only.';
+    pub.evidence = inPrimary ? [EV.cfdns, EV.tunnelDns] : [EV.hudu, EV.tunnelCfg]; stops.push(pub); return { stops, answer: 'cloudflare' };
+  }
+  pub.note = 'No public record: the Cloudflare external-dns only reads HTTPRoutes attached to envoy-external, and this one is on envoy-internal.'; pub.status = 'block'; pub.evidence = [EV.cfdns]; stops.push(pub);
+  return { stops, answer: null, reason: 'internal apps have no public DNS record by design' };
+}
+
+function transportTo(loc, ip, stops, opts) {
+  // Returns false when the path is blocked before reaching the address.
+  if (loc === 'wan') {
+    if (opts && opts.portForward) { stops.push(stop('wan', 'globe', 'Home WAN address', 'ISP connection', 'The public A record points here', 'ok', [EV.rustdeskDoc])); stops.push(stop('lan', 'router', LAN.router.name, LAN.router.ip, 'Port-forward ' + opts.portForward + ' → ' + ip + ' (configured in UniFi, not in the repo)', 'warn', [EV.rustdesk])); return true; }
+    stops.push(stop('wan', 'stop', 'Private address', ip, '10.13.36.0/22 is RFC 1918: not routable from the Internet, and UniFi has no port-forward for it. Use Tailscale or a public hostname.', 'block')); return false;
+  }
+  if (loc === 'vpn') {
+    if (!inTsRoute(ip)) { stops.push(stop('vpn', 'stop', 'Not advertised', ip, 'The Connector advertises 10.13.32.0/21 only', 'block', [EV.connector])); return false; }
+    stops.push(stop('vpn', 'vpn', 'WireGuard tunnel', 'tailnet', 'Route 10.13.32.0/21 via the subnet routers; at home the directly connected /22 wins and this hop is skipped', 'ok', [EV.connector, EV.tsdoc]));
+    stops.push(stop('cluster', 'pod', 'Tailscale Connector', 'home-ops-connector-0/1 · network', '2-replica subnet router (operator ' + S.platform.tailscale_operator + '). SNAT: the app sees the connector pod, not your device. The standalone container router is the failover.', 'ok', [EV.connector]));
+    return true;
+  }
+  stops.push(stop('lan', 'router', 'LAN switch / UniFi', LAN.cidr, 'Same /22 as the nodes: direct layer 2, no routing hop', 'ok'));
+  return true;
+}
+function l2Stop(ip, stops) {
+  const holder = leaseHolder(ip);
+  stops.push(stop('cluster', 'node', 'Cilium L2 announcement', holder ? holder + ' answers ARP' : 'one node answers ARP', 'LB-IPAM assigns ' + ip + ' from the pool; a lease elects the node that answers ARP for it' + (holder ? ' (live: ' + holder + ')' : '') + '. Traffic enters that node and the eBPF datapath (maglev, DSR) forwards to a backend on any node, preserving the client address.', 'ok', [EV.cilium, EV.ciliumValues]));
+}
+function gatewayStage(gwName, port, host, stops, verdictOut, viaTunnel) {
+  const gw = gateways().find(g => g.name === gwName); const prim = S.domains.primary;
+  const ctp = (gw && gw.client_traffic_policy) || {};
+  if (port === 80 && !viaTunnel) {
+    stops.push(stop('cluster', 'gateway', gwName, (gw && gw.lb_ip) + ':80 · listener http', 'The http listener carries one HTTPRoute: a 301 to https://' + (host || gw.lb_ip) + '. App routes attach to the https listener only.', 'redirect', [EV.envoy]));
+    verdictOut.status = 'redirect'; verdictOut.title = '301 → https'; verdictOut.text = 'Plain http is never served. The browser follows the redirect and the flow continues on 443.'; return false;
+  }
+  if (port !== 443 && !viaTunnel) {
+    stops.push(stop('cluster', 'gateway', gwName, (gw && gw.lb_ip) + ':' + port, 'The Gateway Service exposes 80 and 443 only; nothing listens on ' + port + ' at this address.', 'block', [EV.envoy]));
+    verdictOut.status = 'block'; verdictOut.title = 'Connection refused'; verdictOut.text = 'Port ' + port + ' does not exist on ' + (gw && gw.lb_ip) + '. ' + (port === 32400 ? 'Plex’s 32400 lives on its own LoadBalancer 10.13.38.91 (see ' + 'the 2026-05 investigation' + ').' : 'Only the Gateway listeners (80, 443) answer here.'); return false;
+  }
+  const z = isZ2(host) ? 'zone 2' : prim;
+  stops.push(stop('cluster', 'lock', gwName + ' · TLS', (viaTunnel ? 'envoy-external.network.svc:443' : (gw && gw.lb_ip) + ':443') + ' · listener https', 'Envoy terminates TLS with the wildcard for ' + z + ' chosen by SNI (two certificates from cert-manager via a ReferenceGrant). TLS ≥ ' + (ctp.tls_min || '1.2') + ', ALPN h2/http1.1' + (ctp.http3 ? ', HTTP/3 offered' : '') + '. Client IP: ' + ((ctp.client_ip_detection || []).includes('xForwardedFor') ? 'X-Forwarded-For, ' + ctp.trusted_hops + ' trusted hop (cloudflared)' : 'the TCP peer address; a client-sent X-Forwarded-For is ignored') + '.', 'ok', [EV.envoy, EV.certs]));
+  const rec = hostRec(host);
+  if (!rec || !(rec.exposure === 'internal' || rec.exposure === 'external')) {
+    stops.push(stop('cluster', 'route', 'HTTPRoute match', 'Host: ' + esc(host || '(address)'), 'No HTTPRoute hostname matches this Host header, so Envoy answers 404.', 'block', [EV.envoy]));
+    verdictOut.status = 'block'; verdictOut.title = '404 from Envoy'; verdictOut.text = 'Routes match on the hostname. Using the address, or a name no route carries, reaches the Gateway but no application.'; return false;
+  }
+  if (rec.gateway !== gwName) {
+    stops.push(stop('cluster', 'route', 'HTTPRoute match', 'Host: ' + z2(rec.host), 'This hostname’s route is attached to ' + rec.gateway + ', not ' + gwName + ': the listener has no matching route and answers 404.', 'block', [EV.envoy]));
+    verdictOut.status = 'block'; verdictOut.title = '404: wrong Gateway'; verdictOut.text = 'The name resolved to ' + gwName + ' but the app is routed on ' + rec.gateway + ' (' + gwIp(rec.gateway) + ').'; return false;
+  }
+  const app = appByName(rec.app) || {}; const route = (app.routes || []).find(r => r.hostnames.includes(rec.host)) || {};
+  const be = (route.backends || [])[0] || {}; const svc = (app.services || []).find(s => s.name === (be.identifier || 'app')) || (app.services || [])[0] || {};
+  stops.push(stop('cluster', 'route', 'HTTPRoute ' + rec.app, rec.gateway + ' · ' + (app.namespace || ''), 'Hostname ' + z2(rec.host) + ' → backend ' + (be.name || (app.name + (be.identifier && be.identifier !== 'app' ? '-' + be.identifier : ''))) + ':' + (be.port || (svc.ports && svc.ports[0] && svc.ports[0].port) || '') + '. Compression (brotli/gzip/zstd) and no request timeout from the shared BackendTrafficPolicy; WebSocket upgrades are on by default.', 'ok', app.file ? [[app.file, app.name + ' HelmRelease'], EV.envoy] : [EV.envoy]));
+  const img = ((app.images || []).find(i => i.role === 'app') || {});
+  const extras = [];
+  if (app.uses_postgres && app.namespace !== 'database') extras.push('Postgres via postgres-rw.database.svc (CNPG primary)');
+  if (app.uses_dragonfly && app.namespace !== 'database') extras.push('Dragonfly via dragonfly.database.svc');
+  for (const s of (app.storage || [])) extras.push(s.claim + ' ' + (s.size || '') + ' on ' + (s.storage_class || '?'));
+  if ((app.nfs || []).length) extras.push('NFS from the NAS: ' + app.nfs.map(n => n.path).join(', '));
+  stops.push(stop('cluster', 'pod', rec.app, (img.repository ? img.repository.replace(/^(ghcr\.io|docker\.io)\//, '') + ':' + img.tag : 'chart ' + (app.chart || {}).version), extras.length ? extras.join(' · ') : 'Stateless pod', 'ok', app.file ? [[app.file, 'manifest']] : []));
+  verdictOut.status = 'ok'; verdictOut.title = 'Reachable'; verdictOut.text = 'HTTPS end to end: the client sees the ' + z + ' wildcard certificate; ' + rec.app + ' sees ' + ((ctp.client_ip_detection || []).includes('xForwardedFor') ? 'the visitor’s address from cloudflared’s X-Forwarded-For' : 'the real client address') + '.';
+  return true;
+}
+function serviceStage(lb, port, stops, verdictOut) {
+  const ports = [...new Set(lb.ports)];
+  if (lb.kind === 'dns') {
+    if (port !== 53) { stops.push(stop('cluster', 'stop', 'k8s-gateway', lb.ip + ':' + port, 'Only 53/UDP+TCP is exposed', 'block', [EV.kgw])); verdictOut.status = 'block'; verdictOut.title = 'Nothing on port ' + port; verdictOut.text = '10.13.38.53 is the split-DNS server; it answers DNS only.'; return; }
+    stops.push(stop('cluster', 'dns', 'k8s-gateway', lb.ip + ':53 · CoreDNS', 'Answers *.' + S.domains.primary + ' from Services and HTTPRoutes (ttl 1), forwards everything else to ' + LAN.router.ip, 'ok', [EV.kgw]));
+    verdictOut.status = 'ok'; verdictOut.title = 'Answered'; verdictOut.text = 'The VPN resolver. Tailscale split DNS sends all ' + S.domains.primary + ' queries here.'; return;
+  }
+  if (!ports.includes(port)) {
+    stops.push(stop('cluster', 'stop', lb.owner, lb.ip + ':' + port, 'This LoadBalancer exposes ' + ports.join(', ') + ' only', 'block')); verdictOut.status = 'block'; verdictOut.title = 'Nothing on port ' + port; verdictOut.text = lb.owner + ' listens on ' + ports.join(', ') + ' at ' + lb.ip + '.'; return;
+  }
+  const app = appByName(lb.owner === 'postgres-lb' || lb.owner === 'cloudnative-pg' ? 'cloudnative-pg' : lb.owner) || {};
+  if (lb.ip === S.databases.postgres.lb_ip) {
+    const prim = L && L.postgres && L.postgres.primary;
+    stops.push(stop('cluster', 'db', 'postgres-lb → primary', lb.ip + ':5432 · externalTrafficPolicy Local', 'Selector role=primary: only the node running the primary announces the address, so a failover moves the L2 lease' + (prim ? ' (live primary: ' + prim + ')' : '') + '. Synchronous replication to one of two replicas; volumes on node-local TopoLVM.', 'ok', [EV.pgsvc, EV.pgcluster]));
+    verdictOut.status = 'ok'; verdictOut.title = 'Reachable'; verdictOut.text = 'psql lands on the CNPG primary. Over the VPN the server sees the connector pod’s address.'; return;
+  }
+  if (lb.owner === 'plex') {
+    stops.push(stop('cluster', 'pod', 'Plex', 'ghcr.io/home-operations/plex:' + (((app.images || [])[0] || {}).tag || ''), 'Direct to the pod on 32400 (no Envoy). PLEX_ADVERTISE_URL lists both https://plex.' + S.domains.primary + ':443 and http://10.13.38.91:32400; 10.13.36.0/22 skips auth. Media over NFS from the NAS; config on ceph-block.', 'ok', [EV.plex]));
+    verdictOut.status = 'ok'; verdictOut.title = 'Reachable'; verdictOut.text = 'The Plex app on the LAN prefers this direct address; remote clients use the hostname through Cloudflare.'; return;
+  }
+  if (lb.owner === 'rustdesk') {
+    const what = port === 21116 ? 'hbbs (ID / rendezvous server, TCP+UDP)' : port === 21117 ? 'hbbr (relay)' : port === 21115 ? 'hbbs NAT-type test' : port === 21114 ? 'rustdesk-api (plain HTTP)' : 'WebSocket variant for the web client';
+    stops.push(stop('cluster', 'pod', 'RustDesk ' + what, lb.ip + ':' + port, 'Raw TCP/UDP that no HTTP Gateway or tunnel can front. DSR keeps the real source address and port, which NAT traversal depends on. One replica: registrations in SQLite on ceph-block.', 'ok', [EV.rustdesk, EV.rustdeskDoc]));
+    verdictOut.status = 'ok'; verdictOut.title = 'Reachable'; verdictOut.text = 'Clients are told rdesk.' + (zone2() || Z2PLACEHOLDER) + ':21116 as the ID server and derive the relay on 21117.'; return;
+  }
+  stops.push(stop('cluster', 'pod', lb.owner, lb.ip + ':' + port, 'LoadBalancer Service in ' + lb.namespace, 'ok'));
+  verdictOut.status = 'ok'; verdictOut.title = 'Reachable'; verdictOut.text = '';
+}
+function computeFlow(f) {
+  const stops = []; const verdict = { status: 'ok', title: '', text: '' };
+  const proto = PROTOS.find(p => p.id === f.proto) || PROTOS[0]; const port = proto.port || Number(f.port) || 0;
+  const loc = f.loc;
+  const clientTitle = loc === 'lan' ? 'Device on the LAN' : loc === 'vpn' ? 'Device away from home' : 'Device on the Internet';
+  const clientSub = loc === 'lan' ? LAN.cidr : loc === 'vpn' ? 'Tailscale client' : 'any network';
+  stops.push(stop(loc, 'device', clientTitle, clientSub, proto.label + (proto.id === 'custom' ? ' ' + port : '') + ' → ' + (f.dest && f.dest.host ? z2(f.dest.host) : f.dest && f.dest.ip ? f.dest.ip : f.dest && f.dest.text ? f.dest.text : '?'), 'ok'));
+  let target = null, host = null;
+  const d = f.dest || {};
+  if (d.host) {
+    host = d.host;
+    const r = resolve(loc, host); stops.push(...r.stops);
+    if (proto.id === 'dns') { verdict.status = r.answer ? 'ok' : 'block'; verdict.title = r.answer ? 'Resolved' : 'NXDOMAIN'; verdict.text = r.answer ? (r.answer === 'cloudflare' ? 'The answer is a Cloudflare anycast address: the client never learns a LAN address for a public name.' : r.answer === 'home-wan' ? 'The answer is the home WAN address.' : 'Answer: ' + r.answer + '.') : (r.reason || ''); return { stops, verdict, title: 'DNS lookup of ' + z2(host) + ' from ' + ZONE_LABEL[loc] }; }
+    if (!r.answer) { verdict.status = 'block'; verdict.title = 'Cannot resolve'; verdict.text = r.reason || 'No DNS answer, so no connection is attempted.'; return { stops, verdict, title: title(f, proto, port) }; }
+    target = r.answer;
+  } else if (d.ip) { target = d.ip; }
+  else if (d.text) {
+    if (isIp(d.text)) target = d.text; else { host = d.text; const r = resolve(loc, host); stops.push(...r.stops); if (!r.answer) { verdict.status = 'block'; verdict.title = 'Cannot resolve'; verdict.text = r.reason || ''; return { stops, verdict, title: title(f, proto, port) }; } target = r.answer; }
+  } else { verdict.title = 'Choose a destination'; return { stops, verdict, title: 'Pick a destination' }; }
+
+  if (target === 'cloudflare') {
+    const prim = S.domains.primary; const hn = z2(host);
+    stops.push(stop('ext', 'cloud', 'Cloudflare edge', 'anycast · proxied', 'TLS terminates at Cloudflare with its own certificate; WAF and bot rules apply. Port ' + port + (port === 443 ? ' as expected.' : port === 80 ? ': Cloudflare answers http too and forwards to the tunnel over https.' : ': Cloudflare proxies HTTP ports only; a raw ' + port + ' connection is dropped.'), port === 443 || port === 80 ? 'ok' : 'block', [EV.cfdns]));
+    if (port !== 443 && port !== 80) { verdict.status = 'block'; verdict.title = 'Dropped at Cloudflare'; verdict.text = 'Proxied records only carry HTTP(S). Raw ports need a direct address (RustDesk uses its own LoadBalancer and a UniFi port-forward).'; return { stops, verdict, title: title(f, proto, port) }; }
+    const covered = (S.hostnames.find(h => z2(h.host) === hn) || {}).tunnel_rule;
+    stops.push(stop('ext', 'tunnel', 'Cloudflare Tunnel', (S.network.tunnel.cname || '').split('.')[0], 'QUIC, post-quantum, IPv4 edge. The tunnel’s ingress rules decide which hostnames are forwarded: ' + (covered ? 'this one matches (' + (isZ2(host) ? 'listed zone-2 host' : '*.' + prim) + ').' : 'this one is not listed → 404 from cloudflared.'), covered ? 'ok' : 'block', [EV.tunnelCfg]));
+    if (!covered) { verdict.status = 'block'; verdict.title = '404 from cloudflared'; verdict.text = 'Add the hostname to the tunnel ingress rules in cloudflared/configs/config.yaml.'; return { stops, verdict, title: title(f, proto, port) }; }
+    stops.push(stop('cluster', 'pod', 'cloudflared', 'network · ' + S.platform.cloudflared, 'Keeps the outbound tunnel connections open; forwards to the origin https://envoy-external.network.svc.cluster.local:443 with SNI external.' + prim + ' and puts the visitor’s address in X-Forwarded-For.', 'ok', [EV.cloudflared, EV.tunnelCfg]));
+    gatewayStage('envoy-external', 443, host, stops, verdict, true);
+    return { stops, verdict, title: title(f, proto, port) };
+  }
+  if (target === 'home-wan') {
+    if (!transportTo('wan', '10.13.38.93', stops, { portForward: port + '/' + proto.l4 })) return { stops, verdict, title: title(f, proto, port) };
+    l2Stop('10.13.38.93', stops); serviceStage(lbByIp('10.13.38.93'), port, stops, verdict); return { stops, verdict, title: title(f, proto, port) };
+  }
+  if (target === 'internet') { stops.push(stop('wan', 'globe', 'Internet host', z2(host || ''), 'Not part of the cluster; nothing here to trace.', 'warn')); verdict.status = 'warn'; verdict.title = 'Outside the atlas'; verdict.text = 'This name does not point at the cluster.'; return { stops, verdict, title: title(f, proto, port) }; }
+
+  // target is an address on the LAN
+  if (!isLanIp(target) && !inTsRoute(target)) { stops.push(stop('wan', 'globe', 'Other address', target, 'Not in the home /22.', 'warn')); verdict.status = 'warn'; verdict.title = 'Outside the atlas'; verdict.text = ''; return { stops, verdict, title: title(f, proto, port) }; }
+  const lb = lbByIp(target);
+  const node = (S.nodes || []).find(n => n.ip === target);
+  const isVip = target === S.network.api_vip;
+  const pf = (lb && lb.owner === 'rustdesk' && (port >= 21114 && port <= 21119)) ? port + '/' + proto.l4 : null;
+  if (!transportTo(loc, target, stops, { portForward: pf })) { verdict.status = 'block'; verdict.title = loc === 'wan' ? 'Not reachable from the Internet' : 'Not routed'; verdict.text = loc === 'wan' ? 'Private addresses need the VPN. Public hostnames go through Cloudflare instead.' : 'The Tailscale route does not cover this address.'; return { stops, verdict, title: title(f, proto, port) }; }
+  if (lb) { l2Stop(target, stops); if (lb.kind === 'gateway') { gatewayStage(lb.owner.replace('Gateway ', ''), port, host, stops, verdict, false); } else serviceStage(lb, port, stops, verdict); return { stops, verdict, title: title(f, proto, port) }; }
+  if (isVip) {
+    stops.push(stop('cluster', 'node', 'API VIP holder', target + ' · Talos layer-2 VIP', 'Talos moves the shared address to a healthy control-plane node (etcd-elected); a few seconds of API unavailability when it moves. Not a Cilium address: it is excluded from the LB pool on purpose.', 'ok', [EV.talconfig, EV.cilium]));
+    if (port === 6443) { stops.push(stop('cluster', 'lock', 'kube-apiserver', ':6443 · TLS 1.3 minimum', 'Authenticates the kubeconfig client certificate (talosctl kubeconfig). Flux, operators and in-cluster clients use KubePrism 127.0.0.1:7445 instead, so they survive a VIP move.', 'ok', [EV.cluster])); verdict.status = 'ok'; verdict.title = 'Reachable'; verdict.text = 'kubectl works from the LAN and over the VPN (10.13.32.0/21 covers the VIP). Talos 1.14 requires TLS 1.3 at the API.'; }
+    else if (port === 50000) { stops.push(stop('cluster', 'stop', 'apid on the VIP', ':50000', 'The VIP is meant for the Kubernetes API only; talosctl should target node addresses (the VIP may hop mid-command).', 'warn', [EV.talconfig])); verdict.status = 'warn'; verdict.title = 'Use a node address'; verdict.text = 'apid does listen on every node address, but the VIP can move; talosctl is configured with the three node IPs as endpoints.'; }
+    else { stops.push(stop('cluster', 'stop', 'Nothing on ' + port, target, 'Only 6443 is served on the VIP.', 'block')); verdict.status = 'block'; verdict.title = 'Nothing on port ' + port; verdict.text = ''; }
+    return { stops, verdict, title: title(f, proto, port) };
+  }
+  if (node) {
+    if (port === 50000) { stops.push(stop('cluster', 'lock', 'apid · ' + node.hostname, target + ':50000 · mTLS', 'The Talos API. talosctl authenticates with the talosconfig client certificate (expires 2027-05-14); machined applies configs, upgrades, reboots. No shell, no SSH.', 'ok', [EV.talconfig])); verdict.status = 'ok'; verdict.title = 'Reachable'; verdict.text = 'From the LAN or the VPN with the talosconfig; the subnet route covers node addresses.'; }
+    else if (port === 6443) { stops.push(stop('cluster', 'lock', 'kube-apiserver · ' + node.hostname, target + ':6443', 'Every control-plane node runs an API server; the VIP is the stable front door.', 'ok', [EV.cluster])); verdict.status = 'ok'; verdict.title = 'Reachable'; verdict.text = 'Works, but prefer the VIP.'; }
+    else if (port === 22) { stops.push(stop('cluster', 'stop', 'No SSH on Talos', target + ':22', 'Talos Linux has no shell and no SSH daemon. Node access is the Talos API (50000) with talosctl: logs, dmesg, service status, config changes.', 'block', [EV.talconfig])); verdict.status = 'block'; verdict.title = 'Connection refused'; verdict.text = 'Use talosctl -n ' + target + ' (dashboard, logs, shell-free debugging).'; }
+    else if (port === 10250) { stops.push(stop('cluster', 'lock', 'kubelet · ' + node.hostname, target + ':10250', 'Kubelet API, certificate-authenticated; metrics-server scrapes it.', 'ok')); verdict.status = 'ok'; verdict.title = 'Reachable (with certs)'; verdict.text = ''; }
+    else if (port === 2379 || port === 2380) { stops.push(stop('cluster', 'stop', 'etcd · ' + node.hostname, target + ':' + port, 'etcd peers and clients authenticate with cluster certificates; only the control plane holds them.', 'block', [EV.cluster])); verdict.status = 'block'; verdict.title = 'Peers only'; verdict.text = 'Use talosctl etcd status instead.'; }
+    else { stops.push(stop('cluster', 'stop', node.hostname, target + ':' + port, 'Talos exposes apid 50000, kubelet 10250 and the API server 6443 on node addresses; LoadBalancer addresses are separate.', 'block')); verdict.status = 'block'; verdict.title = 'Nothing on port ' + port; verdict.text = 'Application ports live on LoadBalancer or Gateway addresses, not on node addresses.'; }
+    return { stops, verdict, title: title(f, proto, port) };
+  }
+  if (target === LAN.router.ip) { stops.push(stop('lan', 'router', LAN.router.name, target + ':' + port, port === 53 ? 'The LAN resolver: unifi-dns writes the cluster’s records here through the UniFi Network API.' : 'UniFi management; outside this repo.', 'ok', [EV.unifi])); verdict.status = 'ok'; verdict.title = port === 53 ? 'Answered' : 'Outside the atlas'; verdict.text = ''; return { stops, verdict, title: title(f, proto, port) }; }
+  if (target === LAN.nas.ip) { stops.push(stop('lan', 'disk', LAN.nas.name, target + ':' + port, port === 2049 ? 'NFS 4.2 exports under /mnt/storage/media, mounted by Plex, Sonarr, Radarr, SABnzbd, Madsonic (and audiobookshelf when wired in).' : 'TrueNAS; outside this repo.', 'ok')); verdict.status = 'ok'; verdict.title = port === 2049 ? 'Reachable' : 'Outside the atlas'; verdict.text = ''; return { stops, verdict, title: title(f, proto, port) }; }
+  if (target === LAN.lab1.ip) { stops.push(stop('lan', 'node', LAN.lab1.name, target + ':' + port, LAN.lab1.role, 'ok', [EV.hudu])); verdict.status = 'ok'; verdict.title = 'Outside the atlas'; verdict.text = ''; return { stops, verdict, title: title(f, proto, port) }; }
+  stops.push(stop('lan', 'globe', 'Unknown LAN address', target + ':' + port, 'Not a node, a LoadBalancer or a known host.', 'warn')); verdict.status = 'warn'; verdict.title = 'Unknown'; verdict.text = '';
+  return { stops, verdict, title: title(f, proto, port) };
+}
+function title(f, proto, port) { const d = f.dest || {}; return ZONE_LABEL[f.loc] + ' → ' + (d.host ? z2(d.host) : d.ip || d.text || '?') + ' over ' + proto.label.split(' ·')[0] + (proto.id === 'custom' ? ' ' + port : ''); }
+
+/* ------------------------------------------------------------ system flows */
+function systemFlows() {
+  const prim = S.domains.primary; const P = S.platform;
+  return [
+    { id: 'gitops', label: 'git push → running pod', title: 'A commit on main becomes a running workload', verdict: { status: 'ok', title: 'Reconciled', text: 'Minutes from push to pods. Renovate’s self-merged updates take exactly this path.' }, stops: [
+      stop('ext', 'git', 'GitHub', REPO, 'Push to main (a person, Renovate, or the Atlas workflow)', 'ok'),
+      stop('wan', 'globe', 'Webhook POST', 'flux-webhook.' + prim + '/hook/…', 'Public proxied CNAME → Tunnel → envoy-external → HTTPRoute flux-webhook (PathPrefix /hook) → Service webhook-receiver', 'ok', [['kubernetes/apps/flux-system/flux-instance/app/httproute.yaml', 'flux-webhook HTTPRoute']]),
+      stop('cluster', 'lock', 'Receiver github-webhook', 'notification-controller', 'Verifies the HMAC with github-webhook-token-secret, then marks GitRepository flux-system and Kustomization flux-system for reconciliation', 'ok', [['kubernetes/apps/flux-system/flux-instance/app/receiver.yaml', 'Receiver']]),
+      stop('cluster', 'git', 'source-controller', 'GitRepository flux-system', 'Fetches refs/heads/main, packages kubernetes/flux/cluster as an artifact (also every 1h without a webhook)', 'ok', [['kubernetes/apps/flux-system/flux-instance/app/helmrelease.yaml', 'flux-instance']]),
+      stop('cluster', 'route', 'kustomize-controller', 'cluster-meta → cluster-apps', 'cluster-apps builds ./kubernetes/apps: each namespace kustomization lists ./<app>/ks.yaml; each ks is a Flux Kustomization for <app>/app with SOPS decryption and cluster-secrets substitution patched in', 'ok', [['kubernetes/flux/cluster/ks.yaml', 'cluster-apps'], ['kubernetes/apps/infra/kustomization.yaml', 'a namespace kustomization']]),
+      stop('cluster', 'image', 'helm-controller', 'HelmRelease → chart', 'Renders the chart from its OCIRepository (app-template ' + P.app_template + ' from ghcr.io/bjw-s-labs, cosign-verified) with the values, applies it, waits for health', 'ok', [['kubernetes/components/repos/app-template/ocirepository.yaml', 'app-template OCIRepository']]),
+      stop('cluster', 'pod', 'Deployment rolls', 'kubelet → containerd → Spegel/registry', 'The new image is pulled (peer nodes first via Spegel), the pod replaces the old one; Reloader restarts pods whose Secrets or ConfigMaps changed', 'ok', [['kubernetes/apps/kube-system/spegel/app/helmrelease.yaml', 'spegel']]),
+      stop('ext', 'robot', 'Alerts', 'ntfy topic homelab', 'notification-controller posts every failed reconcile (rate-limited to 1/h per repeat) to the public ntfy server', 'ok', [['kubernetes/apps/flux-system/alerts/app/alert.yaml', 'Alert']]),
+    ] },
+    { id: 'cert', label: 'Certificate issuance', title: 'How the two wildcard certificates are issued and used', verdict: { status: 'ok', title: 'Issued', text: 'Renewed about 30 days before expiry with no downtime: Envoy picks up the new Secret.' }, stops: [
+      stop('cluster', 'cert', 'Certificate *.' + prim, 'cert-manager namespace', 'Two Certificates: the primary and the secondary zone wildcards, issuer letsencrypt-production', 'ok', [EV.certs]),
+      stop('cluster', 'robot', 'cert-manager ' + P.cert_manager, 'ACME client', 'Creates the Order and a DNS-01 Challenge; resolves through DoH to 1.1.1.1 only', 'ok', [['kubernetes/apps/cert-manager/cert-manager/app/clusterissuer.yaml', 'ClusterIssuer']]),
+      stop('ext', 'cloud', 'Cloudflare DNS API', '_acme-challenge TXT', 'The API token (cert-manager-secret) has DNS:Edit on both zones; the TXT record proves control', 'ok'),
+      stop('ext', 'lock', 'Let’s Encrypt', 'acme-v02', 'Validates the TXT over public DNS, issues a 90-day certificate', 'ok'),
+      stop('cluster', 'key', 'Secret <zone>-production-tls', 'cert-manager namespace', 'A ReferenceGrant lets Gateways in network read the two Secrets', 'ok', [['kubernetes/apps/cert-manager/cert-manager/tls/referencegrant.yaml', 'ReferenceGrant']]),
+      stop('cluster', 'gateway', 'envoy-internal & envoy-external', 'https listeners', 'Both certificates on both listeners; Envoy serves the one whose SAN matches the SNI. cloudflared always presents SNI external.' + prim + '.', 'ok', [EV.envoy]),
+    ] },
+    { id: 'dns', label: 'DNS record publication', title: 'An HTTPRoute hostname becomes DNS records in three places', verdict: { status: 'ok', title: 'Published', text: 'Internal names exist on the LAN and the VPN only; public names also get a Cloudflare record.' }, stops: [
+      stop('cluster', 'route', 'HTTPRoute created', 'hostnames + parentRef', 'Flux applies an app’s route to envoy-internal or envoy-external', 'ok', [EV.envoy]),
+      stop('cluster', 'robot', 'unifi-dns', 'external-dns ' + P.external_dns + ' + UniFi webhook ' + P.unifi_webhook, 'Source gateway-httproute: internal route → A to the Gateway address 10.13.38.83; external route → CNAME to the Gateway’s target annotation external.' + prim + '. Writes a k8s. TXT ownership record next to each (txtOwnerId default, policy sync). Both zones.', 'ok', [EV.unifi]),
+      stop('lan', 'router', 'UniFi Network API', LAN.router.ip, 'Records land in the LAN resolver. A hand-made record of the same name blocks external-dns (no matching TXT), as the 2026-05 incident showed.', 'ok', [EV.plexDoc]),
+      stop('cluster', 'robot', 'external-dns (Cloudflare)', 'routes on envoy-external only', 'Proxied CNAMEs to external.' + prim + ' in the ' + prim + ' zone; a DNSEndpoint maps external.' + prim + ' to the Tunnel. Zone-2 public names are kept by hand.', 'ok', [EV.cfdns, EV.tunnelDns]),
+      stop('ext', 'cloud', 'Cloudflare zone', prim, 'Authoritative DNS; proxied records answer with anycast addresses', 'ok'),
+      stop('cluster', 'dns', 'k8s-gateway', '10.13.38.53', 'No publication step: it answers straight from Gateway and Service status, which is why VPN clients see the right address seconds after a change.', 'ok', [EV.kgw]),
+    ] },
+    { id: 'pull', label: 'Image pull', title: 'How a node gets a container image', verdict: { status: 'ok', title: 'Pulled', text: 'Layers a peer already has never leave the LAN; the first pull of a new tag goes upstream once.' }, stops: [
+      stop('cluster', 'pod', 'kubelet', 'needs image:tag@digest', 'Pods pin tags, most with digests (Renovate bumps both)', 'ok'),
+      stop('cluster', 'image', 'containerd ' + '2.3', 'registry hosts config /etc/cri/conf.d/hosts', 'Spegel writes mirror entries so ghcr.io, docker.io, quay.io and mirror.gcr.io pulls try the peer mirror first', 'ok', [['talos/patches/global/machine-files.yaml', 'CRI config: keep unpacked layers']]),
+      stop('cluster', 'robot', 'Spegel ' + P.spegel, 'DaemonSet, PreferSameNode Service', 'A P2P registry mirror: nodes advertise the layers they hold; a hit is served from a peer node over the LAN', 'ok', [['kubernetes/apps/kube-system/spegel/app/helmrelease.yaml', 'spegel']]),
+      stop('ext', 'globe', 'Upstream registry', 'ghcr.io · docker.io · quay.io · mirror.gcr.io', 'On a miss the node pulls from the registry; from then on peers can get it from this node', 'ok'),
+    ] },
+    { id: 'backup', label: 'Nightly Postgres backup', title: 'The 02:00 backup of the shared Postgres cluster', verdict: { status: 'ok', title: 'Stored', text: '30-day retention in the Ceph object store; WAL is archived continuously, so point-in-time recovery is possible.' }, stops: [
+      stop('cluster', 'clock', 'ScheduledBackup postgres-daily', S.databases.postgres.backup.schedule + ' (02:00)', 'Creates a Backup resource every night; method plugin', 'ok', [['kubernetes/apps/database/cloudnative-pg/cluster/scheduledbackup.yaml', 'ScheduledBackup']]),
+      stop('cluster', 'robot', 'CNPG operator', 'chart ' + P.cnpg_operator_chart, 'Asks the Barman Cloud plugin sidecar on the primary to take a base backup; WAL archiving runs all day through the same plugin', 'ok', [EV.pgcluster]),
+      stop('cluster', 'db', 'Primary instance', 'postgres-1/2/3 · TopoLVM 40Gi', 'bzip2 base backup and WAL segments stream out of the pod', 'ok', [['kubernetes/apps/database/cloudnative-pg/cluster/objectstore.yaml', 'ObjectStore']]),
+      stop('cluster', 'disk', 'Ceph RGW', 'rook-ceph-rgw-ceph-objectstore.rook-ceph.svc:80', 'S3 bucket from the ObjectBucketClaim (class ceph-bucket, Retain); data pool 3× replicated across the three OSDs', 'ok', [['kubernetes/apps/database/cloudnative-pg/cluster/objectbucketclaim.yaml', 'ObjectBucketClaim']]),
+    ] },
+    { id: 'renovate', label: 'Renovate update', title: 'How a new image or chart version reaches the cluster', verdict: { status: 'ok', title: 'Two lanes', text: 'List B merges itself daily; list A waits for a reviewed weekend PR. Either way Flux does the deploy.' }, stops: [
+      stop('ext', 'robot', 'Renovate app', 'scans .renovaterc.json5 rules', 'Finds new tags for images, OCI charts, Helm repos, GitHub Actions and mise tools', 'ok', [['.renovaterc.json5', 'Renovate config']]),
+      stop('ext', 'git', 'List B: commit to main', 'daily 02:00–08:00 PT', 'Minor, patch and digest updates for the 27 unattended app folders (and dario) merge as a branch commit with no PR and no CI', 'ok', [['docs/renovate.md', 'docs/renovate.md']]),
+      stop('ext', 'git', 'List A: weekend PR', 'platform, Atrelix apps, majors', 'Flux Local renders the diff and tests the build on the PR; a person merges', 'ok', [['.github/workflows/flux-local.yaml', 'Flux Local workflow']]),
+      stop('cluster', 'route', 'Flux reconciles', 'webhook → source → helm', 'HelmRelease upgrades with remediation; a failed upgrade rolls back and alerts ntfy', 'ok'),
+      stop('cluster', 'robot', 'Atlas workflow', 'state.json', 'The same push rebuilds this page’s state.json, so versions here follow main automatically', 'ok', [['.github/workflows/atlas.yaml', 'Atlas workflow']]),
+    ] },
+  ];
+}
+
+/* ------------------------------------------------------------ rendering */
+function renderRail(result) {
+  const rail = $('rail'); rail.innerHTML = '';
+  const groups = []; for (const s of result.stops) { const g = groups[groups.length - 1]; if (g && g.zone === s.zone) g.stops.push(s); else groups.push({ zone: s.zone, stops: [s] }); }
+  let n = 0;
+  groups.forEach((g, gi_) => {
+    const z = el('div', { class: 'zone', 'data-zone': g.zone, 'data-label': ZONE_LABEL[g.zone] || g.zone });
+    g.stops.forEach((s, i) => {
+      n += 1;
+      if (i) z.append(el('div', { class: 'link' + (s.status === 'block' ? ' dead' : '') }));
+      z.append(el('div', { class: 'stop ' + s.status, html: '<span class="num">' + n + '</span>' + icon(s.icon) + '<div class="t">' + esc(s.title) + '</div><div class="s">' + esc(s.sub) + '</div>' }));
+    });
+    if (gi_) rail.append(el('div', { class: 'link between' + (g.stops[0].status === 'block' ? ' dead' : '') }));
+    rail.append(z);
+  });
+  const v = result.verdict;
+  rail.append(el('div', { class: 'verdict ' + v.status }, el('div', { class: 't', text: v.title || '' }), el('p', { text: v.text || '' })));
+  $('flow-title').textContent = result.title || '';
+  $('hops').replaceChildren(...result.stops.map(s => el('li', { class: s.status }, el('div', { class: 'hh' }, el('b', { text: s.title }), el('span', { class: 'mono hint', text: s.sub }), el('span', { class: 'pill ' + (s.status === 'ok' ? 'ok' : s.status === 'block' ? 'bad' : s.status === 'redirect' ? 'info' : 'warn'), text: s.status === 'ok' ? 'passes' : s.status === 'block' ? 'stops here' : s.status === 'redirect' ? 'redirects' : 'note' })), el('div', { class: 'hb', text: s.note }), s.evidence && s.evidence.length ? el('div', { class: 'he', html: s.evidence.map(e => link(e[0], e[1])).join(' ') }) : null)));
+}
+function currentDest() {
+  const sel = $('dest').value;
+  if (sel === 'custom') { const t = ($('dest-custom').value || '').trim(); return t ? { text: t } : null; }
+  const d = findDest(sel); if (!d) return null; return d.host ? { host: d.host } : d.ip ? { ip: d.ip } : null;
+}
+function runFlow() {
+  if (!S) return;
+  if (flow.system) { const sf = systemFlows().find(x => x.id === flow.system); if (sf) { renderRail({ stops: sf.stops, verdict: sf.verdict, title: sf.title }); return; } }
+  flow.dest = currentDest();
+  renderRail(computeFlow(flow));
+}
+function syncControls() {
+  document.querySelectorAll('#loc button').forEach(b => b.classList.toggle('active', b.dataset.loc === flow.loc));
+  $('proto').value = flow.proto; $('port-control').hidden = flow.proto !== 'custom';
+  document.querySelectorAll('#presets .chip').forEach(c => c.classList.toggle('active', !flow.system && c.dataset.key === flow.loc + '|' + flow.proto + '|' + $('dest').value));
+  document.querySelectorAll('#sys-presets .chip').forEach(c => c.classList.toggle('active', c.dataset.id === flow.system));
+}
+let flowsReady = false;
+function initFlows() {
+  const destSel = $('dest'); const prev = destSel.value;
+  destSel.innerHTML = destinations().map(g => '<optgroup label="' + esc(g.title) + '">' + g.items.map(it => '<option value="' + esc(it.id) + '">' + esc(it.label) + '</option>').join('') + '</optgroup>').join('');
+  if (prev && [...destSel.options].some(o => o.value === prev)) destSel.value = prev; else destSel.value = 'host:dash.turner.haus';
+  if (!flowsReady) {
+    flowsReady = true;
+    $('proto').innerHTML = PROTOS.map(p => '<option value="' + p.id + '">' + esc(p.label) + '</option>').join('');
+    $('proto').value = flow.proto;
+    $('presets').replaceChildren(...PRESETS.map(p => el('button', { class: 'chip', type: 'button', text: p.label, 'data-key': p.loc + '|' + p.proto + '|' + p.dest, onclick: () => { flow.system = null; flow.loc = p.loc; flow.proto = p.proto; $('dest').value = p.dest; $('dest-custom-control').hidden = true; syncControls(); runFlow(); } })));
+    $('sys-presets').replaceChildren(...systemFlows().map(sf => el('button', { class: 'chip sys', type: 'button', text: sf.label, 'data-id': sf.id, onclick: () => { flow.system = flow.system === sf.id ? null : sf.id; syncControls(); runFlow(); } })));
+    document.querySelectorAll('#loc button').forEach(b => b.addEventListener('click', () => { flow.loc = b.dataset.loc; flow.system = null; syncControls(); runFlow(); }));
+    $('proto').addEventListener('change', () => { flow.proto = $('proto').value; flow.system = null; syncControls(); runFlow(); });
+    $('port').addEventListener('input', () => { flow.port = Number($('port').value) || 0; flow.system = null; runFlow(); });
+    destSel.addEventListener('change', () => { flow.system = null; $('dest-custom-control').hidden = destSel.value !== 'custom'; syncControls(); runFlow(); });
+    $('dest-custom').addEventListener('input', () => { flow.system = null; runFlow(); });
+    $('apps-filter').addEventListener('input', renderApps);
+  }
+  syncControls(); runFlow();
+}
+/* ============================================================ diagrams */
+const CK = { lan: 'var(--c-lan)', vpn: 'var(--c-vpn)', wan: 'var(--c-wan)', cluster: 'var(--c-cluster)', ext: 'var(--c-ext)', muted: 'var(--muted)', warn: 'var(--warn)', bad: 'var(--bad)', ok: 'var(--ok)' };
+function dg(spec) {
+  // spec: {id,w,h,label, lanes:[{x,y,w,h,t,c}], nodes:{key:{x,y,w,h,t,s,c,href,fill}}, edges:[{a,b,l,c,d,pts,sa,sb}]}
+  const id = spec.id; const colors = new Set(['muted']);
+  for (const e of spec.edges || []) colors.add(e.c || 'muted');
+  const defs = '<defs>' + [...colors].map(k => '<marker id="' + id + '-m-' + k + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="' + CK[k] + '"/></marker>').join('') + '</defs>';
+  const out = ['<svg viewBox="0 0 ' + spec.w + ' ' + spec.h + '" role="img" aria-label="' + esc(spec.label) + '" style="max-width:100%;height:auto;font-family:var(--font-sans)">' + defs];
+  for (const l of spec.lanes || []) out.push('<rect x="' + l.x + '" y="' + l.y + '" width="' + l.w + '" height="' + l.h + '" rx="10" fill="var(--panel-2)" stroke="' + (CK[l.c] || CK.muted) + '" stroke-dasharray="4 4" stroke-width="1"/><text x="' + (l.x + 12) + '" y="' + (l.y + 17) + '" font-size="10.5" font-weight="600" letter-spacing=".08em" fill="' + (CK[l.c] || CK.muted) + '">' + esc(l.t.toUpperCase()) + '</text>');
+  const N = spec.nodes;
+  for (const [k, n] of Object.entries(N)) {
+    n.w = n.w || 170; n.h = n.h || 44;
+    const stroke = n.c ? CK[n.c] : 'var(--line-2)';
+    const open = n.href ? '<a href="' + esc(n.href) + '" target="_blank" rel="noopener">' : '', close = n.href ? '</a>' : '';
+    const lines = Array.isArray(n.s) ? n.s : (n.s ? [n.s] : []);
+    out.push(open + '<g>' + (n.href || n.title ? '<title>' + esc(n.title || ('Open ' + n.href)) + '</title>' : '') + '<rect x="' + n.x + '" y="' + n.y + '" width="' + n.w + '" height="' + n.h + '" rx="7" fill="' + (n.fill || 'var(--panel)') + '" stroke="' + stroke + '" stroke-width="' + (n.c ? 1.6 : 1.2) + '"/>'
+      + '<text x="' + (n.x + 10) + '" y="' + (n.y + 18) + '" font-size="12.5" font-weight="600" fill="var(--fg)">' + esc(n.t) + '</text>'
+      + lines.map((s, i) => '<text x="' + (n.x + 10) + '" y="' + (n.y + 33 + i * 13) + '" font-size="10.8" font-family="var(--font-mono)" fill="var(--fg-2)">' + esc(s) + '</text>').join('') + '</g>' + close);
+  }
+  const anchor = (n, side) => side === 'l' ? [n.x, n.y + n.h / 2] : side === 'r' ? [n.x + n.w, n.y + n.h / 2] : side === 't' ? [n.x + n.w / 2, n.y] : [n.x + n.w / 2, n.y + n.h];
+  for (const e of spec.edges || []) {
+    const a = N[e.a], b = N[e.b]; if (!a || !b) continue;
+    let sa = e.sa, sb = e.sb;
+    if (!sa) { if (b.x >= a.x + a.w) { sa = 'r'; sb = sb || 'l'; } else if (b.x + b.w <= a.x) { sa = 'l'; sb = sb || 'r'; } else if (b.y >= a.y + a.h) { sa = 'b'; sb = sb || 't'; } else { sa = 't'; sb = sb || 'b'; } }
+    sb = sb || (sa === 'r' ? 'l' : sa === 'l' ? 'r' : sa === 'b' ? 't' : 'b');
+    const [x1, y1] = anchor(a, sa), [x2, y2] = anchor(b, sb);
+    let d, lx, ly;
+    if (e.pts && e.pts.length) { const pts = [[x1, y1], ...e.pts, [x2, y2]]; d = 'M' + pts.map(p => p.join(' ')).join(' L'); const m = Math.floor(pts.length / 2); const p = pts[m - 1], q = pts[m]; lx = (p[0] + q[0]) / 2; ly = (p[1] + q[1]) / 2; }
+    else if (sa === 'r' || sa === 'l') { const mx = (x1 + x2) / 2; d = 'M' + x1 + ' ' + y1 + ' C' + mx + ' ' + y1 + ',' + mx + ' ' + y2 + ',' + x2 + ' ' + y2; lx = mx; ly = (y1 + y2) / 2; }
+    else { const my = (y1 + y2) / 2; d = 'M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + my + ',' + x2 + ' ' + my + ',' + x2 + ' ' + y2; lx = (x1 + x2) / 2; ly = my; }
+    const col = CK[e.c || 'muted'];
+    out.push('<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="1.6"' + (e.d ? ' stroke-dasharray="5 4"' : '') + ' marker-end="url(#' + id + '-m-' + (e.c || 'muted') + ')"/>');
+    if (e.l) out.push('<text x="' + (lx + (e.dx || 0)) + '" y="' + (ly - 5 + (e.dy || 0)) + '" font-size="10.5" text-anchor="middle" fill="var(--fg-2)" paint-order="stroke" stroke="var(--panel)" stroke-width="4" stroke-linejoin="round">' + esc(e.l) + '</text>');
+  }
+  out.push('</svg>');
+  return out.join('');
+}
+function fig(svgHtml, caption) { return '<figure>' + svgHtml + '<figcaption>' + caption + '</figcaption></figure>'; }
+
+/* ------------------------------------------------------------ overview map */
+function drawMap() {
+  const prim = S.domains.primary; const ext = gwIp('envoy-external'), int_ = gwIp('envoy-internal');
+  const apps = S.apps.filter(a => a.deployed && !a.suspended).length;
+  const hosts = S.hostnames.filter(h => h.exposure === 'internal').length, pubHosts = S.hostnames.filter(h => h.exposure === 'external').length;
+  const spec = { id: 'map', w: 1200, h: 660, label: 'System map: Internet and LAN clients reach the cluster through cloudflared, Tailscale or directly over layer 2; apps use Postgres, Dragonfly, Ceph, TopoLVM and the NAS.',
+    lanes: [{ x: 10, y: 10, w: 280, h: 290, t: 'Internet', c: 'wan' }, { x: 10, y: 312, w: 280, h: 338, t: 'Home LAN · ' + LAN.cidr, c: 'lan' }, { x: 310, y: 10, w: 880, h: 640, t: 'Cluster · 3 Talos VMs', c: 'cluster' }],
+    nodes: {
+      iu: { x: 30, y: 36, w: 250, t: 'Internet users', s: 'browsers, RustDesk, webhooks', c: 'wan' },
+      cf: { x: 30, y: 90, w: 250, t: 'Cloudflare', s: 'DNS zones · proxy · WAF', c: 'ext' },
+      tn: { x: 30, y: 144, w: 250, t: 'Cloudflare Tunnel', s: (S.network.tunnel.cname || '').split('.')[0], c: 'ext' },
+      ts: { x: 30, y: 198, w: 250, t: 'Tailscale', s: 'tailnet · MagicDNS · split DNS', c: 'vpn' },
+      gh: { x: 30, y: 252, w: 250, t: 'GitHub', s: REPO + ' · webhook · Renovate', c: 'ext' },
+      lu: { x: 30, y: 338, w: 250, t: 'LAN users', s: 'laptops, TVs, the Plex app', c: 'lan' },
+      un: { x: 30, y: 392, w: 250, t: LAN.router.name, s: LAN.router.ip + ' · router · DNS · port-fwd', c: 'lan' },
+      nas: { x: 30, y: 446, w: 250, t: LAN.nas.name, s: LAN.nas.ip + ' · NFS media exports', c: 'lan' },
+      lab1: { x: 30, y: 500, w: 250, t: LAN.lab1.name, s: LAN.lab1.ip + ' · MinIO ← Hudu uploads', c: 'lan' },
+      tsr: { x: 30, y: 554, w: 250, t: 'Standalone subnet router', s: 'same 10.13.32.0/21 · break-glass', c: 'vpn' },
+      cfd: { x: 330, y: 144, w: 170, t: 'cloudflared', s: 'origin https · SNI external.', c: 'cluster', href: blob('kubernetes/apps/network/external/cloudflared/helmrelease.yaml') },
+      con: { x: 330, y: 198, w: 170, t: 'Tailscale Connector ×2', s: 'routes 10.13.32.0/21 · SNAT', c: 'vpn', href: blob('kubernetes/apps/network/tailscale/connector/connector.yaml') },
+      kg: { x: 330, y: 392, w: 170, t: 'k8s-gateway', s: '10.13.38.53 · VPN resolver', c: 'cluster', href: blob('kubernetes/apps/network/internal/k8s-gateway/helmrelease.yaml') },
+      ee: { x: 530, y: 144, w: 180, t: 'envoy-external', s: ext + ' · public apps', c: 'cluster', href: blob('kubernetes/apps/network/envoy-gateway/app/envoy.yaml') },
+      ei: { x: 530, y: 338, w: 180, t: 'envoy-internal', s: int_ + ' · LAN + VPN only', c: 'cluster', href: blob('kubernetes/apps/network/envoy-gateway/app/envoy.yaml') },
+      apps: { x: 740, y: 144, w: 200, h: 238, t: 'Applications', s: [apps + ' running HelmReleases', hosts + ' internal hostnames', pubHosts + ' public hostnames', 'media · home · Atrelix', 'dashboards · AI proxies', 'test apps (suspended)'], c: 'cluster', href: '#state' },
+      pg: { x: 970, y: 144, w: 200, t: 'Postgres · CNPG ×' + S.databases.postgres.instances, s: 'postgres-rw · lb ' + S.databases.postgres.lb_ip, c: 'cluster', href: blob('kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml') },
+      tlv: { x: 970, y: 198, w: 200, t: 'TopoLVM thin', s: 'node-local · Postgres volumes', c: 'cluster', href: blob('kubernetes/apps/topolvm/topolvm/app/helmrelease.yaml') },
+      df: { x: 970, y: 252, w: 200, t: 'Dragonfly ×' + S.databases.dragonfly.replicas, s: 'cache · no persistence', c: 'cluster', href: blob('kubernetes/apps/database/dragonfly/cluster/app/cluster.yaml') },
+      ceph: { x: 970, y: 306, w: 200, t: 'Ceph · Rook', s: '3 OSD · ceph-block · RGW bucket', c: 'cluster', href: blob('kubernetes/apps/rook-ceph/rook-ceph/cluster/helmrelease.yaml') },
+      nfs: { x: 970, y: 360, w: 200, t: 'NFS mounts', s: 'Plex · *arr · SABnzbd · music', c: 'lan' },
+      plat: { x: 330, y: 466, w: 610, t: 'Platform', s: 'Flux ' + S.platform.flux + ' · cert-manager · external-dns ×2 · external-secrets · Reloader · Spegel', c: 'cluster', href: blob('kubernetes/apps') },
+      nodes: { x: 330, y: 524, w: 840, t: 'home-ops-01 · 02 · 03', s: (S.nodes || []).map(n => n.ip).join(' · ') + ' · API VIP ' + S.network.api_vip + ' · Cilium L2 + LB-IPAM · Talos ' + S.platform.talos + ' · Kubernetes ' + S.platform.kubernetes, c: 'cluster', href: blob('talos/talconfig.yaml') },
+      pve: { x: 330, y: 586, w: 840, h: 40, t: LAN.hypervisor.name, s: 'three VMs: 275 GB system · 1.1 TB OSD · 107 GB TopoLVM each', fill: 'var(--panel-2)' },
+    },
+    edges: [
+      { a: 'iu', b: 'cf', l: 'https', c: 'wan' }, { a: 'cf', b: 'tn', l: 'proxied', c: 'wan' }, { a: 'tn', b: 'cfd', l: 'QUIC', c: 'wan' }, { a: 'cfd', b: 'ee', c: 'wan' },
+      { a: 'ts', b: 'con', l: 'WireGuard', c: 'vpn' }, { a: 'ts', b: 'kg', l: 'split DNS', c: 'vpn', sa: 'r', sb: 'l', pts: [[296, 220], [296, 414]], dy: 40 },
+      { a: 'con', b: 'ei', l: 'LAN route', c: 'vpn', sa: 'r', sb: 'l', pts: [[520, 220], [520, 352]] },
+      { a: 'gh', b: 'plat', l: 'webhook · git', c: 'ext', sa: 'r', sb: 'l', pts: [[305, 274], [305, 488]], dy: 110 },
+      { a: 'lu', b: 'un', c: 'lan' },
+      { a: 'lu', b: 'ei', l: 'https · internal apps', c: 'lan', sa: 'r', sb: 'l', pts: [[510, 368], [510, 368]] },
+      { a: 'lu', b: 'ee', l: 'https · public apps', c: 'lan', sa: 'r', sb: 'l', pts: [[510, 350], [510, 174]], dy: 60 },
+      { a: 'ee', b: 'apps', l: pubHosts + ' routes', c: 'cluster' }, { a: 'ei', b: 'apps', l: hosts + ' routes', c: 'cluster' },
+      { a: 'apps', b: 'pg', l: '', c: 'cluster', sa: 'r', sb: 'l', pts: [[955, 166]] }, { a: 'apps', b: 'df', l: '', c: 'cluster', sa: 'r', sb: 'l', pts: [[955, 274]] }, { a: 'apps', b: 'ceph', l: 'PVCs', c: 'cluster', sa: 'r', sb: 'l', pts: [[955, 328]] }, { a: 'apps', b: 'nfs', l: '', c: 'cluster', sa: 'r', sb: 'l', pts: [[955, 382]] },
+      { a: 'pg', b: 'tlv', l: '', c: 'cluster' },
+      { a: 'nfs', b: 'nas', l: 'NFS 4.2', c: 'lan', sa: 'b', sb: 't', pts: [[1070, 440], [150, 440]], dy: -2 },
+    ] };
+  return fig(dg(spec), 'The system map. Internet users reach only the public apps, through Cloudflare and the Tunnel into envoy-external. LAN users resolve names at the UniFi gateway and connect straight to a Gateway address. Tailscale clients get the same addresses from k8s-gateway and ride the Connector. Every arrow into the cluster lands on an address Cilium announces, except the Tunnel, which cloudflared opens outbound.');
+}
+
+/* ------------------------------------------------------------ design figures */
+function drawAddressMap() {
+  const lo = 50, hi = 106, W = 1100, left = 40, right = 30, scale = (W - left - right) / (hi - lo);
+  const X = n => left + (n - lo) * scale;
+  const blocks = (S.network.lb_pool.blocks || []).map(b => { const [a, z] = b.split('-'); return [Number(a.split('.').pop()), Number(z.split('.').pop())]; });
+  const items = [];
+  for (const l of S.network.lb_ips || []) items.push({ n: Number(l.ip.split('.').pop()), t: l.owner.replace('Gateway ', ''), k: 'lb' });
+  items.push({ n: Number(S.network.api_vip.split('.').pop()), t: 'API VIP', k: 'vip' });
+  for (const n of S.nodes || []) items.push({ n: Number(n.ip.split('.').pop()), t: n.hostname, k: 'node' });
+  items.push({ n: 80, t: 'free (ex nginx)', k: 'free' }, { n: 81, t: 'free (ex nginx)', k: 'free' });
+  items.sort((a, b) => a.n - b.n);
+  const out = ['<svg viewBox="0 0 ' + W + ' 180" role="img" aria-label="The 10.13.38.0/24 address map: the Cilium pool blocks, the LoadBalancer addresses in use, the API VIP and the three nodes." style="max-width:100%;height:auto;font-family:var(--font-sans)">'];
+  for (const [a, z] of blocks) out.push('<rect x="' + X(a - 0.5) + '" y="70" width="' + ((z - a + 1) * scale) + '" height="30" rx="4" fill="var(--accent-soft)"/>');
+  out.push('<line x1="' + left + '" y1="85" x2="' + (W - right) + '" y2="85" stroke="var(--line-2)" stroke-width="2"/>');
+  for (let n = lo; n <= hi; n += 1) { if (n % 5 === 0) out.push('<line x1="' + X(n) + '" y1="85" x2="' + X(n) + '" y2="93" stroke="var(--muted)"/><text x="' + X(n) + '" y="106" font-size="10" text-anchor="middle" fill="var(--muted)">.' + n + '</text>'); }
+  let i = 0;
+  for (const it of items) {
+    const x = X(it.n); const up = (i++ % 2 === 0); const col = it.k === 'vip' ? 'var(--warn)' : it.k === 'node' ? 'var(--c-cluster)' : it.k === 'free' ? 'var(--muted)' : 'var(--accent)';
+    out.push('<circle cx="' + x + '" cy="85" r="5" fill="' + col + '" stroke="var(--panel)" stroke-width="2"/>');
+    const ty = up ? 40 : 136; out.push('<line x1="' + x + '" y1="' + (up ? 48 : 122) + '" x2="' + x + '" y2="' + (up ? 78 : 92) + '" stroke="' + col + '" stroke-width="1"/>');
+    out.push('<text x="' + x + '" y="' + ty + '" font-size="11" text-anchor="middle" fill="var(--fg)" font-weight="600">.' + it.n + '</text><text x="' + x + '" y="' + (ty + (up ? -12 : 13)) + '" font-size="10.5" text-anchor="middle" fill="var(--fg-2)">' + esc(it.t) + '</text>');
+  }
+  out.push('<text x="' + left + '" y="168" font-size="10.5" fill="var(--muted)">10.13.38.x · shaded: Cilium LB-IPAM pool blocks ' + esc((S.network.lb_pool.blocks || []).join(', ')) + ' · the pool deliberately skips .82 (VIP) and stops before .101 (nodes)</text></svg>');
+  return out.join('');
+}
+function drawAlias() {
+  const prim = S.domains.primary, ext = gwIp('envoy-external');
+  const spec = { id: 'alias', w: 1100, h: 230, label: 'The external alias: every public hostname is a CNAME to external.' + prim + ', which answers differently per resolver.',
+    nodes: {
+      name: { x: 20, y: 90, w: 200, t: 'plex.' + prim, s: 'HTTPRoute on envoy-external', c: 'cluster', href: blob('kubernetes/apps/media/plex/app/helmrelease.yaml') },
+      alias: { x: 290, y: 90, w: 200, t: 'external.' + prim, s: 'the alias (Gateway target annotation)', c: 'cluster', href: blob('kubernetes/apps/network/envoy-gateway/app/envoy.yaml') },
+      lan: { x: 580, y: 20, w: 220, t: 'UniFi: A → ' + ext, s: 'hand-kept record on the gateway', c: 'lan', href: blob('docs/troubleshooting/2026-05-30-plex-dns-external-turner-haus.md') },
+      vpn: { x: 580, y: 90, w: 220, t: 'k8s-gateway: not consulted', s: 'answers plex. itself → ' + ext, c: 'vpn', href: blob('kubernetes/apps/network/internal/k8s-gateway/helmrelease.yaml') },
+      pub: { x: 580, y: 160, w: 220, t: 'Cloudflare: CNAME → tunnel', s: 'DNSEndpoint, proxied', c: 'wan', href: blob('kubernetes/apps/network/external/cloudflared/dnsendpoint.yaml') },
+      tun: { x: 870, y: 160, w: 210, t: (S.network.tunnel.cname || '').split('.')[0], s: '.cfargotunnel.com → cloudflared', c: 'wan', href: blob('kubernetes/apps/network/external/cloudflared/configs/config.yaml') },
+      gw: { x: 870, y: 20, w: 210, t: 'envoy-external', s: ext + ':443', c: 'cluster' },
+    },
+    edges: [{ a: 'name', b: 'alias', l: 'CNAME (unifi-dns + external-dns)', c: 'cluster' }, { a: 'alias', b: 'lan', l: 'LAN resolver', c: 'lan' }, { a: 'alias', b: 'pub', l: 'public resolver', c: 'wan' }, { a: 'pub', b: 'tun', c: 'wan' }, { a: 'lan', b: 'gw', c: 'lan' }, { a: 'name', b: 'vpn', l: 'VPN resolver skips the alias', c: 'vpn', d: true, sa: 'b', sb: 'l', pts: [[120, 200], [560, 200], [560, 112]] }] };
+  return dg(spec);
+}
+function dnsTable() {
+  const prim = S.domains.primary, ext = gwIp('envoy-external'), int_ = gwIp('envoy-internal');
+  const rows = [
+    ['Internal app, e.g. dash.' + prim, 'A → ' + int_ + ' (unifi-dns from the HTTPRoute)', 'A → ' + int_ + ' (from Gateway status)', 'no record (external-dns ignores envoy-internal)'],
+    ['Public app, e.g. plex.' + prim, 'CNAME → external.' + prim + ' → A ' + ext + ' (manual)', 'A → ' + ext, 'proxied CNAME → external.' + prim + ' → tunnel'],
+    ['Zone-2 public app, e.g. docs.' + (zone2() || Z2PLACEHOLDER), 'CNAME → external.' + prim + ' → ' + ext, 'not served: zone 2 is outside split DNS → public path', 'manual proxied CNAME → tunnel'],
+    ['Zone-2 internal app, e.g. paperclip.' + (zone2() || Z2PLACEHOLDER), 'A → ' + int_, 'not served (optional split-DNS entry → UniFi)', 'none'],
+    ['Service name, e.g. postgres.' + prim, 'none', 'A → ' + S.databases.postgres.lb_ip + ' (Service annotation)', 'none'],
+    ['rdesk.' + (zone2() || Z2PLACEHOLDER) + ' (RustDesk)', 'A → 10.13.38.93 (DNSEndpoint via unifi-dns)', 'not served → public path', 'A → home WAN address (manual) + UniFi port-forward'],
+  ];
+  return '<div class="tbl-wrap"><table><thead><tr><th>Name</th><th><span class="pill internal">LAN · UniFi ' + esc(LAN.router.ip) + '</span></th><th><span class="pill" style="--zc:var(--c-vpn)">VPN · k8s-gateway .53</span></th><th><span class="pill external">Public · Cloudflare</span></th></tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((c, i) => '<td class="' + (i ? 'mono' : '') + '">' + esc(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+}
+function drawGateways() {
+  const ext = gwIp('envoy-external'), int_ = gwIp('envoy-internal'); const prim = S.domains.primary;
+  const nInt = S.hostnames.filter(h => h.exposure === 'internal').length, nExt = S.hostnames.filter(h => h.exposure === 'external').length;
+  const spec = { id: 'gw', w: 1100, h: 380, label: 'The two Envoy Gateways: who connects to which listener, which certificate answers, and where routes lead.',
+    lanes: [{ x: 270, y: 20, w: 420, h: 150, t: 'Gateway envoy-internal · ' + int_, c: 'cluster' }, { x: 270, y: 200, w: 420, h: 160, t: 'Gateway envoy-external · ' + ext, c: 'cluster' }],
+    nodes: {
+      lan: { x: 20, y: 56, w: 230, t: 'LAN and VPN clients', s: '→ ' + int_ + ':443 · source IP kept', c: 'lan' },
+      lanpub: { x: 20, y: 150, w: 230, t: 'LAN clients, public apps', s: '→ ' + ext + ':443 via the alias', c: 'lan' },
+      tun: { x: 20, y: 280, w: 230, t: 'cloudflared', s: '→ ClusterIP :443 · SNI external.', c: 'wan' },
+      is: { x: 290, y: 46, w: 250, t: 'https :443', s: ['wildcards for both zones', 'client IP = TCP peer', 'TLS ≥ 1.2 · h2 · HTTP/3'], h: 60, c: 'cluster' },
+      ih: { x: 290, y: 118, w: 250, h: 36, t: 'http :80 → 301 to https (one route)', s: '', c: 'cluster' },
+      es: { x: 290, y: 226, w: 250, t: 'https :443', s: ['wildcards for both zones', 'client IP = XFF, 1 hop', 'TLS ≥ 1.2 · h2 · HTTP/3'], h: 60, c: 'cluster' },
+      eh: { x: 290, y: 298, w: 250, h: 36, t: 'http :80 → 301 to https (same route)', s: '', c: 'cluster' },
+      ri: { x: 730, y: 50, w: 160, t: nInt + ' HTTPRoutes', s: 'hostname match', c: 'cluster' },
+      re: { x: 730, y: 230, w: 160, t: nExt + ' HTTPRoutes', s: 'hostname match', c: 'cluster' },
+      ai: { x: 920, y: 50, w: 160, t: 'Internal apps', s: 'LAN + VPN only', c: 'cluster' },
+      ae: { x: 920, y: 230, w: 160, t: 'Public apps', s: 'plex, music, Atrelix, flux-webhook', c: 'cluster' },
+      pol: { x: 730, y: 320, w: 350, h: 40, t: 'Shared BackendTrafficPolicy', s: 'brotli/gzip/zstd · 8Mi buffers · no request timeout (SSE, LLM streams)', fill: 'var(--panel-2)' },
+    },
+    edges: [{ a: 'lan', b: 'is', c: 'lan' }, { a: 'lanpub', b: 'es', c: 'lan' }, { a: 'tun', b: 'es', c: 'wan' }, { a: 'is', b: 'ri', c: 'cluster' }, { a: 'es', b: 're', c: 'cluster' }, { a: 'ri', b: 'ai', c: 'cluster' }, { a: 're', b: 'ae', c: 'cluster' }] };
+  return dg(spec);
+}
+function drawGitops() {
+  const spec = { id: 'gitops', w: 1100, h: 330, label: 'GitOps: how a commit on main is turned into Kubernetes objects by Flux, and which inputs feed each stage.',
+    nodes: {
+      gh: { x: 20, y: 110, w: 170, t: 'GitHub main', s: REPO, c: 'ext', href: 'https://github.com/' + REPO },
+      ren: { x: 20, y: 20, w: 170, t: 'Renovate', s: 'list B: direct commits', c: 'ext', href: blob('.renovaterc.json5') },
+      hook: { x: 20, y: 200, w: 170, t: 'Receiver (webhook)', s: 'flux-webhook. via the tunnel', c: 'ext', href: blob('kubernetes/apps/flux-system/flux-instance/app/receiver.yaml') },
+      src: { x: 240, y: 110, w: 180, t: 'source-controller', s: 'GitRepository flux-system · 1h', c: 'cluster', href: blob('kubernetes/apps/flux-system/flux-instance/app/helmrelease.yaml') },
+      meta: { x: 470, y: 40, w: 180, t: 'Kustomization cluster-meta', s: 'kubernetes/flux/meta · Helm repos', c: 'cluster', href: blob('kubernetes/flux/cluster/ks.yaml') },
+      apps: { x: 470, y: 110, w: 180, t: 'Kustomization cluster-apps', s: 'kubernetes/apps · generated list', c: 'cluster', href: blob('kubernetes/flux/cluster/ks.yaml') },
+      sops: { x: 470, y: 200, w: 180, t: 'SOPS · age', s: 'sops-age Secret · *.sops.yaml', c: 'cluster', href: blob('.sops.yaml') },
+      secrets: { x: 470, y: 260, w: 180, t: 'cluster-secrets', s: 'postBuild ${SECRET_DOMAIN} etc.', c: 'cluster', href: blob('kubernetes/components/common/kustomization.yaml') },
+      ns: { x: 700, y: 110, w: 180, t: '11 namespace kustomizations', s: './<app>/ks.yaml each', c: 'cluster', href: blob('kubernetes/apps/default/kustomization.yaml') },
+      ks: { x: 700, y: 200, w: 180, t: 'Flux Kustomization per app', s: '<app>/app · dependsOn · health', c: 'cluster', href: blob('kubernetes/apps/default/dario/ks.yaml') },
+      hr: { x: 910, y: 200, w: 170, t: 'HelmRelease', s: 'helm-controller renders', c: 'cluster', href: blob('kubernetes/apps/default/dario/app/helmrelease.yaml') },
+      oci: { x: 910, y: 280, w: 170, t: 'OCI chart sources', s: 'app-template ' + S.platform.app_template + ' · cosign', c: 'ext', href: blob('kubernetes/components/repos/app-template/ocirepository.yaml') },
+      objs: { x: 910, y: 110, w: 170, t: 'Kubernetes objects', s: 'server-side apply · prune', c: 'cluster' },
+    },
+    edges: [{ a: 'ren', b: 'gh', l: 'daily merges', c: 'ext' }, { a: 'hook', b: 'src', l: 'reconcile now', c: 'ext' }, { a: 'gh', b: 'src', l: 'git fetch', c: 'ext' }, { a: 'src', b: 'meta', c: 'cluster' }, { a: 'src', b: 'apps', l: 'artifact', c: 'cluster' }, { a: 'meta', b: 'apps', l: 'dependsOn', c: 'muted', d: true }, { a: 'apps', b: 'ns', c: 'cluster' }, { a: 'ns', b: 'ks', c: 'cluster' }, { a: 'sops', b: 'ks', l: 'decrypt', c: 'muted', d: true }, { a: 'secrets', b: 'ks', l: 'substitute', c: 'muted', d: true, sa: 'r', sb: 'l', pts: [[690, 282], [690, 232]] }, { a: 'ks', b: 'hr', c: 'cluster' }, { a: 'oci', b: 'hr', l: 'chart', c: 'ext' }, { a: 'hr', b: 'objs', c: 'cluster' }] };
+  return dg(spec);
+}
+function drawStorage() {
+  const byc = S.storage.pvcs_by_class || {}; const sum = k => Math.round((byc[k] || []).reduce((n, p) => n + gi(p.size), 0)); const cnt = k => (byc[k] || []).length;
+  const spec = { id: 'storage', w: 1100, h: 380, label: 'Storage: each node contributes an OSD disk to Ceph and a thin pool to TopoLVM; the NAS serves media over NFS.',
+    lanes: [{ x: 20, y: 20, w: 300, h: 340, t: 'Each node (×3)', c: 'cluster' }],
+    nodes: {
+      sda: { x: 40, y: 60, w: 260, t: 'sda · 275 GB', s: 'Talos system · ephemeral', fill: 'var(--panel-2)' },
+      sdb: { x: 40, y: 150, w: 260, t: 'sdb · 1.1 TB', s: 'Ceph OSD (devicePathFilter)', c: 'cluster', href: blob('kubernetes/apps/rook-ceph/rook-ceph/cluster/helmrelease.yaml') },
+      sdc: { x: 40, y: 260, w: 260, t: 'sdc · 107 GB', s: 'LVM VG topolvm-vg · thin pool', c: 'cluster', href: blob('kubernetes/apps/topolvm/topolvm/app/helmrelease.yaml') },
+      ceph: { x: 400, y: 110, w: 200, t: 'Ceph ' + S.platform.ceph, s: ['Rook ' + S.platform.rook + ' · host network', '3 OSD · failure domain host', 'replicated size 3'], h: 60, c: 'cluster', href: blob('kubernetes/apps/rook-ceph/rook-ceph/cluster/helmrelease.yaml') },
+      rbd: { x: 680, y: 60, w: 200, t: 'ceph-block (default)', s: cnt('ceph-block') + ' PVCs · ' + sum('ceph-block') + ' GiB · zstd', c: 'cluster' },
+      rgw: { x: 680, y: 150, w: 200, t: 'ceph-bucket (RGW)', s: 'S3 · Retain · CNPG backups', c: 'cluster', href: blob('kubernetes/apps/database/cloudnative-pg/cluster/objectstore.yaml') },
+      tlv: { x: 400, y: 260, w: 200, t: 'TopoLVM ' + S.platform.topolvm, s: 'topolvm-thin-provisioner · xfs', c: 'cluster' },
+      pgv: { x: 680, y: 260, w: 200, t: 'Postgres volumes', s: cnt('topolvm-thin-provisioner') + ' × ' + S.databases.postgres.size + ' · node-bound', c: 'cluster', href: blob('kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml') },
+      apps: { x: 920, y: 60, w: 160, h: 60, t: 'App data', s: ['configs, photos, docs', 'plex, paperless, …'], c: 'cluster' },
+      nas: { x: 920, y: 260, w: 160, t: LAN.nas.name, s: LAN.nas.ip + ' · NFS 4.2', c: 'lan' },
+      media: { x: 920, y: 330, w: 160, h: 36, t: 'media apps mount it', fill: 'var(--panel-2)' },
+    },
+    edges: [{ a: 'sdb', b: 'ceph', l: 'OSD', c: 'cluster' }, { a: 'ceph', b: 'rbd', l: 'RBD', c: 'cluster' }, { a: 'ceph', b: 'rgw', l: 'object', c: 'cluster' }, { a: 'sdc', b: 'tlv', l: 'lvmd', c: 'cluster' }, { a: 'tlv', b: 'pgv', c: 'cluster' }, { a: 'rbd', b: 'apps', c: 'cluster' }, { a: 'nas', b: 'media', c: 'lan' }] };
+  return dg(spec);
+}
+function drawData() {
+  const pg = S.databases.postgres, df = S.databases.dragonfly; const cons = pg.consumers || [];
+  const spec = { id: 'data', w: 1100, h: 360, label: 'Data services: one Postgres cluster with a primary and two synchronous-capable replicas behind two Services, and a Dragonfly cache.',
+    lanes: [{ x: 20, y: 20, w: 560, h: 200, t: 'CloudNativePG cluster postgres · ' + (pg.image || '').split(':').pop(), c: 'cluster' }, { x: 20, y: 240, w: 560, h: 100, t: 'Dragonfly ×' + df.replicas + ' · ' + (df.image || '').split(':').pop(), c: 'cluster' }],
+    nodes: {
+      p1: { x: 40, y: 60, w: 160, t: 'primary', s: 'read/write · WAL archive', c: 'cluster', href: blob('kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml') },
+      p2: { x: 220, y: 60, w: 160, t: 'replica', s: 'sync any-1 candidate', c: 'cluster' },
+      p3: { x: 400, y: 60, w: 160, t: 'replica', s: 'sync any-1 candidate', c: 'cluster' },
+      rw: { x: 40, y: 150, w: 250, t: 'postgres-rw (ClusterIP)', s: 'follows the primary', c: 'cluster' },
+      lb: { x: 310, y: 150, w: 250, t: 'postgres-lb ' + pg.lb_ip, s: 'externalTrafficPolicy Local · primary only', c: 'cluster', href: blob('kubernetes/apps/database/cloudnative-pg/cluster/service.yaml') },
+      dm: { x: 40, y: 280, w: 160, t: 'master', s: 'emulated cluster mode', c: 'cluster', href: blob('kubernetes/apps/database/dragonfly/cluster/app/cluster.yaml') },
+      dr: { x: 220, y: 280, w: 160, t: 'replica ×2', s: 'promoted on failure', c: 'cluster' },
+      ds: { x: 400, y: 280, w: 160, t: 'dragonfly (Service)', s: 'follows the master', c: 'cluster' },
+      apps: { x: 660, y: 60, w: 200, h: 24 + cons.length * 13, t: cons.length + ' apps on Postgres', s: cons, c: 'cluster' },
+      bk: { x: 900, y: 60, w: 180, t: 'Backups', s: ['daily 02:00 · 30 d', 'Barman Cloud → Ceph RGW'], h: 56, c: 'cluster', href: blob('kubernetes/apps/database/cloudnative-pg/cluster/scheduledbackup.yaml') },
+      lanc: { x: 900, y: 150, w: 180, t: 'LAN / VPN clients', s: 'psql via postgres.' + S.domains.primary, c: 'lan' },
+      capps: { x: 660, y: 280, w: 200, t: (df.consumers || []).join(', ') || 'consumers', s: 'queues, cache, sessions', c: 'cluster' },
+    },
+    edges: [{ a: 'p1', b: 'p2', l: 'streaming', c: 'cluster' }, { a: 'p2', b: 'p3', c: 'cluster' }, { a: 'p1', b: 'rw', c: 'cluster' }, { a: 'p1', b: 'lb', c: 'cluster', sa: 'b', sb: 't' }, { a: 'rw', b: 'apps', l: ':5432', c: 'cluster', sa: 'r', sb: 'l', pts: [[640, 172], [640, 100]] }, { a: 'p1', b: 'bk', l: 'base + WAL', c: 'cluster', sa: 't', sb: 't', pts: [[120, 40], [990, 40]] }, { a: 'lanc', b: 'lb', l: ':5432', c: 'lan', sa: 'l', sb: 'r' }, { a: 'dm', b: 'dr', l: 'replication', c: 'cluster' }, { a: 'dm', b: 'ds', c: 'cluster', sa: 'b', sb: 'b', pts: [[120, 336], [480, 336]] }, { a: 'ds', b: 'capps', l: ':6379', c: 'cluster' }] };
+  return dg(spec);
+}
+function drawSecrets() {
+  const prim = S.domains.primary;
+  const spec = { id: 'sec', w: 1100, h: 330, label: 'Secrets and TLS: SOPS-encrypted files and 1Password items become Kubernetes Secrets; cert-manager proves domain control over DNS-01 and the Gateways serve the result.',
+    nodes: {
+      sops: { x: 20, y: 40, w: 200, t: '*.sops.yaml in git', s: 'age recipient in .sops.yaml', c: 'ext', href: blob('.sops.yaml') },
+      kc: { x: 280, y: 40, w: 200, t: 'kustomize-controller', s: 'sops-age-secret decrypts', c: 'cluster' },
+      op: { x: 20, y: 120, w: 200, t: '1Password Connect', s: 'vault "Home-Ops Default"', c: 'ext' },
+      es: { x: 280, y: 120, w: 200, t: 'external-secrets', s: 'ClusterSecretStore staging', c: 'cluster', href: blob('kubernetes/apps/external-secrets/external-secrets/app/clustersecretstore.yaml') },
+      sec: { x: 540, y: 80, w: 200, t: 'Secrets in namespaces', s: 'envFrom · valuesFrom · mounts', c: 'cluster' },
+      rel: { x: 800, y: 80, w: 200, t: 'Reloader', s: 'restarts pods on change', c: 'cluster', href: blob('kubernetes/apps/kube-system/reloader/app/helmrelease.yaml') },
+      cm: { x: 280, y: 230, w: 200, t: 'cert-manager', s: 'ClusterIssuer letsencrypt-production', c: 'cluster', href: blob('kubernetes/apps/cert-manager/cert-manager/app/clusterissuer.yaml') },
+      cf: { x: 20, y: 230, w: 200, t: 'Cloudflare DNS', s: '_acme-challenge TXT · both zones', c: 'ext' },
+      le: { x: 20, y: 290, w: 200, h: 30, t: 'Let’s Encrypt validates', fill: 'var(--panel-2)' },
+      wc: { x: 540, y: 230, w: 200, t: '2 wildcard Secrets', s: '*.' + prim + ' · *.zone-2', c: 'cluster', href: blob('kubernetes/apps/cert-manager/cert-manager/tls/certificate.yaml') },
+      rg: { x: 800, y: 230, w: 200, t: 'ReferenceGrant → Gateways', s: 'SNI picks the certificate', c: 'cluster', href: blob('kubernetes/apps/cert-manager/cert-manager/tls/referencegrant.yaml') },
+    },
+    edges: [{ a: 'sops', b: 'kc', l: 'decrypt', c: 'ext' }, { a: 'op', b: 'es', l: 'Connect API', c: 'ext' }, { a: 'kc', b: 'sec', c: 'cluster' }, { a: 'es', b: 'sec', c: 'cluster' }, { a: 'sec', b: 'rel', l: 'watch', c: 'cluster' }, { a: 'cm', b: 'cf', l: 'DNS-01 (API token)', c: 'ext' }, { a: 'cf', b: 'le', c: 'muted', d: true }, { a: 'cm', b: 'wc', l: 'issue · renew', c: 'cluster' }, { a: 'wc', b: 'rg', c: 'cluster' }] };
+  return dg(spec);
+}
+function drawNodes() {
+  const nodes = S.nodes || [];
+  const spec = { id: 'nodes', w: 1100, h: 300, label: 'The control plane: three identical Talos VMs, each running the full control plane, Cilium and an OSD; the API VIP floats between them.', lanes: [], nodes: {}, edges: [] };
+  nodes.forEach((n, i) => {
+    const x = 20 + i * 290;
+    spec.lanes.push({ x, y: 20, w: 270, h: 200, t: n.hostname + ' · ' + n.ip, c: 'cluster' });
+    spec.nodes['a' + i] = { x: x + 15, y: 55, w: 240, h: 36, t: 'kube-apiserver · etcd · scheduler', s: '', c: 'cluster', fill: 'var(--panel)' };
+    spec.nodes['b' + i] = { x: x + 15, y: 100, w: 240, h: 36, t: 'Cilium agent · kubelet · containerd', s: '', c: 'cluster' };
+    spec.nodes['c' + i] = { x: x + 15, y: 145, w: 240, h: 36, t: 'Ceph OSD · TopoLVM lvmd · Spegel', s: '', c: 'cluster' };
+    spec.nodes['d' + i] = { x: x + 15, y: 190, w: 240, h: 24, t: 'KubePrism 127.0.0.1:7445', fill: 'var(--panel-2)' };
+  });
+  spec.nodes.vip = { x: 890, y: 30, w: 190, t: 'API VIP ' + S.network.api_vip, s: 'Talos L2 shared IP · :6443', c: 'warn', href: blob('talos/talconfig.yaml') };
+  spec.nodes.cfg = { x: 890, y: 100, w: 190, t: 'talhelper + talosctl', s: 'contract ' + S.platform.talos_config_contract + ' · installer ' + S.platform.talos, c: 'ext', href: blob('talos/talenv.yaml') };
+  spec.nodes.pve = { x: 20, y: 240, w: 1060, h: 40, t: LAN.hypervisor.name, s: 'BIOS/GRUB VMs · Image Factory schematic ' + (S.talos.schematic || '').slice(0, 12) + '… · no extensions', fill: 'var(--panel-2)' };
+  spec.edges.push({ a: 'vip', b: 'a2', l: 'held by one', c: 'warn', d: true, sa: 'l', sb: 'r' });
+  spec.edges.push({ a: 'cfg', b: 'b2', l: 'apid :50000', c: 'ext', sa: 'l', sb: 'r' });
+  return dg(spec);
+}
+
+function renderDesign() {
+  const prim = S.domains.primary; const N = S.network; const ext = gwIp('envoy-external'), int_ = gwIp('envoy-internal');
+  const sections = [
+    { id: 'd-net', title: 'Addresses and the LAN', figure: fig(drawAddressMap(), 'The cluster lives in the LAN’s /22 next to the router, the NAS and lab1. Cilium LB-IPAM hands out addresses from three pool blocks and a lease per address decides which node answers ARP for it; the API VIP is Talos’s own and sits in the gap on purpose.'),
+      facts: [['LAN', LAN.cidr + ' · gateway ' + LAN.router.ip + ' (UniFi) · nodes .101–.103'], ['Pod / Service CIDRs', N.pod_cidr + ' · ' + N.service_cidr + ' (native routing, no overlay)'], ['Cilium', 'kube-proxy replacement · maglev · DSR · L2 announcements on every node · host legacy routing (Talos host DNS)'], ['Node resolvers', (N.dns.node_resolvers || []).join(', ') + ' · NTP from Cloudflare']] },
+    { id: 'd-dns', title: 'Three DNS horizons', figure: fig(drawAlias(), 'The alias that makes public apps work on three paths. On the LAN the hand-kept UniFi record points it at envoy-external; publicly a DNSEndpoint points it at the Tunnel; the VPN resolver never consults it because it answers from Gateway status directly.') + dnsTable(),
+      facts: [['LAN', 'unifi-dns: external-dns ' + S.platform.external_dns + ' with the UniFi webhook ' + S.platform.unifi_webhook + ', sources crd + gateway-httproute, both zones, policy sync, owner id default'], ['Public', 'external-dns (Cloudflare provider), routes on envoy-external only, proxied CNAMEs, zone ' + prim + ' only'], ['VPN', 'k8s-gateway ' + S.platform.k8s_gateway + ' at 10.13.38.53: Services and HTTPRoutes for ' + prim + ', fallthrough to ' + LAN.router.ip + '; Tailscale split DNS restricted to that zone'], ['In-cluster', 'CoreDNS ' + S.platform.coredns_chart + ' (kube-dns 10.43.0.10), two replicas spread across nodes']] },
+    { id: 'd-gw', title: 'Ingress: two Gateways', figure: fig(drawGateways(), 'Both Gateways serve the same two wildcard certificates; what differs is who is allowed in and how the client address is read. Routes attach to the https listener only, so the http listener exists to redirect.'),
+      facts: [['Envoy Gateway', S.platform.envoy_gateway + ' · GatewayClass envoy · 2 Envoy replicas per Gateway · externalTrafficPolicy Cluster'], ['envoy-internal', int_ + ' · LAN and VPN · client IP from the TCP peer'], ['envoy-external', ext + ' · public apps · trusts one X-Forwarded-For hop (cloudflared) · also used by LAN clients for public apps'], ['Tunnel origin', (N.tunnel.origin || '') + ' with SNI ' + N.tunnel.origin_sni + ' · rules: ' + (N.tunnel.hostnames || []).map(z2).join(', ')]] },
+    { id: 'd-gitops', title: 'GitOps with Flux', figure: fig(drawGitops(), 'Everything in the cluster is the result of this pipeline. The apps path has no kustomization.yaml of its own; Flux generates one from the namespace directories, each of which lists its apps’ ks.yaml files.'),
+      facts: [['Flux', S.platform.flux + ' via flux-operator ' + S.platform.flux_operator + ' · controllers with 10–20 workers, in-memory builds, SOPS at the controller'], ['Layout', 'kubernetes/apps/<namespace>/<app>/{ks.yaml, app/helmrelease.yaml} · components/common adds namespace, cluster-secrets and the age key'], ['Bootstrap', 'helmfile installs Cilium, CoreDNS, Spegel, cert-manager, external-secrets and the Flux operator from the same values; CRDs for external-dns, Envoy Gateway and Prometheus come from bootstrap/helmfile.d'], ['Validation', 'Flux Local tests and diffs every PR; Renovate self-merges skip CI']] },
+    { id: 'd-storage', title: 'Storage', figure: fig(drawStorage(), 'Three storage systems, each for a reason: Ceph for anything that must survive a node, TopoLVM for Postgres where local disk latency wins, and the NAS for media that was never going to fit in the cluster.'),
+      facts: [['ceph-block', 'default class · RBD · 3× replicated · zstd compression · ext4 · Delete'], ['ceph-bucket', 'RGW object store · Retain · used by the CNPG backups via an ObjectBucketClaim'], ['topolvm-thin-provisioner', 'also marked default (TopoLVM) · xfs · thin pool overprovision ' + S.storage.topolvm.overprovision + ' · volumes are bound to a node'], ['NFS', 'exports ' + (S.storage.nfs_exports || []).join(', ') + ' from the NAS; csi-driver-nfs exists in the repo but is not wired in']] },
+    { id: 'd-data', title: 'Data services', figure: fig(drawData(), 'Apps talk to postgres-rw and dragonfly by Service name; people talk to the LoadBalancer. A primary switchover moves both Services and the L2 lease for the LoadBalancer address.'),
+      facts: [['Postgres', (S.databases.postgres.image || '') + ' · ' + S.databases.postgres.instances + ' instances · synchronous any 1 · switchover updates · max_slot_wal_keep_size cap after the 2026-05 WAL outage'], ['Backups', 'ScheduledBackup ' + S.databases.postgres.backup.schedule + ' · retention ' + S.databases.postgres.backup.retention + ' · ' + S.databases.postgres.backup.destination], ['Dragonfly', (S.databases.dragonfly.image || '') + ' · ' + S.databases.dragonfly.replicas + ' replicas · 768Mi maxmemory · emulated cluster mode · no persistence (cache only)'], ['Consumers', 'Postgres: ' + (S.databases.postgres.consumers || []).join(', ') + ' · Dragonfly: ' + (S.databases.dragonfly.consumers || []).join(', ')]] },
+    { id: 'd-sec', title: 'Secrets and TLS', figure: fig(drawSecrets(), 'Two secret paths and one certificate path. Nothing in git is readable without the age key; nothing in 1Password reaches the cluster except through external-secrets.'),
+      facts: [['SOPS', 'age recipient ' + 'age10n5…s4ld' + ' · only data/stringData encrypted · kustomize-controller decrypts with sops-age-secret'], ['external-secrets', S.platform.external_secrets + ' · ClusterSecretStore staging → 1Password Connect (host in cluster-secrets)'], ['cert-manager', S.platform.cert_manager + ' · DNS-01 on Cloudflare for both zones · DoH to 1.1.1.1 only · two wildcard Certificates in cert-manager, shared by ReferenceGrant'], ['Pull secrets', 'private GHCR images (Atrelix forks) use a dockerconfigjson Secret in default']] },
+    { id: 'd-nodes', title: 'Nodes and control plane', figure: fig(drawNodes(), 'Every node is a control-plane node and a worker. In-cluster clients reach the API through KubePrism on each node, so a VIP move only affects kubectl from outside.'),
+      facts: [['Talos', 'nodes run ' + S.platform.talos + ' on the ' + S.platform.talos_config_contract + ' config contract (talhelper is archived) · kube-proxy and CoreDNS from Talos disabled · CNI none → Cilium'], ['API', S.talos.endpoint + ' · aggregator routing on · PodSecurity defaults privileged (Rook, TopoLVM) · etcd advertises on the LAN subnet'], ['Kernel', 'dm_thin_pool + dm_mod for TopoLVM · inotify limits raised · rmem/wmem for cloudflared QUIC'], ['Upgrades', 'talhelper genconfig → apply-config → talosctl upgrade one node at a time; see docs/upgrades/2026-10-talos-kubernetes.md']] },
+  ];
+  $('design-sections').replaceChildren(...sections.map(s => el('section', { class: 'panel topic', id: s.id }, el('h3', { text: s.title }), el('div', { html: s.figure }), el('ul', { class: 'facts', style: 'margin-top:12px' }, s.facts.map(([k, v]) => el('li', null, el('b', { text: k }), el('span', { text: v })))))));
+}
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,6573 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-24T03:33:14+00:00",
+  "generator": "scripts/atlas/build-state.py",
+  "source": {
+    "repo": "tturnerdev/home-ops",
+    "branch": "ccr-fb508d72-a9yqvu",
+    "commit": "556a79c83fc8bf3965a39e2ed42bcbb551560647",
+    "commit_short": "556a79c",
+    "commit_date": "2026-10-23T18:51:58-07:00",
+    "subject": "docs(rustdesk,hudu): drop the per-host certificate from the API path"
+  },
+  "domains": {
+    "primary": "turner.haus",
+    "secondary": "${SECRET_DOMAIN_2}"
+  },
+  "platform": {
+    "talos": "v1.14.4",
+    "talos_config_contract": "v1.13.12",
+    "kubernetes": "v1.36.5",
+    "cilium": "1.20.3",
+    "coredns_chart": "1.49.0",
+    "spegel": "0.8.0",
+    "metrics_server": "3.14.0",
+    "reloader": "2.2.18",
+    "csi_driver_nfs": "4.13.5",
+    "flux": "2.9.6",
+    "flux_operator": "0.61.0",
+    "cert_manager": "v1.21.2",
+    "external_secrets": "2.13.0",
+    "envoy_gateway": "v1.9.2",
+    "external_dns": "1.23.0",
+    "unifi_webhook": "0.10.14",
+    "k8s_gateway": "4.0.1",
+    "cloudflared": "2026.10.3",
+    "tailscale_operator": "1.104.2",
+    "rook": "1.21.0",
+    "ceph": "v20.2.4",
+    "ceph_csi_drivers": "1.1.0",
+    "topolvm": "17.3.0",
+    "cnpg_operator_chart": "0.29.1",
+    "postgres": "ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie",
+    "dragonfly_operator": "v1.7.1",
+    "dragonfly": "ghcr.io/dragonflydb/dragonfly:v2.0.2",
+    "app_template": "5.3.0",
+    "barman_cloud_plugin": "v0.15.1"
+  },
+  "talos": {
+    "config_contract": "v1.13.12",
+    "installer_version": "v1.14.4",
+    "kubernetes_version": "v1.36.5",
+    "schematic": "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba",
+    "endpoint": "https://10.13.38.82:6443",
+    "cni": "none",
+    "kube_proxy_disabled": true,
+    "coredns_disabled": true,
+    "scheduling_on_control_planes": true,
+    "kernel_modules": [
+      "dm_thin_pool",
+      "dm_mod"
+    ],
+    "ntp": [
+      "162.159.200.1",
+      "162.159.200.123"
+    ],
+    "sysctls": {
+      "fs.inotify.max_user_watches": "1048576",
+      "fs.inotify.max_user_instances": "8192",
+      "net.core.rmem_max": "7500000",
+      "net.core.wmem_max": "7500000"
+    },
+    "pod_security": "privileged"
+  },
+  "nodes": [
+    {
+      "hostname": "home-ops-01",
+      "ip": "10.13.38.101",
+      "control_plane": true,
+      "install_disk": "/dev/sda",
+      "mac": "bc:24:11:6f:ca:02",
+      "address": "10.13.38.101/22",
+      "gateway": "10.13.37.1",
+      "vip": "10.13.38.82",
+      "image": "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+    },
+    {
+      "hostname": "home-ops-02",
+      "ip": "10.13.38.102",
+      "control_plane": true,
+      "install_disk": "/dev/sda",
+      "mac": "bc:24:11:4d:6a:4d",
+      "address": "10.13.38.102/22",
+      "gateway": "10.13.37.1",
+      "vip": "10.13.38.82",
+      "image": "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+    },
+    {
+      "hostname": "home-ops-03",
+      "ip": "10.13.38.103",
+      "control_plane": true,
+      "install_disk": "/dev/sda",
+      "mac": "bc:24:11:09:f6:11",
+      "address": "10.13.38.103/22",
+      "gateway": "10.13.37.1",
+      "vip": "10.13.38.82",
+      "image": "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+    }
+  ],
+  "network": {
+    "lan_cidr": "10.13.36.0/22",
+    "lan_gateway": "10.13.37.1",
+    "pod_cidr": "10.42.0.0/16",
+    "service_cidr": "10.43.0.0/16",
+    "api_vip": "10.13.38.82",
+    "lb_pool": {
+      "blocks": [
+        "10.13.38.53-10.13.38.53",
+        "10.13.38.80-10.13.38.81",
+        "10.13.38.83-10.13.38.100"
+      ],
+      "l2_announcements": true,
+      "mode": null
+    },
+    "lb_ips": [
+      {
+        "ip": "10.13.38.53",
+        "owner": "k8s-gateway",
+        "namespace": "network",
+        "ports": [
+          53
+        ],
+        "kind": "dns"
+      },
+      {
+        "ip": "10.13.38.83",
+        "owner": "Gateway envoy-internal",
+        "namespace": "network",
+        "ports": [
+          80,
+          443
+        ],
+        "kind": "gateway"
+      },
+      {
+        "ip": "10.13.38.84",
+        "owner": "Gateway envoy-external",
+        "namespace": "network",
+        "ports": [
+          80,
+          443
+        ],
+        "kind": "gateway"
+      },
+      {
+        "ip": "10.13.38.91",
+        "owner": "plex",
+        "namespace": "media",
+        "ports": [
+          32400
+        ],
+        "kind": "service"
+      },
+      {
+        "ip": "10.13.38.92",
+        "owner": "cloudnative-pg",
+        "namespace": "database",
+        "ports": [
+          5432
+        ],
+        "kind": "service"
+      },
+      {
+        "ip": "10.13.38.93",
+        "owner": "rustdesk",
+        "namespace": "default",
+        "ports": [
+          21115,
+          21116,
+          21116,
+          21117,
+          21118,
+          21119,
+          21114
+        ],
+        "kind": "service"
+      }
+    ],
+    "gateways": [
+      {
+        "name": "envoy-external",
+        "namespace": "network",
+        "class": "envoy",
+        "lb_ip": "10.13.38.84",
+        "k8s_gateway_hostname": "external-envoy.turner.haus",
+        "dns_target": "external.turner.haus",
+        "listeners": [
+          {
+            "name": "http",
+            "protocol": "HTTP",
+            "port": 80,
+            "routes_from": "Same",
+            "certs": []
+          },
+          {
+            "name": "https",
+            "protocol": "HTTPS",
+            "port": 443,
+            "routes_from": "All",
+            "certs": [
+              "turner-haus-production-tls",
+              "secret-domain-2-production-tls"
+            ]
+          }
+        ],
+        "client_traffic_policy": {
+          "client_ip_detection": [
+            "xForwardedFor"
+          ],
+          "trusted_hops": 1,
+          "tls_min": "1.2",
+          "http3": true,
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      },
+      {
+        "name": "envoy-internal",
+        "namespace": "network",
+        "class": "envoy",
+        "lb_ip": "10.13.38.83",
+        "k8s_gateway_hostname": "internal-envoy.turner.haus",
+        "dns_target": null,
+        "listeners": [
+          {
+            "name": "http",
+            "protocol": "HTTP",
+            "port": 80,
+            "routes_from": "All",
+            "certs": []
+          },
+          {
+            "name": "https",
+            "protocol": "HTTPS",
+            "port": 443,
+            "routes_from": "All",
+            "certs": [
+              "turner-haus-production-tls",
+              "secret-domain-2-production-tls"
+            ]
+          }
+        ],
+        "client_traffic_policy": {
+          "client_ip_detection": [
+            "directSourceIP"
+          ],
+          "trusted_hops": null,
+          "tls_min": "1.2",
+          "http3": true,
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    ],
+    "envoy": {
+      "replicas": 2,
+      "external_traffic_policy": "Cluster",
+      "request_timeout": "0s",
+      "compression": [
+        "Brotli",
+        "Gzip",
+        "Zstd"
+      ]
+    },
+    "dns": {
+      "k8s_gateway": {
+        "ip": "10.13.38.53",
+        "zone": "turner.haus",
+        "resources": "apex k8s-gateway.network\nttl 1\nresources Service HTTPRoute\nfallthrough",
+        "forward": ". 10.13.37.1"
+      },
+      "unifi_dns": {
+        "provider": "UniFi (external-dns webhook)",
+        "sources": [
+          "crd",
+          "gateway-httproute"
+        ],
+        "domains": [
+          "turner.haus",
+          "${SECRET_DOMAIN_2}"
+        ],
+        "policy": "sync",
+        "txt_owner": "default"
+      },
+      "cloudflare_dns": {
+        "provider": "cloudflare",
+        "sources": [
+          "crd",
+          "gateway-httproute"
+        ],
+        "domains": [
+          "turner.haus"
+        ],
+        "gateway_filter": "envoy-external",
+        "proxied": true,
+        "policy": "sync"
+      },
+      "dnsendpoints": [
+        {
+          "name": "rdesk.${SECRET_DOMAIN_2}",
+          "type": "A",
+          "targets": [
+            "10.13.38.93"
+          ]
+        },
+        {
+          "name": "external.turner.haus",
+          "type": "CNAME",
+          "targets": [
+            "a7a31f2c-ec52-4d5f-94e7-0acc8a461744.cfargotunnel.com"
+          ]
+        }
+      ],
+      "node_resolvers": [
+        "1.1.1.1",
+        "1.0.0.1"
+      ]
+    },
+    "tunnel": {
+      "cname": "a7a31f2c-ec52-4d5f-94e7-0acc8a461744.cfargotunnel.com",
+      "origin": "https://envoy-external.network.svc.cluster.local:443",
+      "origin_sni": "external.turner.haus",
+      "hostnames": [
+        "turner.haus",
+        "*.turner.haus",
+        "sign.${SECRET_DOMAIN_2}",
+        "automate.${SECRET_DOMAIN_2}",
+        "hudu.${SECRET_DOMAIN_2}",
+        "docs.${SECRET_DOMAIN_2}",
+        "rdesk-api.${SECRET_DOMAIN_2}"
+      ],
+      "transport": {
+        "TUNNEL_EDGE_IP_VERSION": "4",
+        "TUNNEL_METRICS": "0.0.0.0:8080",
+        "TUNNEL_ORIGIN_ENABLE_HTTP2": true,
+        "TUNNEL_POST_QUANTUM": true,
+        "TUNNEL_TRANSPORT_PROTOCOL": "quic"
+      }
+    },
+    "tailscale": {
+      "operator_hostname": "home-ops-k8s-operator",
+      "connector": {
+        "name": "home-lan",
+        "replicas": 2,
+        "routes": [
+          "10.13.32.0/21"
+        ],
+        "tags": [
+          "tag:k8s"
+        ],
+        "hostname_prefix": "home-ops-connector"
+      }
+    },
+    "tls": {
+      "issuer": "letsencrypt-production",
+      "acme": "https://acme-v02.api.letsencrypt.org/directory",
+      "solver": "dns01/cloudflare",
+      "certificates": [
+        {
+          "name": "turner-haus-production",
+          "secret": "turner-haus-production-tls",
+          "dns_names": [
+            "turner.haus",
+            "*.turner.haus"
+          ],
+          "issuer": "letsencrypt-production"
+        },
+        {
+          "name": "secret-domain-2-production",
+          "secret": "secret-domain-2-production-tls",
+          "dns_names": [
+            "${SECRET_DOMAIN_2}",
+            "*.${SECRET_DOMAIN_2}"
+          ],
+          "issuer": "letsencrypt-production"
+        }
+      ]
+    }
+  },
+  "storage": {
+    "classes": [
+      {
+        "name": "ceph-block",
+        "provisioner": "rook-ceph.rbd.csi.ceph.com",
+        "pool": "ceph-blockpool",
+        "default": true,
+        "reclaim": "Delete",
+        "replication": 3,
+        "failure_domain": "host",
+        "compression": "aggressive",
+        "fstype": "ext4"
+      },
+      {
+        "name": "ceph-bucket",
+        "provisioner": "rook-ceph.ceph.rook.io/bucket",
+        "pool": "ceph-objectstore",
+        "default": false,
+        "reclaim": "Retain",
+        "replication": 3,
+        "failure_domain": "host",
+        "kind": "object"
+      },
+      {
+        "name": "topolvm-thin-provisioner",
+        "provisioner": "topolvm.io",
+        "default": true,
+        "fstype": "xfs",
+        "binding": "Immediate",
+        "expansion": true,
+        "node_local": true
+      },
+      {
+        "name": "nfs-nas201",
+        "provisioner": "nfs.csi.k8s.io",
+        "default": false,
+        "reclaim": "Delete",
+        "mount_options": [
+          "nfsvers=4.2",
+          "nconnect=16",
+          "hard",
+          "noatime"
+        ],
+        "server": null,
+        "note": "server/share parameters are commented out in the HelmRelease"
+      }
+    ],
+    "ceph": {
+      "image": "quay.io/ceph/ceph",
+      "version": "v20.2.4",
+      "osd_device_filter": "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1",
+      "network": "host",
+      "dashboard_host": "rook.turner.haus",
+      "mgr_modules": [
+        "diskprediction_local",
+        "insights",
+        "pg_autoscaler"
+      ],
+      "rgw_instances": 1
+    },
+    "topolvm": {
+      "volume_group": "topolvm-vg",
+      "thin_pool": "topolvm-thin",
+      "overprovision": 10.0
+    },
+    "nfs_server_var": "${SECRET_NFS_IP}",
+    "nfs_exports": [
+      "/mnt/storage/media/audiobook",
+      "/mnt/storage/media/incoming/sabnzbd/Downloads/complete",
+      "/mnt/storage/media/incoming/sabnzbd/Downloads/incomplete",
+      "/mnt/storage/media/music",
+      "/mnt/storage/media/video/movie",
+      "/mnt/storage/media/video/tv"
+    ],
+    "pvcs_by_class": {
+      "ceph-block": [
+        {
+          "namespace": "default",
+          "claim": "dario",
+          "size": "1Gi",
+          "app": "dario"
+        },
+        {
+          "namespace": "default",
+          "claim": "homarr-config",
+          "size": "1Gi",
+          "app": "homarr"
+        },
+        {
+          "namespace": "default",
+          "claim": "homarr-data",
+          "size": "5Gi",
+          "app": "homarr"
+        },
+        {
+          "namespace": "default",
+          "claim": "homebox",
+          "size": "20Gi",
+          "app": "homebox"
+        },
+        {
+          "namespace": "default",
+          "claim": "homepage",
+          "size": "1Gi",
+          "app": "homepage"
+        },
+        {
+          "namespace": "default",
+          "claim": "mealie",
+          "size": "20Gi",
+          "app": "mealie"
+        },
+        {
+          "namespace": "default",
+          "claim": "n8n-data",
+          "size": "10Gi",
+          "app": "n8n"
+        },
+        {
+          "namespace": "default",
+          "claim": "n8n-atrelix-data",
+          "size": "10Gi",
+          "app": "n8n-atrelix"
+        },
+        {
+          "namespace": "default",
+          "claim": "paperclip-atrelix-data",
+          "size": "20Gi",
+          "app": "paperclip-atrelix"
+        },
+        {
+          "namespace": "default",
+          "claim": "paperless-ngx-data",
+          "size": "50Gi",
+          "app": "paperless-ngx"
+        },
+        {
+          "namespace": "default",
+          "claim": "paperless-ngx-media",
+          "size": "50Gi",
+          "app": "paperless-ngx"
+        },
+        {
+          "namespace": "default",
+          "claim": "paperless-ngx-consume",
+          "size": "10Gi",
+          "app": "paperless-ngx"
+        },
+        {
+          "namespace": "default",
+          "claim": "photoprism-assets",
+          "size": "50Gi",
+          "app": "photoprism"
+        },
+        {
+          "namespace": "default",
+          "claim": "photoprism-originals",
+          "size": "500Gi",
+          "app": "photoprism"
+        },
+        {
+          "namespace": "default",
+          "claim": "photoprism-import",
+          "size": "100Gi",
+          "app": "photoprism"
+        },
+        {
+          "namespace": "default",
+          "claim": "rustdesk",
+          "size": "1Gi",
+          "app": "rustdesk"
+        },
+        {
+          "namespace": "default",
+          "claim": "rustdesk-api",
+          "size": "1Gi",
+          "app": "rustdesk"
+        },
+        {
+          "namespace": "default",
+          "claim": "shlink",
+          "size": "1Gi",
+          "app": "shlink"
+        },
+        {
+          "namespace": "infra",
+          "claim": "organizr",
+          "size": "10Gi",
+          "app": "organizr"
+        },
+        {
+          "namespace": "infra",
+          "claim": "organizr-config",
+          "size": "5Gi",
+          "app": "organizr"
+        },
+        {
+          "namespace": "media",
+          "claim": "audiobookshelf-config",
+          "size": "1Gi",
+          "app": "audiobookshelf"
+        },
+        {
+          "namespace": "media",
+          "claim": "madsonic-config",
+          "size": "10Gi",
+          "app": "madsonic"
+        },
+        {
+          "namespace": "media",
+          "claim": "overseerr-config",
+          "size": "1Gi",
+          "app": "overseerr"
+        },
+        {
+          "namespace": "media",
+          "claim": "plex",
+          "size": "100Gi",
+          "app": "plex"
+        },
+        {
+          "namespace": "media",
+          "claim": "plex-cache",
+          "size": "100Gi",
+          "app": "plex"
+        },
+        {
+          "namespace": "media",
+          "claim": "prowlarr-config",
+          "size": "1Gi",
+          "app": "prowlarr"
+        },
+        {
+          "namespace": "media",
+          "claim": "radarr-config",
+          "size": "10Gi",
+          "app": "radarr"
+        },
+        {
+          "namespace": "media",
+          "claim": "readarr-config",
+          "size": "10Gi",
+          "app": "readarr"
+        },
+        {
+          "namespace": "media",
+          "claim": "sabnzbd-config",
+          "size": "1Gi",
+          "app": "sabnzbd"
+        },
+        {
+          "namespace": "media",
+          "claim": "sonarr-config",
+          "size": "10Gi",
+          "app": "sonarr"
+        }
+      ]
+    }
+  },
+  "databases": {
+    "postgres": {
+      "instances": 3,
+      "image": "ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie",
+      "storage_class": "topolvm-thin-provisioner",
+      "size": "40Gi",
+      "sync_replication": {
+        "method": "any",
+        "number": 1
+      },
+      "primary_update": "switchover",
+      "lb_ip": "10.13.38.92",
+      "lb_hostname": "postgres.turner.haus",
+      "external_traffic_policy": "Local",
+      "backup": {
+        "schedule": "0 0 2 * * *",
+        "retention": "30d",
+        "destination": "s3://cnpg-backups-3e423fc4-c680-4b68-88e6-67382d084def/",
+        "endpoint": "http://rook-ceph-rgw-ceph-objectstore.rook-ceph.svc:80",
+        "method": "plugin"
+      },
+      "consumers": [
+        "documenso",
+        "homebox",
+        "hudu",
+        "mealie",
+        "n8n",
+        "n8n-atrelix",
+        "paperclip-atrelix",
+        "paperless-ngx",
+        "shlink"
+      ]
+    },
+    "dragonfly": {
+      "replicas": 3,
+      "image": "ghcr.io/dragonflydb/dragonfly:v2.0.2",
+      "args": [
+        "--maxmemory=768Mi",
+        "--proactor_threads=2",
+        "--cluster_mode=emulated",
+        "--default_lua_flags=allow-undeclared-keys",
+        "--version_check=false"
+      ],
+      "consumers": [
+        "hudu",
+        "n8n"
+      ]
+    }
+  },
+  "apps": [
+    {
+      "name": "cert-manager",
+      "namespace": "cert-manager",
+      "dir": "cert-manager",
+      "file": "kubernetes/apps/cert-manager/cert-manager/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "cert-manager",
+        "url": "oci://quay.io/jetstack/charts/cert-manager",
+        "version": "v1.21.2"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "cert-manager/cert-manager"
+      ],
+      "flux_kustomizations": [
+        "cert-manager",
+        "cert-manager-tls"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "cloudnative-pg",
+      "namespace": "database",
+      "dir": "cloudnative-pg",
+      "file": "kubernetes/apps/database/cloudnative-pg/operator/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "cloudnative-pg",
+        "repo": "cloudnative-pg",
+        "repo_namespace": null,
+        "version": "0.29.1"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "postgres-lb",
+          "namespace": "database",
+          "app": "cloudnative-pg",
+          "type": "LoadBalancer",
+          "lb_ip": "10.13.38.92",
+          "hostname": "postgres.turner.haus",
+          "external_traffic_policy": "Local",
+          "ports": [
+            {
+              "name": "postgres",
+              "port": 5432,
+              "protocol": "TCP"
+            }
+          ],
+          "selector": {
+            "cnpg.io/cluster": "postgres",
+            "role": "primary"
+          },
+          "file": "kubernetes/apps/database/cloudnative-pg/cluster/service.yaml"
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg",
+        "database/cloudnative-pg-plugin-barman"
+      ],
+      "flux_kustomizations": [
+        "cloudnative-pg",
+        "cloudnative-pg-plugin-barman",
+        "cloudnative-pg-cluster"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "dragonfly-operator",
+      "namespace": "database",
+      "dir": "dragonfly",
+      "file": "kubernetes/apps/database/dragonfly/operator/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "dragonfly-operator",
+        "url": "oci://ghcr.io/dragonflydb/dragonfly-operator/helm/dragonfly-operator",
+        "version": "v1.7.1"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/dragonflydb/operator",
+          "tag": null,
+          "digest": null,
+          "controller": "manager",
+          "container": "manager",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "database/dragonfly-operator"
+      ],
+      "flux_kustomizations": [
+        "dragonfly-operator",
+        "dragonfly-cluster"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": true,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "dario",
+      "namespace": "default",
+      "dir": "dario",
+      "file": "kubernetes/apps/default/dario/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/askalf/dario",
+          "tag": "v6.13.31",
+          "digest": "sha256:75ad9a34a96e24150ef2ffa5fe9aa0377e38bd102b42fbd21bb0b73911b1d44a",
+          "controller": "dario",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "dario.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 3456
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 3456,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "dario",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "external-secrets/external-secrets",
+        "flux-system/dario",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "dario",
+        "dario-notify"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": true
+      }
+    },
+    {
+      "name": "documenso",
+      "namespace": "default",
+      "dir": "documenso",
+      "file": "kubernetes/apps/default/documenso/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/atrelixtech/atrelix-sign",
+          "tag": "v2.17.0-atrelix",
+          "digest": "sha256:879c7d647caff3b1f4f1d8e1ffcb4f6197f710a84624c27e07d0f8a82c8816a2",
+          "controller": "documenso",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "documenso",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "sign.${SECRET_DOMAIN_2}"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 3000
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Atrelix",
+            "name": "Documenso",
+            "icon": "documenso.svg",
+            "description": "Document signing"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 3000,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "external-secrets/external-secrets"
+      ],
+      "flux_kustomizations": [
+        "documenso"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Atrelix",
+        "name": "Documenso",
+        "icon": "documenso.svg",
+        "description": "Document signing"
+      },
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": true
+      }
+    },
+    {
+      "name": "echo",
+      "namespace": "default",
+      "dir": "echo",
+      "file": "kubernetes/apps/default/echo/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": true,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/mendhak/http-https-echo",
+          "tag": "42",
+          "digest": null,
+          "controller": "echo",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "echo.turner.haus"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 80
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/cloudflared"
+      ],
+      "flux_kustomizations": [
+        "echo"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "echo-envoy",
+      "namespace": "default",
+      "dir": "echo-envoy",
+      "file": "kubernetes/apps/default/echo-envoy/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/mendhak/http-https-echo",
+          "tag": "42",
+          "digest": null,
+          "controller": "echo",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "echo-envoy.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": null,
+              "name": "echo-envoy",
+              "port": 80
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "echo-envoy"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "echo-internal",
+      "namespace": "default",
+      "dir": "echo-internal",
+      "file": "kubernetes/apps/default/echo-internal/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/mendhak/http-https-echo",
+          "tag": "42",
+          "digest": null,
+          "controller": "echo",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "echo-internal.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 80
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "echo-internal"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "homarr",
+      "namespace": "default",
+      "dir": "homarr",
+      "file": "kubernetes/apps/default/homarr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/homarr-labs/homarr",
+          "tag": "v2.8.1",
+          "digest": null,
+          "controller": "homarr",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "dash.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 7575
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Admin",
+            "name": "Homarr",
+            "icon": "homarr.svg",
+            "description": "Dashboard"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 7575,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "homarr-config",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        },
+        {
+          "volume": "data",
+          "claim": "homarr-data",
+          "storage_class": "ceph-block",
+          "size": "5Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "external-secrets/external-secrets",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "homarr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Admin",
+        "name": "Homarr",
+        "icon": "homarr.svg",
+        "description": "Dashboard"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "homebox",
+      "namespace": "default",
+      "dir": "homebox",
+      "file": "kubernetes/apps/default/homebox/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/sysadminsmedia/homebox",
+          "tag": "0.23.1-rootless",
+          "digest": null,
+          "controller": "homebox",
+          "container": "homebox",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "homebox",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "box.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 7745
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": "7745",
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "homebox",
+          "storage_class": "ceph-block",
+          "size": "20Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "external-secrets/external-secrets",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "homebox"
+      ],
+      "homepage": null,
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "homepage",
+      "namespace": "default",
+      "dir": "homepage",
+      "file": "kubernetes/apps/default/homepage/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/gethomepage/homepage",
+          "tag": "v2.6.0",
+          "digest": null,
+          "controller": "homepage",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "homepage.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 3000
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 3000,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "homepage",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "homepage"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "httpbin",
+      "namespace": "default",
+      "dir": "httpbin",
+      "file": "kubernetes/apps/default/httpbin/app/helmrelease.yaml",
+      "deployed": false,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": true,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/mccutchen/go-httpbin",
+          "tag": "2.26.0",
+          "digest": null,
+          "controller": "app",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "httpbin.turner.haus"
+          ],
+          "target": "internal.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "httpbin"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "httpbin2",
+      "namespace": "default",
+      "dir": "httpbin2",
+      "file": "kubernetes/apps/default/httpbin2/app/helmrelease.yaml",
+      "deployed": false,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "httpbin",
+        "repo": "matheusfm",
+        "repo_namespace": null,
+        "version": null
+      },
+      "suspended": true,
+      "interval": "168h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "httpbin2.turner.haus"
+          ],
+          "target": "internal.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [
+        {
+          "name": "ports",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": []
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "httpbin2"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "hudu",
+      "namespace": "default",
+      "dir": "hudu",
+      "file": "kubernetes/apps/default/hudu/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "hudu",
+        "url": "oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart",
+        "version": "0.3.6"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "hududocker/hudu",
+          "tag": "2.48.0",
+          "digest": null,
+          "controller": "image",
+          "container": "image",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "hudu",
+          "namespace": "default",
+          "hostnames": [
+            "docs.${SECRET_DOMAIN_2}"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "name": "hudu-web",
+              "namespace": null,
+              "port": 3000
+            }
+          ]
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "database/dragonfly-cluster",
+        "external-secrets/external-secrets"
+      ],
+      "flux_kustomizations": [
+        "hudu"
+      ],
+      "homepage": null,
+      "uses_postgres": true,
+      "uses_dragonfly": true,
+      "secrets": {
+        "sops": true,
+        "external": true
+      }
+    },
+    {
+      "name": "mealie",
+      "namespace": "default",
+      "dir": "mealie",
+      "file": "kubernetes/apps/default/mealie/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/mealie-recipes/mealie",
+          "tag": "v3.29.0",
+          "digest": "sha256:78eb28b8776d0bad40c5e605c72b3f4f5976793e491558c7dcbdfc04c835d4bc",
+          "controller": "mealie",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "mealie",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "cook.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 9000
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Home",
+            "name": "Mealie",
+            "icon": "mealie.svg",
+            "description": "Recipes"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 9000,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "mealie",
+          "storage_class": "ceph-block",
+          "size": "20Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "mealie"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Home",
+        "name": "Mealie",
+        "icon": "mealie.svg",
+        "description": "Recipes"
+      },
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "n8n",
+      "namespace": "default",
+      "dir": "n8n",
+      "file": "kubernetes/apps/default/n8n/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "n8nio/n8n",
+          "tag": "2.45.3",
+          "digest": null,
+          "controller": "n8n",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "n8n",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "auto.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 5678
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Home",
+            "name": "n8n",
+            "icon": "n8n.svg",
+            "description": "Home automations"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 5678,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "n8n-data",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "external-secrets/external-secrets",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "n8n"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Home",
+        "name": "n8n",
+        "icon": "n8n.svg",
+        "description": "Home automations"
+      },
+      "uses_postgres": true,
+      "uses_dragonfly": true,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "n8n-atrelix",
+      "namespace": "default",
+      "dir": "n8n-atrelix",
+      "file": "kubernetes/apps/default/n8n-atrelix/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/atrelixtech/atrelix-automate",
+          "tag": "2.7.2-atrelix",
+          "digest": "sha256:764a6e5ac24877a98cca28e56a2e3ef3dedd39efe25e3aba7c3a0d127af03ad8",
+          "controller": "n8n-atrelix",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "n8n-atrelix",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "automate.${SECRET_DOMAIN_2}"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 5678
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Atrelix",
+            "name": "n8n (Atrelix)",
+            "icon": "n8n.svg",
+            "description": "Business automations"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 5678,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "n8n-atrelix-data",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "external-secrets/external-secrets",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "n8n-atrelix"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Atrelix",
+        "name": "n8n (Atrelix)",
+        "icon": "n8n.svg",
+        "description": "Business automations"
+      },
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "paperclip-atrelix",
+      "namespace": "default",
+      "dir": "paperclip-atrelix",
+      "file": "kubernetes/apps/default/paperclip-atrelix/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/paperclipai/paperclip",
+          "tag": "2026.1012.0",
+          "digest": "sha256:1661b3dd3fdf7a9b59542d1ced464c3faf9dc8309798b4d15a9923ed32795307",
+          "controller": "paperclip-atrelix",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "paperclip-atrelix",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "paperclip.${SECRET_DOMAIN_2}"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 3100
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Atrelix",
+            "name": "Paperclip",
+            "icon": "mdi-paperclip"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 3100,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "paperclip-atrelix-data",
+          "storage_class": "ceph-block",
+          "size": "20Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "database/cloudnative-pg-cluster",
+        "external-secrets/external-secrets",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "paperclip-atrelix"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Atrelix",
+        "name": "Paperclip",
+        "icon": "mdi-paperclip"
+      },
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "paperless-ngx",
+      "namespace": "default",
+      "dir": "paperless-ngx",
+      "file": "kubernetes/apps/default/paperless-ngx/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/paperless-ngx/paperless-ngx",
+          "tag": "3.3.4",
+          "digest": "sha256:9bc6e8248891bcfa6f52fffe8b81e4ea8cae75790c3ec1b9906961a7ba55c969",
+          "controller": "paperless-ngx",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/home-operations/postgres-init",
+          "tag": "17.6",
+          "digest": null,
+          "controller": "paperless-ngx",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "docs.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 8000
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Home",
+            "name": "Paperless",
+            "icon": "paperless-ngx.svg",
+            "description": "Documents"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8000,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "paperless-ngx-data",
+          "storage_class": "ceph-block",
+          "size": "50Gi"
+        },
+        {
+          "volume": "media",
+          "claim": "paperless-ngx-media",
+          "storage_class": "ceph-block",
+          "size": "50Gi"
+        },
+        {
+          "volume": "consume",
+          "claim": "paperless-ngx-consume",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "paperless-ngx"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Home",
+        "name": "Paperless",
+        "icon": "paperless-ngx.svg",
+        "description": "Documents"
+      },
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "photoprism",
+      "namespace": "default",
+      "dir": "photoprism",
+      "file": "kubernetes/apps/default/photoprism/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "docker.io/photoprism/photoprism",
+          "tag": "latest",
+          "digest": "sha256:0f85369636ad99ca9a1c33f2d04df6c590802d16b7c33b4a1ea026b595be06d1",
+          "controller": "photoprism",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "photos.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 2342
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "PhotoPrism",
+            "icon": "photoprism.svg",
+            "description": "Photos"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 2342,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "assets",
+          "claim": "photoprism-assets",
+          "storage_class": "ceph-block",
+          "size": "50Gi"
+        },
+        {
+          "volume": "originals",
+          "claim": "photoprism-originals",
+          "storage_class": "ceph-block",
+          "size": "500Gi"
+        },
+        {
+          "volume": "import",
+          "claim": "photoprism-import",
+          "storage_class": "ceph-block",
+          "size": "100Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "photoprism"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "PhotoPrism",
+        "icon": "photoprism.svg",
+        "description": "Photos"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "podinfo",
+      "namespace": "default",
+      "dir": "podinfo",
+      "file": "kubernetes/apps/default/podinfo/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": true,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/stefanprodan/podinfo",
+          "tag": "6.15.0",
+          "digest": null,
+          "controller": "app",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "podinfo.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 9898
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 9898,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "podinfo"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "rustdesk",
+      "namespace": "default",
+      "dir": "rustdesk",
+      "file": "kubernetes/apps/default/rustdesk/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/atrelixtech/rustdesk-server",
+          "tag": "0.1.2-atrelix",
+          "digest": "sha256:4fc25359234040c7ecbd3aaf784e48759057729857c12949b97378204dee1335",
+          "controller": "rustdesk",
+          "container": "hbbs",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/atrelixtech/rustdesk-server",
+          "tag": "0.1.2-atrelix",
+          "digest": "sha256:4fc25359234040c7ecbd3aaf784e48759057729857c12949b97378204dee1335",
+          "controller": "rustdesk",
+          "container": "hbbr",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/atrelixtech/rustdesk-api",
+          "tag": "e318f1f-atrelix",
+          "digest": "sha256:cd64a590bcb49952af1d9cad95c088c795abfec93ae302b3d3dc7604789c4508",
+          "controller": "rustdesk",
+          "container": "api",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "rdesk-api.${SECRET_DOMAIN_2}"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 21118
+            },
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 21119
+            },
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 21114
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "LoadBalancer",
+          "lb_ip": "10.13.38.93",
+          "ports": [
+            {
+              "name": "nat-test",
+              "port": 21115,
+              "protocol": "TCP"
+            },
+            {
+              "name": "id-tcp",
+              "port": 21116,
+              "protocol": "TCP"
+            },
+            {
+              "name": "id-udp",
+              "port": 21116,
+              "protocol": "UDP"
+            },
+            {
+              "name": "relay",
+              "port": 21117,
+              "protocol": "TCP"
+            },
+            {
+              "name": "id-ws",
+              "port": 21118,
+              "protocol": "TCP"
+            },
+            {
+              "name": "relay-ws",
+              "port": 21119,
+              "protocol": "TCP"
+            },
+            {
+              "name": "api",
+              "port": 21114,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "rustdesk",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        },
+        {
+          "volume": "api-data",
+          "claim": "rustdesk-api",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "rustdesk"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": true
+      }
+    },
+    {
+      "name": "shlink",
+      "namespace": "default",
+      "dir": "shlink",
+      "file": "kubernetes/apps/default/shlink/app/helmrelease.yaml",
+      "deployed": false,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "shlinkio/shlink",
+          "tag": "5.1.8",
+          "digest": null,
+          "controller": "shlink",
+          "container": "app",
+          "role": "app"
+        },
+        {
+          "repository": "ghcr.io/cloudnative-pg/postgresql",
+          "tag": "18.6",
+          "digest": null,
+          "controller": "shlink",
+          "container": "init-db",
+          "role": "init"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "link.turner.haus",
+            "link-admin.turner.haus"
+          ],
+          "target": "external.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "shlink",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "external-secrets/external-secrets",
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "shlink"
+      ],
+      "homepage": null,
+      "uses_postgres": true,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "shlink-web-client",
+      "namespace": "default",
+      "dir": "shlink-web-client",
+      "file": "kubernetes/apps/default/shlink-web-client/app/helmrelease.yaml",
+      "deployed": false,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "shlinkio/shlink-web-client",
+          "tag": "4.8.1",
+          "digest": null,
+          "controller": "shlink-web-client",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "shlink-admin.turner.haus"
+          ],
+          "target": "external.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "flux-system/shlink"
+      ],
+      "flux_kustomizations": [
+        "shlink-web-client"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "workflow-console",
+      "namespace": "default",
+      "dir": "workflow-console",
+      "file": "kubernetes/apps/default/workflow-console/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/tturnerdev/atrelix-workflow-console",
+          "tag": "v0.4.0",
+          "digest": null,
+          "controller": "workflow-console",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "flow.${SECRET_DOMAIN_2}"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 8080
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Atrelix",
+            "name": "Workflow Console",
+            "icon": "mdi-sitemap-outline",
+            "description": "n8n workflow console"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "workflow-console"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Atrelix",
+        "name": "Workflow Console",
+        "icon": "mdi-sitemap-outline",
+        "description": "n8n workflow console"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "external-secrets",
+      "namespace": "external-secrets",
+      "dir": "external-secrets",
+      "file": "kubernetes/apps/external-secrets/external-secrets/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "external-secrets",
+        "url": "oci://ghcr.io/external-secrets/charts/external-secrets",
+        "version": "2.13.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "ghcr.io/external-secrets/external-secrets",
+          "tag": null,
+          "digest": null,
+          "controller": "image",
+          "container": "image",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "external-secrets"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "flux-instance",
+      "namespace": "flux-system",
+      "dir": "flux-instance",
+      "file": "kubernetes/apps/flux-system/flux-instance/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "flux-instance",
+        "url": "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
+        "version": "0.61.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "flux distribution",
+          "tag": "2.9.6",
+          "digest": null,
+          "controller": "flux",
+          "container": "flux",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "flux-webhook",
+          "namespace": "flux-system",
+          "hostnames": [
+            "flux-webhook.turner.haus"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "name": "webhook-receiver",
+              "namespace": null,
+              "port": 80,
+              "path": "/hook"
+            }
+          ]
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "flux-system/flux-operator"
+      ],
+      "flux_kustomizations": [
+        "flux-instance"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "flux-operator",
+      "namespace": "flux-system",
+      "dir": "flux-operator",
+      "file": "kubernetes/apps/flux-system/flux-operator/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "flux-operator",
+        "url": "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
+        "version": "0.61.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "flux-operator"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "atlas",
+      "namespace": "infra",
+      "dir": "atlas",
+      "file": "kubernetes/apps/infra/atlas/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "docker.io/joseluisq/static-web-server",
+          "tag": "2.44.1",
+          "digest": null,
+          "controller": "atlas",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "atlas.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 8080
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Admin",
+            "name": "Atlas",
+            "icon": "mdi-map-search",
+            "description": "Cluster atlas"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "external-secrets/external-secrets",
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "atlas",
+        "atlas-live"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Admin",
+        "name": "Atlas",
+        "icon": "mdi-map-search",
+        "description": "Cluster atlas"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "ntfy",
+      "namespace": "infra",
+      "dir": "ntfy",
+      "file": "kubernetes/apps/infra/ntfy/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "2m",
+      "images": [
+        {
+          "repository": "docker.io/binwiederhier/ntfy",
+          "tag": "v2.33.1",
+          "digest": "sha256:29bc952294d58957f6ca6638eca9a653a33555989224edbdf4bb9433ee606497",
+          "controller": "ntfy",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "ntfy.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 80
+            }
+          ],
+          "homepage": null
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "ntfy"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "organizr",
+      "namespace": "infra",
+      "dir": "organizr",
+      "file": "kubernetes/apps/infra/organizr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/organizr/organizr",
+          "tag": "latest",
+          "digest": null,
+          "controller": "app",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "home.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 80
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Admin",
+            "name": "Organizr",
+            "icon": "organizr.png",
+            "description": "Dashboard"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "data",
+          "claim": "organizr",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        },
+        {
+          "volume": "config",
+          "claim": "organizr-config",
+          "storage_class": "ceph-block",
+          "size": "5Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "organizr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Admin",
+        "name": "Organizr",
+        "icon": "organizr.png",
+        "description": "Dashboard"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "podinfo2",
+      "namespace": "infra",
+      "dir": "podinfo2",
+      "file": "kubernetes/apps/infra/podinfo2/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": true,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/stefanprodan/podinfo",
+          "tag": "6.15.0",
+          "digest": null,
+          "controller": "app",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "podinfo2.turner.haus"
+          ],
+          "target": "internal.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 9898,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/envoy-gateway"
+      ],
+      "flux_kustomizations": [
+        "podinfo2"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "podinfo3",
+      "namespace": "infra",
+      "dir": "podinfo3",
+      "file": "kubernetes/apps/infra/podinfo3/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "podinfo",
+        "url": "oci://ghcr.io/stefanprodan/charts/podinfo",
+        "version": ">= 6.0.0"
+      },
+      "suspended": true,
+      "interval": "168h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "podinfo3.turner.haus"
+          ],
+          "target": "internal.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "podinfo3"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "cilium",
+      "namespace": "kube-system",
+      "dir": "cilium",
+      "file": "kubernetes/apps/kube-system/cilium/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "cilium",
+        "url": "oci://quay.io/cilium/charts/cilium",
+        "version": "1.20.3"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "cilium"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "coredns",
+      "namespace": "kube-system",
+      "dir": "coredns",
+      "file": "kubernetes/apps/kube-system/coredns/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "coredns",
+        "url": "oci://ghcr.io/coredns/charts/coredns",
+        "version": "1.49.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "mirror.gcr.io/coredns/coredns",
+          "tag": null,
+          "digest": null,
+          "controller": "image",
+          "container": "image",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "coredns"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "csi-driver-nfs",
+      "namespace": "kube-system",
+      "dir": "csi-driver-nfs",
+      "file": "kubernetes/apps/kube-system/csi-driver-nfs/app/helmrelease.yaml",
+      "deployed": false,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "csi-driver-nfs",
+        "repo": "csi-driver-nfs",
+        "repo_namespace": "flux-system",
+        "version": "4.13.5"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "csi-driver-nfs"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "metrics-server",
+      "namespace": "kube-system",
+      "dir": "metrics-server",
+      "file": "kubernetes/apps/kube-system/metrics-server/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "metrics-server",
+        "repo": "metrics-server",
+        "repo_namespace": "kube-system",
+        "version": "3.14.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "metrics-server"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "reloader",
+      "namespace": "kube-system",
+      "dir": "reloader",
+      "file": "kubernetes/apps/kube-system/reloader/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "reloader",
+        "url": "oci://ghcr.io/stakater/charts/reloader",
+        "version": "2.2.18"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "reloader"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "spegel",
+      "namespace": "kube-system",
+      "dir": "spegel",
+      "file": "kubernetes/apps/kube-system/spegel/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "spegel",
+        "url": "oci://ghcr.io/spegel-org/helm-charts/spegel",
+        "version": "0.8.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "spegel"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "audiobookshelf",
+      "namespace": "media",
+      "dir": "audiobookshelf",
+      "file": "kubernetes/apps/media/audiobookshelf/app/helmrelease.yaml",
+      "deployed": false,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "app-template",
+        "repo": "bjw-s",
+        "repo_namespace": "flux-system",
+        "version": "4.4.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "ghcr.io/advplyr/audiobookshelf",
+          "tag": "2.37.1",
+          "digest": "sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+          "controller": "audiobookshelf",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [
+        {
+          "class": "internal",
+          "hostnames": [
+            "audiobook.turner.haus"
+          ],
+          "target": "external.turner.haus",
+          "enabled": true
+        }
+      ],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 80,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "audiobookshelf-config",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [
+        {
+          "volume": "audiobook",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/audiobook",
+          "mounts": [
+            "/mnt/audiobook"
+          ]
+        }
+      ],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "audiobookshelf"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "madsonic",
+      "namespace": "media",
+      "dir": "madsonic",
+      "file": "kubernetes/apps/media/madsonic/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "ghcr.io/tturnerdev/madsonic",
+          "tag": "7.0.10400",
+          "digest": null,
+          "controller": "madsonic",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "music.turner.haus"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 4040
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Madsonic",
+            "icon": "mdi-music-box-multiple",
+            "description": "Music"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 4040,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "madsonic-config",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [
+        {
+          "volume": "music",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/music",
+          "mounts": [
+            "/mnt/core/Media/Music"
+          ]
+        }
+      ],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "madsonic"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Madsonic",
+        "icon": "mdi-music-box-multiple",
+        "description": "Music"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "overseerr",
+      "namespace": "media",
+      "dir": "overseerr",
+      "file": "kubernetes/apps/media/overseerr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/sct/overseerr",
+          "tag": "1.35.0",
+          "digest": null,
+          "controller": "overseerr",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "request.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 5055
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Overseerr",
+            "icon": "overseerr.svg",
+            "description": "Requests"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 5055,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "overseerr-config",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "overseerr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Overseerr",
+        "icon": "overseerr.svg",
+        "description": "Requests"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "plex",
+      "namespace": "media",
+      "dir": "plex",
+      "file": "kubernetes/apps/media/plex/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/plex",
+          "tag": "1.43",
+          "digest": null,
+          "controller": "plex",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "plex.turner.haus"
+          ],
+          "gateway": "envoy-external",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "external",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 32400
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Plex",
+            "icon": "plex.svg",
+            "description": "Media server"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "LoadBalancer",
+          "lb_ip": "10.13.38.91",
+          "ports": [
+            {
+              "name": "http",
+              "port": 32400,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "plex",
+          "storage_class": "ceph-block",
+          "size": "100Gi"
+        },
+        {
+          "volume": "config-cache",
+          "claim": "plex-cache",
+          "storage_class": "ceph-block",
+          "size": "100Gi"
+        }
+      ],
+      "nfs": [
+        {
+          "volume": "movie",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/video/movie",
+          "mounts": [
+            "/mnt/nfs/movie"
+          ]
+        },
+        {
+          "volume": "tv",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/video/tv",
+          "mounts": [
+            "/mnt/nfs/tv"
+          ]
+        },
+        {
+          "volume": "music",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/music",
+          "mounts": [
+            "/mnt/nfs/music"
+          ]
+        }
+      ],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "plex"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Plex",
+        "icon": "plex.svg",
+        "description": "Media server"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "prowlarr",
+      "namespace": "media",
+      "dir": "prowlarr",
+      "file": "kubernetes/apps/media/prowlarr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/prowlarr",
+          "tag": "2.6.5.5623",
+          "digest": "sha256:0e2e6e9a2a16683a160ff1c6830d8192231a0502ab0d605b416023b2ca225ff9",
+          "controller": "prowlarr",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "index.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 30050
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Prowlarr",
+            "icon": "prowlarr.svg",
+            "description": "Indexers"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 30050,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "prowlarr-config",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "prowlarr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Prowlarr",
+        "icon": "prowlarr.svg",
+        "description": "Indexers"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "radarr",
+      "namespace": "media",
+      "dir": "radarr",
+      "file": "kubernetes/apps/media/radarr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/radarr",
+          "tag": "6.4.4.10685",
+          "digest": "sha256:1902ad2c08e9bac276ff9a1429af2eaa2f3c635a51f138f1b3eb734995171537",
+          "controller": "radarr",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "movies.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 7878
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Radarr",
+            "icon": "radarr.svg",
+            "description": "Movies"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 7878,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "radarr-config",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [
+        {
+          "volume": "movies",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/video/movie",
+          "mounts": [
+            "/mnt/movie"
+          ]
+        },
+        {
+          "volume": "sabnzbd-complete",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/incoming/sabnzbd/Downloads/complete",
+          "mounts": [
+            "/mnt/incoming/sabnzbd/Downloads/complete"
+          ]
+        }
+      ],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "radarr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Radarr",
+        "icon": "radarr.svg",
+        "description": "Movies"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "readarr",
+      "namespace": "media",
+      "dir": "readarr",
+      "file": "kubernetes/apps/media/readarr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/readarr",
+          "tag": "0.4.18.2805",
+          "digest": null,
+          "controller": "readarr",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "books.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 8787
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Readarr",
+            "icon": "readarr.svg",
+            "description": "Books"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8787,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "readarr-config",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "readarr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Readarr",
+        "icon": "readarr.svg",
+        "description": "Books"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "sabnzbd",
+      "namespace": "media",
+      "dir": "sabnzbd",
+      "file": "kubernetes/apps/media/sabnzbd/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/sabnzbd",
+          "tag": "5.1.3",
+          "digest": null,
+          "controller": "sabnzbd",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "downloads.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 30055
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "SABnzbd",
+            "icon": "sabnzbd.svg",
+            "description": "Downloads"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 30055,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "sabnzbd-config",
+          "storage_class": "ceph-block",
+          "size": "1Gi"
+        }
+      ],
+      "nfs": [
+        {
+          "volume": "sabnzbd-incomplete",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/incoming/sabnzbd/Downloads/incomplete",
+          "mounts": [
+            "/mnt/sabnzbd/Downloads/incomplete"
+          ]
+        },
+        {
+          "volume": "sabnzbd-complete",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/incoming/sabnzbd/Downloads/complete",
+          "mounts": [
+            "/mnt/sabnzbd/Downloads/complete"
+          ]
+        }
+      ],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "sabnzbd"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "SABnzbd",
+        "icon": "sabnzbd.svg",
+        "description": "Downloads"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "sonarr",
+      "namespace": "media",
+      "dir": "sonarr",
+      "file": "kubernetes/apps/media/sonarr/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "30m",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/sonarr",
+          "tag": "4.0.20.3012",
+          "digest": null,
+          "controller": "sonarr",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "app",
+          "hostnames": [
+            "tv.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [
+            {
+              "identifier": "app",
+              "name": null,
+              "port": 8989
+            }
+          ],
+          "homepage": {
+            "enabled": "true",
+            "group": "Media",
+            "name": "Sonarr",
+            "icon": "sonarr.svg",
+            "description": "TV shows"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8989,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [
+        {
+          "volume": "config",
+          "claim": "sonarr-config",
+          "storage_class": "ceph-block",
+          "size": "10Gi"
+        }
+      ],
+      "nfs": [
+        {
+          "volume": "tv",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/video/tv",
+          "mounts": [
+            "/mnt/tv"
+          ]
+        },
+        {
+          "volume": "sabnzbd-complete",
+          "server": "${SECRET_NFS_IP}",
+          "path": "/mnt/storage/media/incoming/sabnzbd/Downloads/complete",
+          "mounts": [
+            "/mnt/incoming/sabnzbd/Downloads/complete"
+          ]
+        }
+      ],
+      "depends_on": [
+        "rook-ceph/rook-ceph-cluster"
+      ],
+      "flux_kustomizations": [
+        "sonarr"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Media",
+        "name": "Sonarr",
+        "icon": "sonarr.svg",
+        "description": "TV shows"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "cloudflared",
+      "namespace": "network",
+      "dir": "external",
+      "file": "kubernetes/apps/network/external/cloudflared/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "version": "5.3.0"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "docker.io/cloudflare/cloudflared",
+          "tag": "2026.10.3",
+          "digest": null,
+          "controller": "cloudflared",
+          "container": "app",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "app",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": [
+            {
+              "name": "http",
+              "port": 8080,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "external-external-dns",
+        "cloudflared"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "envoy-gateway",
+      "namespace": "network",
+      "dir": "envoy-gateway",
+      "file": "kubernetes/apps/network/envoy-gateway/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "envoy-gateway",
+        "url": "oci://mirror.gcr.io/envoyproxy/gateway-helm",
+        "version": "v1.9.2"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "envoy-gateway"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "external-dns",
+      "namespace": "network",
+      "dir": "external",
+      "file": "kubernetes/apps/network/external/external-dns/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "external-dns",
+        "repo": "external-dns",
+        "repo_namespace": "flux-system",
+        "version": "1.23.0"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "external-external-dns",
+        "cloudflared"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "k8s-gateway",
+      "namespace": "network",
+      "dir": "internal",
+      "file": "kubernetes/apps/network/internal/k8s-gateway/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "k8s-gateway",
+        "url": "oci://codeberg.org/k8s-gateway/charts/k8s-gateway",
+        "version": "4.0.1"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [
+        {
+          "name": "annotations",
+          "type": "ClusterIP",
+          "lb_ip": null,
+          "ports": []
+        }
+      ],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "k8s-gateway",
+        "unifi-dns"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "tailscale-operator",
+      "namespace": "network",
+      "dir": "tailscale",
+      "file": "kubernetes/apps/network/tailscale/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "tailscale-operator",
+        "repo": "tailscale",
+        "repo_namespace": "network",
+        "version": "1.104.2"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "network/tailscale-operator"
+      ],
+      "flux_kustomizations": [
+        "tailscale-operator",
+        "tailscale-connector"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "unifi-dns",
+      "namespace": "network",
+      "dir": "internal",
+      "file": "kubernetes/apps/network/internal/unifi-dns/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "external-dns",
+        "repo": "external-dns",
+        "repo_namespace": "flux-system",
+        "version": "1.23.0"
+      },
+      "suspended": false,
+      "interval": "168h",
+      "images": [
+        {
+          "repository": "ghcr.io/home-operations/external-dns-unifi-webhook",
+          "tag": "0.10.14",
+          "digest": "sha256:2d56637e230de7eaeda83388a79ec633c94910e77503141bc6a1a5492eecdd7e",
+          "controller": "webhook",
+          "container": "webhook",
+          "role": "sidecar"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "k8s-gateway",
+        "unifi-dns"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": true,
+        "external": false
+      }
+    },
+    {
+      "name": "ceph-csi-drivers",
+      "namespace": "rook-ceph",
+      "dir": "rook-ceph",
+      "file": "kubernetes/apps/rook-ceph/rook-ceph/csi-drivers/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "ceph-csi-drivers",
+        "repo": "ceph-csi-operator",
+        "repo_namespace": null,
+        "version": "1.1.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph",
+        "rook-ceph/rook-ceph-csi-drivers",
+        "rook-ceph/rook-ceph-operator"
+      ],
+      "flux_kustomizations": [
+        "rook-ceph",
+        "rook-ceph-csi-drivers",
+        "rook-ceph-cluster"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "rook-ceph-cluster",
+      "namespace": "rook-ceph",
+      "dir": "rook-ceph",
+      "file": "kubernetes/apps/rook-ceph/rook-ceph/cluster/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "rook-ceph-cluster",
+        "url": "oci://ghcr.io/rook/rook-ceph-cluster",
+        "version": "1.21.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "quay.io/ceph/ceph",
+          "tag": "v20.2.4",
+          "digest": null,
+          "controller": "ceph",
+          "container": "ceph",
+          "role": "app"
+        }
+      ],
+      "routes": [
+        {
+          "name": "dashboard",
+          "hostnames": [
+            "rook.turner.haus"
+          ],
+          "gateway": "envoy-internal",
+          "gateway_namespace": "network",
+          "listener": "https",
+          "exposure": "internal",
+          "backends": [],
+          "homepage": {
+            "enabled": "true",
+            "group": "Admin",
+            "name": "Ceph",
+            "icon": "ceph.svg",
+            "description": "Storage",
+            "href": "https://rook.${SECRET_DOMAIN}",
+            "pod-selector": "app=rook-ceph-mgr"
+          }
+        }
+      ],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph",
+        "rook-ceph/rook-ceph-csi-drivers"
+      ],
+      "flux_kustomizations": [
+        "rook-ceph",
+        "rook-ceph-csi-drivers",
+        "rook-ceph-cluster"
+      ],
+      "homepage": {
+        "enabled": "true",
+        "group": "Admin",
+        "name": "Ceph",
+        "icon": "ceph.svg",
+        "description": "Storage",
+        "href": "https://rook.${SECRET_DOMAIN}",
+        "pod-selector": "app=rook-ceph-mgr"
+      },
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    },
+    {
+      "name": "rook-ceph-operator",
+      "namespace": "rook-ceph",
+      "dir": "rook-ceph",
+      "file": "kubernetes/apps/rook-ceph/rook-ceph/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "OCIRepository",
+        "name": "rook-ceph",
+        "url": "oci://ghcr.io/rook/rook-ceph",
+        "version": "1.21.0"
+      },
+      "suspended": false,
+      "interval": "1h",
+      "images": [
+        {
+          "repository": "ghcr.io/rook/ceph",
+          "tag": null,
+          "digest": null,
+          "controller": "image",
+          "container": "image",
+          "role": "app"
+        }
+      ],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [
+        "rook-ceph/rook-ceph",
+        "rook-ceph/rook-ceph-csi-drivers"
+      ],
+      "flux_kustomizations": [
+        "rook-ceph",
+        "rook-ceph-csi-drivers",
+        "rook-ceph-cluster"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": true
+      }
+    },
+    {
+      "name": "topolvm",
+      "namespace": "topolvm",
+      "dir": "topolvm",
+      "file": "kubernetes/apps/topolvm/topolvm/app/helmrelease.yaml",
+      "deployed": true,
+      "chart": {
+        "kind": "HelmRepository",
+        "name": "topolvm",
+        "repo": "topolvm",
+        "repo_namespace": null,
+        "version": "17.3.0"
+      },
+      "suspended": false,
+      "interval": "2h",
+      "images": [],
+      "routes": [],
+      "legacy_ingress": [],
+      "services": [],
+      "storage": [],
+      "nfs": [],
+      "depends_on": [],
+      "flux_kustomizations": [
+        "topolvm"
+      ],
+      "homepage": null,
+      "uses_postgres": false,
+      "uses_dragonfly": false,
+      "secrets": {
+        "sops": false,
+        "external": false
+      }
+    }
+  ],
+  "hostnames": [
+    {
+      "host": "automate.${SECRET_DOMAIN_2}",
+      "app": "n8n-atrelix",
+      "namespace": "default",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "manual proxied CNAME in the secondary zone -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "not served by k8s-gateway (secondary zone)",
+      "suspended": false
+    },
+    {
+      "host": "docs.${SECRET_DOMAIN_2}",
+      "app": "hudu",
+      "namespace": "default",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "manual proxied CNAME in the secondary zone -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "not served by k8s-gateway (secondary zone)",
+      "suspended": false
+    },
+    {
+      "host": "flow.${SECRET_DOMAIN_2}",
+      "app": "workflow-console",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "not served by k8s-gateway (secondary zone)",
+      "suspended": false
+    },
+    {
+      "host": "paperclip.${SECRET_DOMAIN_2}",
+      "app": "paperclip-atrelix",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "not served by k8s-gateway (secondary zone)",
+      "suspended": false
+    },
+    {
+      "host": "rdesk-api.${SECRET_DOMAIN_2}",
+      "app": "rustdesk",
+      "namespace": "default",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "manual proxied CNAME in the secondary zone -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "not served by k8s-gateway (secondary zone)",
+      "suspended": false
+    },
+    {
+      "host": "sign.${SECRET_DOMAIN_2}",
+      "app": "documenso",
+      "namespace": "default",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "manual proxied CNAME in the secondary zone -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "not served by k8s-gateway (secondary zone)",
+      "suspended": false
+    },
+    {
+      "host": "atlas.turner.haus",
+      "app": "atlas",
+      "namespace": "infra",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "auto.turner.haus",
+      "app": "n8n",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "books.turner.haus",
+      "app": "readarr",
+      "namespace": "media",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "box.turner.haus",
+      "app": "homebox",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "cook.turner.haus",
+      "app": "mealie",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "dario.turner.haus",
+      "app": "dario",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "dash.turner.haus",
+      "app": "homarr",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "docs.turner.haus",
+      "app": "paperless-ngx",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "downloads.turner.haus",
+      "app": "sabnzbd",
+      "namespace": "media",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "echo-envoy.turner.haus",
+      "app": "echo-envoy",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "echo-internal.turner.haus",
+      "app": "echo-internal",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "echo.turner.haus",
+      "app": "echo",
+      "namespace": "default",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "cloudflare external-dns: proxied CNAME -> external.turner.haus -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "k8s-gateway -> 10.13.38.84",
+      "suspended": true
+    },
+    {
+      "host": "external-envoy.turner.haus",
+      "app": "envoy-external",
+      "namespace": "network",
+      "gateway": "envoy-external",
+      "exposure": "gateway",
+      "lan_dns": null,
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.84",
+      "suspended": false
+    },
+    {
+      "host": "flux-webhook.turner.haus",
+      "app": "flux-instance",
+      "namespace": "flux-system",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "cloudflare external-dns: proxied CNAME -> external.turner.haus -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "k8s-gateway -> 10.13.38.84",
+      "suspended": false
+    },
+    {
+      "host": "home.turner.haus",
+      "app": "organizr",
+      "namespace": "infra",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "homepage.turner.haus",
+      "app": "homepage",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "index.turner.haus",
+      "app": "prowlarr",
+      "namespace": "media",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "internal-envoy.turner.haus",
+      "app": "envoy-internal",
+      "namespace": "network",
+      "gateway": "envoy-internal",
+      "exposure": "gateway",
+      "lan_dns": null,
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "movies.turner.haus",
+      "app": "radarr",
+      "namespace": "media",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "music.turner.haus",
+      "app": "madsonic",
+      "namespace": "media",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "cloudflare external-dns: proxied CNAME -> external.turner.haus -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "k8s-gateway -> 10.13.38.84",
+      "suspended": false
+    },
+    {
+      "host": "ntfy.turner.haus",
+      "app": "ntfy",
+      "namespace": "infra",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "photos.turner.haus",
+      "app": "photoprism",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "plex.turner.haus",
+      "app": "plex",
+      "namespace": "media",
+      "gateway": "envoy-external",
+      "exposure": "external",
+      "lan_dns": "CNAME -> external.turner.haus (manual UniFi A -> 10.13.38.84)",
+      "public_dns": "cloudflare external-dns: proxied CNAME -> external.turner.haus -> tunnel",
+      "tunnel_rule": true,
+      "vpn_dns": "k8s-gateway -> 10.13.38.84",
+      "suspended": false
+    },
+    {
+      "host": "podinfo.turner.haus",
+      "app": "podinfo",
+      "namespace": "default",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": true
+    },
+    {
+      "host": "postgres.turner.haus",
+      "app": "cloudnative-pg",
+      "namespace": "database",
+      "gateway": null,
+      "exposure": "lb",
+      "lan_dns": null,
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.92",
+      "suspended": false
+    },
+    {
+      "host": "request.turner.haus",
+      "app": "overseerr",
+      "namespace": "media",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "rook.turner.haus",
+      "app": "rook-ceph-cluster",
+      "namespace": "rook-ceph",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    },
+    {
+      "host": "tv.turner.haus",
+      "app": "sonarr",
+      "namespace": "media",
+      "gateway": "envoy-internal",
+      "exposure": "internal",
+      "lan_dns": "A -> 10.13.38.83",
+      "public_dns": null,
+      "tunnel_rule": false,
+      "vpn_dns": "k8s-gateway -> 10.13.38.83",
+      "suspended": false
+    }
+  ],
+  "flux": {
+    "kustomizations": [
+      {
+        "name": "cert-manager",
+        "namespace": "cert-manager",
+        "target_namespace": "cert-manager",
+        "path": "./kubernetes/apps/cert-manager/cert-manager/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/cert-manager/cert-manager/ks.yaml"
+      },
+      {
+        "name": "cert-manager-tls",
+        "namespace": "cert-manager",
+        "target_namespace": "cert-manager",
+        "path": "./kubernetes/apps/cert-manager/cert-manager/tls",
+        "depends_on": [
+          "cert-manager/cert-manager"
+        ],
+        "interval": "168h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/cert-manager/cert-manager/ks.yaml"
+      },
+      {
+        "name": "cloudnative-pg",
+        "namespace": "database",
+        "target_namespace": "database",
+        "path": "./kubernetes/apps/database/cloudnative-pg/operator",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/database/cloudnative-pg/ks.yaml"
+      },
+      {
+        "name": "cloudnative-pg-plugin-barman",
+        "namespace": "database",
+        "target_namespace": null,
+        "path": "./kubernetes/apps/database/cloudnative-pg/plugin-barman",
+        "depends_on": [
+          "database/cloudnative-pg"
+        ],
+        "interval": "1h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/database/cloudnative-pg/ks.yaml"
+      },
+      {
+        "name": "cloudnative-pg-cluster",
+        "namespace": "database",
+        "target_namespace": "database",
+        "path": "./kubernetes/apps/database/cloudnative-pg/cluster",
+        "depends_on": [
+          "database/cloudnative-pg",
+          "database/cloudnative-pg-plugin-barman"
+        ],
+        "interval": "1h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/database/cloudnative-pg/ks.yaml"
+      },
+      {
+        "name": "dragonfly-operator",
+        "namespace": "database",
+        "target_namespace": "database",
+        "path": "./kubernetes/apps/database/dragonfly/operator/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/database/dragonfly/ks.yaml"
+      },
+      {
+        "name": "dragonfly-cluster",
+        "namespace": "database",
+        "target_namespace": "database",
+        "path": "./kubernetes/apps/database/dragonfly/cluster/app",
+        "depends_on": [
+          "database/dragonfly-operator"
+        ],
+        "interval": "1h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/database/dragonfly/ks.yaml"
+      },
+      {
+        "name": "dario",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/dario/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/dario/ks.yaml"
+      },
+      {
+        "name": "dario-notify",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/dario/notify",
+        "depends_on": [
+          "flux-system/dario",
+          "external-secrets/external-secrets"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/dario/ks.yaml"
+      },
+      {
+        "name": "documenso",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/documenso/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "database/cloudnative-pg-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/documenso/ks.yaml"
+      },
+      {
+        "name": "echo",
+        "namespace": "default",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/echo/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/echo/ks.yaml"
+      },
+      {
+        "name": "echo-envoy",
+        "namespace": "default",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/echo-envoy/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/echo-envoy/ks.yaml"
+      },
+      {
+        "name": "echo-internal",
+        "namespace": "default",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/echo-internal/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/echo-internal/ks.yaml"
+      },
+      {
+        "name": "homarr",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/homarr/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "rook-ceph/rook-ceph-cluster",
+          "database/cloudnative-pg-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/homarr/ks.yaml"
+      },
+      {
+        "name": "homebox",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/homebox/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "rook-ceph/rook-ceph-cluster",
+          "database/cloudnative-pg-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/homebox/ks.yaml"
+      },
+      {
+        "name": "homepage",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/homepage/app",
+        "depends_on": [],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/homepage/ks.yaml"
+      },
+      {
+        "name": "httpbin",
+        "namespace": "default",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/httpbin/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/httpbin/ks.yaml"
+      },
+      {
+        "name": "httpbin2",
+        "namespace": "default",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/httpbin2/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/httpbin2/ks.yaml"
+      },
+      {
+        "name": "hudu",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/hudu/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "database/cloudnative-pg-cluster",
+          "database/dragonfly-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/hudu/ks.yaml"
+      },
+      {
+        "name": "mealie",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/mealie/app",
+        "depends_on": [],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/mealie/ks.yaml"
+      },
+      {
+        "name": "n8n",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/n8n/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "rook-ceph/rook-ceph-cluster",
+          "database/cloudnative-pg-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/n8n/ks.yaml"
+      },
+      {
+        "name": "n8n-atrelix",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/n8n-atrelix/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "rook-ceph/rook-ceph-cluster",
+          "database/cloudnative-pg-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/n8n-atrelix/ks.yaml"
+      },
+      {
+        "name": "paperclip-atrelix",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/paperclip-atrelix/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "rook-ceph/rook-ceph-cluster",
+          "database/cloudnative-pg-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/paperclip-atrelix/ks.yaml"
+      },
+      {
+        "name": "paperless-ngx",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/paperless-ngx/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/paperless-ngx/ks.yaml"
+      },
+      {
+        "name": "photoprism",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/photoprism/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/photoprism/ks.yaml"
+      },
+      {
+        "name": "podinfo",
+        "namespace": "default",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/podinfo/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/podinfo/ks.yaml"
+      },
+      {
+        "name": "rustdesk",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/rustdesk/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/rustdesk/ks.yaml"
+      },
+      {
+        "name": "shlink",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/shlink/app",
+        "depends_on": [
+          "external-secrets/external-secrets",
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/shlink/ks.yaml"
+      },
+      {
+        "name": "shlink-web-client",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/shlink-web-client/app",
+        "depends_on": [
+          "flux-system/shlink"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/shlink-web-client/ks.yaml"
+      },
+      {
+        "name": "workflow-console",
+        "namespace": "flux-system",
+        "target_namespace": "default",
+        "path": "./kubernetes/apps/default/workflow-console/app",
+        "depends_on": [],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/default/workflow-console/ks.yaml"
+      },
+      {
+        "name": "external-secrets",
+        "namespace": "external-secrets",
+        "target_namespace": "external-secrets",
+        "path": "./kubernetes/apps/external-secrets/external-secrets/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": null,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/external-secrets/external-secrets/ks.yaml"
+      },
+      {
+        "name": "flux-alerts",
+        "namespace": "flux-system",
+        "target_namespace": "flux-system",
+        "path": "./kubernetes/apps/flux-system/alerts/app",
+        "depends_on": [
+          "flux-system/flux-instance"
+        ],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/flux-system/alerts/ks.yaml"
+      },
+      {
+        "name": "flux-instance",
+        "namespace": "flux-system",
+        "target_namespace": "flux-system",
+        "path": "./kubernetes/apps/flux-system/flux-instance/app",
+        "depends_on": [
+          "flux-system/flux-operator"
+        ],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/flux-system/flux-instance/ks.yaml"
+      },
+      {
+        "name": "flux-operator",
+        "namespace": "flux-system",
+        "target_namespace": "flux-system",
+        "path": "./kubernetes/apps/flux-system/flux-operator/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/flux-system/flux-operator/ks.yaml"
+      },
+      {
+        "name": "atlas",
+        "namespace": "infra",
+        "target_namespace": "infra",
+        "path": "./kubernetes/apps/infra/atlas/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/infra/atlas/ks.yaml"
+      },
+      {
+        "name": "atlas-live",
+        "namespace": "infra",
+        "target_namespace": "infra",
+        "path": "./kubernetes/apps/infra/atlas/cronjob",
+        "depends_on": [
+          "external-secrets/external-secrets"
+        ],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/infra/atlas/ks.yaml"
+      },
+      {
+        "name": "ntfy",
+        "namespace": "infra",
+        "target_namespace": "infra",
+        "path": "./kubernetes/apps/infra/ntfy/app",
+        "depends_on": [],
+        "interval": "24h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/infra/ntfy/ks.yaml"
+      },
+      {
+        "name": "organizr",
+        "namespace": "flux-system",
+        "target_namespace": "infra",
+        "path": "./kubernetes/apps/infra/organizr/app",
+        "depends_on": [],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/infra/organizr/ks.yaml"
+      },
+      {
+        "name": "podinfo2",
+        "namespace": "infra",
+        "target_namespace": "infra",
+        "path": "./kubernetes/apps/infra/podinfo2/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/infra/podinfo2/ks.yaml"
+      },
+      {
+        "name": "podinfo3",
+        "namespace": "infra",
+        "target_namespace": "infra",
+        "path": "./kubernetes/apps/infra/podinfo3/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/infra/podinfo3/ks.yaml"
+      },
+      {
+        "name": "cilium",
+        "namespace": "kube-system",
+        "target_namespace": "kube-system",
+        "path": "./kubernetes/apps/kube-system/cilium/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/kube-system/cilium/ks.yaml"
+      },
+      {
+        "name": "coredns",
+        "namespace": "kube-system",
+        "target_namespace": "kube-system",
+        "path": "./kubernetes/apps/kube-system/coredns/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/kube-system/coredns/ks.yaml"
+      },
+      {
+        "name": "csi-driver-nfs",
+        "namespace": "kube-system",
+        "target_namespace": "kube-system",
+        "path": "./kubernetes/apps/kube-system/csi-driver-nfs/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/kube-system/csi-driver-nfs/ks.yaml"
+      },
+      {
+        "name": "metrics-server",
+        "namespace": "kube-system",
+        "target_namespace": "kube-system",
+        "path": "./kubernetes/apps/kube-system/metrics-server/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/kube-system/metrics-server/ks.yaml"
+      },
+      {
+        "name": "reloader",
+        "namespace": "kube-system",
+        "target_namespace": "kube-system",
+        "path": "./kubernetes/apps/kube-system/reloader/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/kube-system/reloader/ks.yaml"
+      },
+      {
+        "name": "spegel",
+        "namespace": "kube-system",
+        "target_namespace": "kube-system",
+        "path": "./kubernetes/apps/kube-system/spegel/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/kube-system/spegel/ks.yaml"
+      },
+      {
+        "name": "audiobookshelf",
+        "namespace": "media",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/audiobookshelf/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/audiobookshelf/ks.yaml"
+      },
+      {
+        "name": "madsonic",
+        "namespace": "media",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/madsonic/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/madsonic/ks.yaml"
+      },
+      {
+        "name": "overseerr",
+        "namespace": "flux-system",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/overseerr/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/overseerr/ks.yaml"
+      },
+      {
+        "name": "plex",
+        "namespace": "media",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/plex/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/plex/ks.yaml"
+      },
+      {
+        "name": "prowlarr",
+        "namespace": "flux-system",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/prowlarr/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/prowlarr/ks.yaml"
+      },
+      {
+        "name": "radarr",
+        "namespace": "flux-system",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/radarr/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/radarr/ks.yaml"
+      },
+      {
+        "name": "readarr",
+        "namespace": "flux-system",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/readarr/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/readarr/ks.yaml"
+      },
+      {
+        "name": "sabnzbd",
+        "namespace": "flux-system",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/sabnzbd/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/sabnzbd/ks.yaml"
+      },
+      {
+        "name": "sonarr",
+        "namespace": "flux-system",
+        "target_namespace": "media",
+        "path": "./kubernetes/apps/media/sonarr/app",
+        "depends_on": [
+          "rook-ceph/rook-ceph-cluster"
+        ],
+        "interval": "30m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/media/sonarr/ks.yaml"
+      },
+      {
+        "name": "envoy-gateway",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/envoy-gateway/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/envoy-gateway/ks.yaml"
+      },
+      {
+        "name": "external-external-dns",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/external/external-dns",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/external/ks.yaml"
+      },
+      {
+        "name": "cloudflared",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/external/cloudflared",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/external/ks.yaml"
+      },
+      {
+        "name": "k8s-gateway",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/internal/k8s-gateway",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/internal/ks.yaml"
+      },
+      {
+        "name": "unifi-dns",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/internal/unifi-dns",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/internal/ks.yaml"
+      },
+      {
+        "name": "tailscale-operator",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/tailscale/app",
+        "depends_on": [],
+        "interval": "168h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/tailscale/ks.yaml"
+      },
+      {
+        "name": "tailscale-connector",
+        "namespace": "network",
+        "target_namespace": "network",
+        "path": "./kubernetes/apps/network/tailscale/connector",
+        "depends_on": [
+          "network/tailscale-operator"
+        ],
+        "interval": "168h",
+        "wait": false,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/network/tailscale/ks.yaml"
+      },
+      {
+        "name": "rook-ceph",
+        "namespace": "rook-ceph",
+        "target_namespace": "rook-ceph",
+        "path": "./kubernetes/apps/rook-ceph/rook-ceph/app",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": null,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/rook-ceph/rook-ceph/ks.yaml"
+      },
+      {
+        "name": "rook-ceph-csi-drivers",
+        "namespace": "rook-ceph",
+        "target_namespace": "rook-ceph",
+        "path": "./kubernetes/apps/rook-ceph/rook-ceph/csi-drivers",
+        "depends_on": [
+          "rook-ceph/rook-ceph"
+        ],
+        "interval": "1h",
+        "wait": null,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/rook-ceph/rook-ceph/ks.yaml"
+      },
+      {
+        "name": "rook-ceph-cluster",
+        "namespace": "rook-ceph",
+        "target_namespace": "rook-ceph",
+        "path": "./kubernetes/apps/rook-ceph/rook-ceph/cluster",
+        "depends_on": [
+          "rook-ceph/rook-ceph",
+          "rook-ceph/rook-ceph-csi-drivers"
+        ],
+        "interval": "1h",
+        "wait": null,
+        "suspend": false,
+        "health_checks": true,
+        "file": "kubernetes/apps/rook-ceph/rook-ceph/ks.yaml"
+      },
+      {
+        "name": "topolvm",
+        "namespace": "topolvm",
+        "target_namespace": "topolvm",
+        "path": "./kubernetes/apps/topolvm/topolvm/app",
+        "depends_on": [],
+        "interval": "10m",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/apps/topolvm/topolvm/ks.yaml"
+      },
+      {
+        "name": "cluster-meta",
+        "namespace": "flux-system",
+        "target_namespace": "flux-system",
+        "path": "./kubernetes/flux/meta",
+        "depends_on": [],
+        "interval": "1h",
+        "wait": true,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/flux/cluster/ks.yaml"
+      },
+      {
+        "name": "cluster-apps",
+        "namespace": "flux-system",
+        "target_namespace": null,
+        "path": "./kubernetes/apps",
+        "depends_on": [
+          "flux-system/cluster-meta"
+        ],
+        "interval": "1h",
+        "wait": null,
+        "suspend": false,
+        "health_checks": false,
+        "file": "kubernetes/flux/cluster/ks.yaml"
+      }
+    ],
+    "sources": [
+      {
+        "kind": "OCIRepository",
+        "name": "cert-manager",
+        "namespace": "cert-manager",
+        "url": "oci://quay.io/jetstack/charts/cert-manager",
+        "tag": "v1.21.2",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/cert-manager/cert-manager/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "dragonfly-operator",
+        "namespace": "database",
+        "url": "oci://ghcr.io/dragonflydb/dragonfly-operator/helm/dragonfly-operator",
+        "tag": "v1.7.1",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/database/dragonfly/operator/app/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "hudu",
+        "namespace": "default",
+        "url": "oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart",
+        "tag": "0.3.6",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/default/hudu/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "external-secrets",
+        "namespace": "external-secrets",
+        "url": "oci://ghcr.io/external-secrets/charts/external-secrets",
+        "tag": "2.13.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/external-secrets/external-secrets/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "flux-instance",
+        "namespace": "flux-system",
+        "url": "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
+        "tag": "0.61.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/flux-system/flux-instance/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "flux-operator",
+        "namespace": "flux-system",
+        "url": "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
+        "tag": "0.61.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/flux-system/flux-operator/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "podinfo",
+        "namespace": "infra",
+        "url": "oci://ghcr.io/stefanprodan/charts/podinfo",
+        "tag": null,
+        "semver": ">= 6.0.0",
+        "verify": null,
+        "file": "kubernetes/apps/infra/podinfo3/app/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "cilium",
+        "namespace": "kube-system",
+        "url": "oci://quay.io/cilium/charts/cilium",
+        "tag": "1.20.3",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/kube-system/cilium/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "coredns",
+        "namespace": "kube-system",
+        "url": "oci://ghcr.io/coredns/charts/coredns",
+        "tag": "1.49.0",
+        "semver": null,
+        "verify": "cosign",
+        "file": "kubernetes/apps/kube-system/coredns/app/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "reloader",
+        "namespace": "kube-system",
+        "url": "oci://ghcr.io/stakater/charts/reloader",
+        "tag": "2.2.18",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/kube-system/reloader/app/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "spegel",
+        "namespace": "kube-system",
+        "url": "oci://ghcr.io/spegel-org/helm-charts/spegel",
+        "tag": "0.8.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/kube-system/spegel/app/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "envoy-gateway",
+        "namespace": "network",
+        "url": "oci://mirror.gcr.io/envoyproxy/gateway-helm",
+        "tag": "v1.9.2",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/network/envoy-gateway/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "k8s-gateway",
+        "namespace": "network",
+        "url": "oci://codeberg.org/k8s-gateway/charts/k8s-gateway",
+        "tag": "4.0.1",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/network/internal/k8s-gateway/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "unifi-dns",
+        "namespace": "network",
+        "url": "oci://ghcr.io/home-operations/charts-mirror/external-dns",
+        "tag": "1.23.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/network/internal/unifi-dns/helmrelease.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "rook-ceph",
+        "namespace": "rook-ceph",
+        "url": "oci://ghcr.io/rook/rook-ceph",
+        "tag": "1.21.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/rook-ceph/rook-ceph/app/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "rook-ceph-cluster",
+        "namespace": "rook-ceph",
+        "url": "oci://ghcr.io/rook/rook-ceph-cluster",
+        "tag": "1.21.0",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/apps/rook-ceph/rook-ceph/cluster/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "app-template",
+        "namespace": null,
+        "url": "oci://ghcr.io/bjw-s-labs/helm/app-template",
+        "tag": "5.3.0",
+        "semver": null,
+        "verify": "cosign",
+        "file": "kubernetes/components/repos/app-template/ocirepository.yaml"
+      },
+      {
+        "kind": "OCIRepository",
+        "name": "prometheus-community",
+        "namespace": "flux-system",
+        "url": "oci://ghcr.io/prometheus-community/charts",
+        "tag": "latest",
+        "semver": null,
+        "verify": null,
+        "file": "kubernetes/components/repos/prometheus-community/ocirepository.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "cloudnative-pg",
+        "namespace": "flux-system",
+        "url": "https://cloudnative-pg.github.io/charts",
+        "file": "kubernetes/apps/database/cloudnative-pg/operator/helmrelease.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "matheusfm",
+        "namespace": "flux-system",
+        "url": "https://matheusfm.dev/charts",
+        "file": "kubernetes/apps/default/httpbin2/app/helmrelease.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "csi-driver-nfs",
+        "namespace": "flux-system",
+        "url": "https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts",
+        "file": "kubernetes/apps/kube-system/csi-driver-nfs/app/helmrepository.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "metrics-server",
+        "namespace": "kube-system",
+        "url": "https://kubernetes-sigs.github.io/metrics-server",
+        "file": "kubernetes/apps/kube-system/metrics-server/app/helmrelease.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "tailscale",
+        "namespace": "network",
+        "url": "https://pkgs.tailscale.com/helmcharts",
+        "file": "kubernetes/apps/network/tailscale/app/helmrelease.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "ceph-csi-operator",
+        "namespace": "rook-ceph",
+        "url": "https://ceph.github.io/ceph-csi-operator",
+        "file": "kubernetes/apps/rook-ceph/rook-ceph/csi-drivers/helmrepository.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "topolvm",
+        "namespace": "flux-system",
+        "url": "https://topolvm.github.io/topolvm",
+        "file": "kubernetes/apps/topolvm/topolvm/app/helmrelease.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "homarr",
+        "namespace": null,
+        "url": "oci://ghcr.io/homarr-labs/charts",
+        "file": "kubernetes/components/repos/homarr/helmrepository.yaml"
+      },
+      {
+        "kind": "HelmRepository",
+        "name": "external-dns",
+        "namespace": "flux-system",
+        "url": "https://kubernetes-sigs.github.io/external-dns",
+        "file": "kubernetes/flux/meta/repos/external-dns.yaml"
+      }
+    ],
+    "git": {
+      "kind": "GitRepository",
+      "url": "https://github.com/tturnerdev/home-ops",
+      "ref": "refs/heads/main",
+      "path": "kubernetes/flux/cluster",
+      "interval": "1h"
+    }
+  },
+  "renovate": {
+    "automerge_apps": [
+      "default/echo",
+      "default/echo-envoy",
+      "default/echo-internal",
+      "default/homarr",
+      "default/homebox",
+      "default/homepage",
+      "default/httpbin",
+      "default/httpbin2",
+      "default/mealie",
+      "default/n8n",
+      "default/paperless-ngx",
+      "default/photoprism",
+      "default/podinfo",
+      "default/shlink",
+      "default/shlink-web-client",
+      "infra/ntfy",
+      "infra/organizr",
+      "infra/podinfo2",
+      "infra/podinfo3",
+      "media/audiobookshelf",
+      "media/overseerr",
+      "media/plex",
+      "media/prowlarr",
+      "media/radarr",
+      "media/readarr",
+      "media/sabnzbd",
+      "media/sonarr"
+    ],
+    "holds": [
+      {
+        "description": "Hold Sonarr on v4",
+        "packages": [
+          "ghcr.io/home-operations/sonarr"
+        ],
+        "allowed": "<5"
+      },
+      {
+        "description": "Hold PostgreSQL on 17",
+        "packages": [
+          "ghcr.io/cloudnative-pg/postgresql"
+        ],
+        "allowed": "<18"
+      }
+    ],
+    "notes": [
+      "Auto-merge dario daily: ghcr.io/askalf/dario"
+    ],
+    "automerge_schedule": [
+      "* 9-14 * * *"
+    ],
+    "schedule": [
+      "every weekend"
+    ]
+  },
+  "tools": {
+    "python": "3.15.1",
+    "aqua:budimanjojo/talhelper": "3.1.17",
+    "aqua:cilium/cilium-cli": "0.20.1",
+    "aqua:cli/cli": "2.103.0",
+    "aqua:cloudflare/cloudflared": "2026.10.3",
+    "ubi:cue-lang/cue": "0.17.1",
+    "aqua:FiloSottile/age": "1.3.2",
+    "aqua:fluxcd/flux2": "2.9.6",
+    "aqua:getsops/sops": "3.13.3",
+    "aqua:go-task/task": "3.54.0",
+    "aqua:helm/helm": "4.3.1",
+    "aqua:helmfile/helmfile": "1.8.2",
+    "aqua:jqlang/jq": "1.8.1",
+    "aqua:kubernetes-sigs/kustomize": "5.8.0",
+    "aqua:kubernetes/kubernetes/kubectl": "1.36.5",
+    "aqua:mikefarah/yq": "4.54.1",
+    "aqua:siderolabs/talos": "1.14.4",
+    "aqua:yannh/kubeconform": "0.8.0"
+  },
+  "bootstrap": [
+    {
+      "name": "cilium",
+      "namespace": "kube-system",
+      "chart": "cilium/cilium",
+      "version": "1.20.3",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "coredns",
+      "namespace": "kube-system",
+      "chart": "oci://ghcr.io/coredns/charts/coredns",
+      "version": "1.49.0",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "spegel",
+      "namespace": "kube-system",
+      "chart": "oci://ghcr.io/spegel-org/helm-charts/spegel",
+      "version": "0.8.0",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "cert-manager",
+      "namespace": "cert-manager",
+      "chart": "oci://quay.io/jetstack/charts/cert-manager",
+      "version": "v1.21.2",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "external-secrets",
+      "namespace": "external-secrets",
+      "chart": "oci://ghcr.io/external-secrets/charts/external-secrets",
+      "version": "2.13.0",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "flux-operator",
+      "namespace": "flux-system",
+      "chart": "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
+      "version": "0.61.0",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "flux-instance",
+      "namespace": "flux-system",
+      "chart": "oci://ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
+      "version": "0.61.0",
+      "file": "bootstrap/helmfile.yaml"
+    },
+    {
+      "name": "cloudflare-dns",
+      "namespace": "network",
+      "chart": "oci://ghcr.io/home-operations/charts-mirror/external-dns",
+      "version": "1.23.0",
+      "file": "bootstrap/helmfile.d/00-crds.yaml"
+    },
+    {
+      "name": "envoy-gateway",
+      "namespace": "network",
+      "chart": "oci://mirror.gcr.io/envoyproxy/gateway-helm",
+      "version": "v1.9.2",
+      "file": "bootstrap/helmfile.d/00-crds.yaml"
+    },
+    {
+      "name": "grafana-operator",
+      "namespace": "observability",
+      "chart": "oci://ghcr.io/grafana/helm-charts/grafana-operator",
+      "version": "5.25.0",
+      "file": "bootstrap/helmfile.d/00-crds.yaml"
+    },
+    {
+      "name": "kube-prometheus-stack",
+      "namespace": "observability",
+      "chart": "oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack",
+      "version": "92.11.0",
+      "file": "bootstrap/helmfile.d/00-crds.yaml"
+    }
+  ],
+  "errors": []
+}

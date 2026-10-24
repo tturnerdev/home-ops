@@ -1,0 +1,13 @@
+---
+# Rendered by Flux postBuild substitution (this file is not a generator, so
+# the substitute: disabled annotation does not apply). The in-cluster copy of
+# the page reads it to fill in the secondary zone, which stays a token in git
+# and in every other copy of the page. The site is on the internal Gateway
+# only, where the zone's own hostnames are already visible.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlas-config
+data:
+  config.json: |
+    {"source": "in-cluster", "secondary_domain": "${SECRET_DOMAIN_2}", "nfs_ip": "${SECRET_NFS_IP}"}

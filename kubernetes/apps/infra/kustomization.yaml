@@ -11,3 +11,4 @@ resources:
   - ./podinfo3/ks.yaml
   - ./ntfy/ks.yaml
   - ./organizr/ks.yaml
+  - ./atlas/ks.yaml

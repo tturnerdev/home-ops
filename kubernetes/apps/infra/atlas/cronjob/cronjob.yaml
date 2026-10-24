@@ -1,0 +1,82 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# Collects live facts with the read-only ServiceAccount and pushes
+# kubernetes/apps/infra/atlas/app/site/live.json to main when something other
+# than the timestamp changed. Flux then updates the atlas-state ConfigMap, so
+# the in-cluster page, GitHub Pages and the artifact's Refresh all see it.
+#
+# STAGED: suspend stays true until the 1Password item exists (externalsecret.yaml).
+# Enable by setting suspend: false here and pushing. Run once by hand with
+#   kubectl -n infra create job --from=cronjob/atlas-live atlas-live-manual
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: atlas-live
+spec:
+  suspend: true
+  # Every six hours, off the hour. Each push is a commit on main; tune the
+  # cadence to taste.
+  schedule: "17 */6 * * *"
+  timeZone: America/Los_Angeles
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        spec:
+          serviceAccountName: atlas-live
+          restartPolicy: Never
+          automountServiceAccountToken: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: collect
+              # kubectl + jq + git + bash in one image; the tag tracks the
+              # bundled kubectl minor (keep it within one minor of the cluster)
+              image: docker.io/alpine/k8s:1.36.5
+              command: ["/bin/bash", "/scripts/live.sh", "--push"]
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: GIT_REPO
+                  value: https://github.com/tturnerdev/home-ops.git
+                - name: GIT_BRANCH
+                  value: main
+                - name: LIVE_PATH
+                  value: kubernetes/apps/infra/atlas/app/site/live.json
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: atlas-live-secret
+                      key: GITHUB_TOKEN
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              resources:
+                requests:
+                  cpu: 20m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: script
+              configMap:
+                name: atlas-live-script
+                defaultMode: 0555
+            - name: tmp
+              emptyDir: {}

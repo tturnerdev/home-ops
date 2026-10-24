@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./configmap.yaml
+  - ./helmrelease.yaml
+# The site is served straight from git: every push that changes a file here
+# changes the ConfigMap, and the projected volume updates in the running pod
+# within a minute (no restart, no image build).
+configMapGenerator:
+  - name: atlas-site
+    files:
+      - ./site/index.html
+  - name: atlas-state
+    files:
+      - ./site/state.json
+      - ./site/live.json
+generatorOptions:
+  disableNameSuffixHash: true
+  annotations:
+    # The page is JavaScript with template literals and state.json keeps
+    # ${SECRET_DOMAIN_2} as a token on purpose; Flux must not touch either.
+    kustomize.toolkit.fluxcd.io/substitute: disabled
