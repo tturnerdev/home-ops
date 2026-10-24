@@ -37,14 +37,17 @@ client. Test apps: echo (all three), podinfo (all three), httpbin (both).
 
 ## Version holds
 
-Two rules cap a package with `allowedVersions`: Sonarr's waits on
-upstream, PostgreSQL's on a planned major upgrade. Each rule's comment
+Four rules cap a package with `allowedVersions`: Sonarr's waits on
+upstream, PostgreSQL's on a planned major upgrade, Kubernetes' on the
+platform components, and Ceph's keeps pre-releases out. Each rule's comment
 carries the detail.
 
 | Rule | Caps | Why | Relax or drop |
 |---|---|---|---|
 | Hold Sonarr on v4 | `ghcr.io/home-operations/sonarr` at `<5` | v5 is still a pre-release (GitHub flags every 5.0.0.x build as one, as of 2026-10-22) with a one-way database migration, and the home-operations image publishes those builds under plain tags | drop once Sonarr ships v5 as a stable release |
 | Hold PostgreSQL on 17 | `ghcr.io/cloudnative-pg/postgresql` at `<18` | a major in CloudNativePG is an offline in-place upgrade (pg_upgrade job, minutes of downtime) that needs a fresh backup and its own window | raise when PostgreSQL 18 is planned |
+| Hold Kubernetes on 1.36 | `ghcr.io/siderolabs/kubelet` and the kubectl CLI at `<1.37.0` | Cilium 1.20, cert-manager 1.21, Envoy Gateway 1.9 and Flux 2.9 all stop at Kubernetes 1.36 (checked 2026-10-23) | raise once all four have releases that support 1.37 |
+| Stable Ceph releases only | `quay.io/ceph/ceph` to `vX.2.Y` tags | the registry also carries development (x.0.z) and release-candidate (x.1.z) builds, and a Ceph upgrade is forward-only | keep |
 
 Relax a hold by raising its `allowedVersions`, drop one by deleting its
 rule, and check the edit with the validator below either way.
