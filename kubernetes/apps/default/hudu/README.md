@@ -16,7 +16,7 @@ from lab1" section below records how, and doubles as the restore runbook.
 | Redis | shared Dragonfly (`dragonfly.database.svc.cluster.local:6379`, db 0) | Sidekiq 7 + Rails cache. Dragonfly runs in emulated cluster mode (db 0 only); Sidekiq keys don't collide with the Bull/BullMQ apps already on it |
 | Uploads | the existing MinIO bucket of the lab1 instance (`https://minio.${SECRET_DOMAIN_2}`, path-style) | Hudu hands browsers **presigned S3 URLs** (`AUTHENTICATE_UPLOADS` only applies to local-filesystem storage), so the object store must be reachable from LAN and WAN — the in-cluster Ceph RGW is not. Sharing the bucket with lab1 is safe: every key carries a random hash, nothing is overwritten |
 | Secrets | `Secret/hudu-app-secret` (sops) and `ExternalSecret/hudu` → `hudu-ext-secret` | See below |
-| Ingress | `Ingress/hudu`, class `external`, cert-manager `letsencrypt-production` | LAN: unifi-dns publishes the host → ingress LB IP. Public: manual proxied CNAME in the Cloudflare zone → `<tunnel-id>.cfargotunnel.com` plus the cloudflared rules in `network/external/cloudflared/configs/config.yaml` (both `hudu.` and `docs.` are routed) |
+| Route | `HTTPRoute/hudu` on `envoy-external` (`https` listener) | TLS from the Gateway's wildcard for the secondary zone. LAN: unifi-dns publishes the host as a CNAME to `external.${SECRET_DOMAIN}`, the UniFi alias for envoy-external. Public: manual proxied CNAME in the Cloudflare zone → `<tunnel-id>.cfargotunnel.com` plus the cloudflared rules in `network/external/cloudflared/configs/config.yaml` (both `hudu.` and `docs.` are routed) |
 
 ### Secrets
 
@@ -90,11 +90,11 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   limit would not help (18 workers level off near 2.4 GiB), and
   `MALLOC_ARENA_MAX` does nothing: the image already preloads jemalloc.
   Diagnosed 2026-10-24.
-- **TLS needs the public path.** HTTP-01 for this zone validates through the
-  cloudflared tunnel (the Cloudflare token is scoped to the primary zone, so
-  no DNS-01), so the certificate only issues once the public CNAME points at
-  the tunnel and cloudflared routes the host. Until then the ingress serves
-  the default certificate; LAN access works with a browser warning.
+- **TLS comes from the Gateway.** envoy-external's `https` listener serves
+  the secondary zone's wildcard certificate, issued over DNS-01 (the
+  Cloudflare token can edit both zones), so the host has no certificate of
+  its own. Until 2026-10-23 an ingress-shim certificate (`hudu-tls`)
+  validated over HTTP-01 through the tunnel instead.
 - **cloudflared was hand-patched during the cutover.** Its config is
   Flux-managed from `main`, which did not have the `hudu.`/`docs.` rules on
   2026-10-08, so the `cloudflared` Kustomization (namespace `network`) was
