@@ -204,6 +204,29 @@
       allowedVersions: '<18',
     },
     {
+      // Cilium 1.20, cert-manager 1.21, Envoy Gateway 1.9 and Flux 2.9 all
+      // stop at Kubernetes 1.36 (checked 2026-10-23), so 1.37 waits until
+      // all four have releases that support it. kubectl moves with the
+      // cluster.
+      description: 'Hold Kubernetes on 1.36',
+      matchDepNames: [
+        'ghcr.io/siderolabs/kubelet',
+        'aqua:kubernetes/kubernetes/kubectl',
+      ],
+      allowedVersions: '<1.37.0',
+    },
+    {
+      // quay.io/ceph/ceph carries development builds (x.0.z) and release
+      // candidates (x.1.z) next to the stable releases (x.2.z), and a Ceph
+      // upgrade is forward-only, so only stable releases may come through.
+      // On 2026-10-23 this kept the 21.1.2 release candidate out.
+      description: 'Stable Ceph releases only',
+      matchPackageNames: [
+        'quay.io/ceph/ceph',
+      ],
+      allowedVersions: '/^v\\d+\\.2\\.\\d+$/',
+    },
+    {
       // talosctl, talhelper, kubectl, flux and cilium-cli stay manual: they
       // should move with the cluster's versions, not ahead of them.
       description: 'Auto-merge CLI tools',
