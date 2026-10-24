@@ -83,17 +83,16 @@ Split horizon, same model as the other `${SECRET_DOMAIN_2}` apps:
      remote clients use the TLS name below instead.
   If the WAN address is dynamic, point UniFi's DDNS at the Cloudflare record
   or expect to update the A record by hand.
-- **API over HTTPS**, `rdesk-api.${SECRET_DOMAIN_2}`: an ordinary external
-  Ingress (`ingress` in the HelmRelease, cert from `letsencrypt-production`)
-  plus a hostname rule in
-  `kubernetes/apps/network/external/cloudflared/configs/config.yaml`. LAN:
-  unifi-dns publishes the Ingress host → external ingress IP 10.13.38.80.
+- **API over HTTPS**, `rdesk-api.${SECRET_DOMAIN_2}`: an HTTPRoute on the
+  `envoy-external` Gateway (`route` in the HelmRelease: `/` → 21114, `/ws/id`
+  → 21118, `/ws/relay` → 21119) plus a hostname rule in
+  `kubernetes/apps/network/external/cloudflared/configs/config.yaml`. TLS is
+  the Gateway's wildcard certificate for the secondary zone (DNS-01), so the
+  name needs no certificate of its own. LAN: unifi-dns publishes
+  `CNAME rdesk-api → external.${SECRET_DOMAIN}` (the manual UniFi record
+  pointing at envoy-external, 10.13.38.84).
   WAN (manual): Cloudflare `CNAME rdesk-api → <tunnel-id>.cfargotunnel.com`,
-  **proxied**. The certificate is issued by HTTP-01 through the tunnel, so it
-  sits at `Ready=False` ("NXDOMAIN") until that CNAME exists; afterwards force
-  a retry with `kubectl -n default delete secret rustdesk-api-tls` (re-issued
-  within about a minute). Until then the ingress serves the default wildcard
-  certificate and clients refuse the HTTPS address.
+  **proxied**.
   Why a sibling name instead of `rdesk.` itself: that name has to stay a plain
   A record to the WAN IP for the raw ports, and this cluster can only issue
   certificates for the secondary domain by HTTP-01 through the tunnel. A TLS
