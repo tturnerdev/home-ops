@@ -119,6 +119,11 @@ spec:
           value: peer
         - name: SMTP_FROM_ADDRESS
           value: "info@docs.${SECRET_DOMAIN_2}"
+        # Puma workers. Unset, the image starts one per CPU the pod sees
+        # (nproc: 18 here), and 18 preloaded workers outgrow the 2Gi limit in
+        # 33-97 min (README). Sidekiq and the migrate Job ignore it.
+        - name: WEB_CONCURRENCY
+          value: "2"
     worker:
       # The chart refuses >1: the worker owns Sidekiq's cron scheduler
       replicaCount: 1

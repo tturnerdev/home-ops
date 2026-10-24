@@ -79,6 +79,17 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   Only relevant if Hudu is ever started from scratch instead of restored:
   `kubectl exec -n default deploy/hudu-web -- sh -c 'cd /var/www/hudu2 && bundle exec rails hudini:ensure_vector_embeddings'`.
   The restore path runs real migrations, which create the table.
+- **Puma's worker count is pinned (`WEB_CONCURRENCY=2`).** The image's
+  `config/puma.rb` starts `ENV.fetch("WEB_CONCURRENCY") { nproc }` workers and
+  the chart never sets the variable, so web ran one preloaded worker per CPU
+  the pod sees: 18 on these nodes (a CPU limit would not lower it). Each
+  worker slowly turns ~100–130 MiB of the master's shared memory into its
+  own, then levels off; 18 of them passed the 2Gi limit, and the pod was
+  OOM-killed every 33–97 minutes (the "liveness failures" on 2.46.1 were the
+  same kills). Two workers × `railsMaxThreads` 6 are plenty here. Raising the
+  limit would not help (18 workers level off near 2.4 GiB), and
+  `MALLOC_ARENA_MAX` does nothing: the image already preloads jemalloc.
+  Diagnosed 2026-10-24.
 - **TLS needs the public path.** HTTP-01 for this zone validates through the
   cloudflared tunnel (the Cloudflare token is scoped to the primary zone, so
   no DNS-01), so the certificate only issues once the public CNAME points at
