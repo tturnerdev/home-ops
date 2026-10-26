@@ -19,14 +19,25 @@ spec:
   values:
     controllers:
       cloudflared:
+        # Two connectors on different nodes, as Cloudflare advises for
+        # Kubernetes: a restart, drain or upgrade always leaves one connected,
+        # and the rolling update waits for the new pod's /ready first.
+        replicas: 2
         strategy: RollingUpdate
+        podDisruptionBudget:
+          minAvailable: 1
+        pod:
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: ScheduleAnyway
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: docker.io/cloudflare/cloudflared
-              tag: 2026.10.3
+              tag: 2026.10.4
             env:
               NO_AUTOUPDATE: true
               # 2026.4.0 changed the default from 4 to auto (whichever family the
