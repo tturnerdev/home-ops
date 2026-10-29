@@ -47,7 +47,7 @@ spec:
       reloader.stakater.com/auto: "true"
     image:
       repository: hududocker/hudu
-      tag: 2.48.0
+      tag: 2.49.0
       pullPolicy: IfNotPresent
     config:
       # Production hostname (took over from the lab1 instance on 2026-10-08).
