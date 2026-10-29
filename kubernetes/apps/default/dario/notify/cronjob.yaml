@@ -30,7 +30,7 @@ spec:
             seccompProfile: { type: RuntimeDefault }
           containers:
             - name: notify
-              image: docker.io/library/python:3.14.9-alpine3.24@sha256:d55673c233e28839c1c0c69766428cb6d50174a2ecfdcf915b6f58a0b0991562
+              image: docker.io/library/python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211
               command: ["python", "/app/notify.py"]
               env:
                 - name: DARIO_URL
