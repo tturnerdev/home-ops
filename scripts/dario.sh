@@ -11,8 +11,16 @@ set -Eeuo pipefail
 source "$(dirname "${0}")/lib/common.sh"
 
 ROOT_DIR="$(git -C "$(dirname "${0}")" rev-parse --show-toplevel)"
-DARIO_URL="${DARIO_URL:-https://dario.${SECRET_DOMAIN}}"
 export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-${ROOT_DIR}/age.key}"
+
+# The hostname is dario.<SECRET_DOMAIN>; the zone lives only in cluster-secrets
+function dario_url() {
+    local domain
+    domain=$(sops --decrypt --extract '["stringData"]["SECRET_DOMAIN"]' \
+        "${ROOT_DIR}/kubernetes/components/common/cluster-secrets.sops.yaml")
+    printf 'https://dario.%s' "${domain}"
+}
+DARIO_URL="${DARIO_URL:-$(dario_url)}"
 
 # The /admin/* bearer, from the same SOPS secret the pod reads
 function admin_token() {
