@@ -1,5 +1,5 @@
 ---
-# Daily nag for dario's ~28-day re-grant (runbook: docs/dario.md). dario logs
+# Daily nag for dario's ~28-day re-grant (runbook: docs/dario.md in home-ops-working-and-docs). dario logs
 # WARN from day 21 of a seat's grant and URGENT from day 26, but its only other
 # outlet is a desktop toast, which a pod doesn't have: the October 2026 lapse
 # sat in the pod log for 9 days. notify.py reads the same verdict from
@@ -48,7 +48,7 @@ spec:
                 - name: MAIL_TO
                   value: "tturner@${SECRET_DOMAIN_2}"
                 - name: RUNBOOK_URL
-                  value: https://github.com/tturnerdev/home-ops/blob/main/docs/dario.md
+                  value: https://github.com/tturnerdev/home-ops-working-and-docs/blob/main/docs/dario.md
                 - name: TZ
                   value: America/Los_Angeles
                 - name: PYTHONDONTWRITEBYTECODE

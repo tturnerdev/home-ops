@@ -105,7 +105,8 @@
     },
     {
       // Each dario release bundles a newer Claude Code template, and Anthropic
-      // gates new models on it (docs/dario.md), so dario skips the weekend
+      // gates new models on it (docs/dario.md in home-ops-working-and-docs), so
+      // dario skips the weekend
       // schedule and merges straight to main; majors still wait for a PR.
       // 09:00-14:59 UTC = 02:00-07:59 PDT: the Recreate restart lands before
       // the day starts and before dario-notify's 09:00 PT check.
@@ -132,7 +133,8 @@
       ignoreTests: true,
     },
     {
-      // List B (docs/renovate.md): apps that update unattended, matched by
+      // List B (docs/renovate.md in home-ops-working-and-docs): apps that update
+      // unattended, matched by
       // folder, so an image shared with a list-A app (say, Postgres) still
       // waits for review. Majors wait for a PR here too. Same early-morning
       // window as dario.

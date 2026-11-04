@@ -1,20 +1,24 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+# The Home-Ops Atlas page and its live-facts collector live in the private
+# companion repository home-ops-working-and-docs, which Flux reads as the
+# GitRepository home-ops-working (source.yaml). Both Kustomizations ship
+# suspended: flip them, and the GitRepository, once atlas-git-secret exists.
+# Runbook: docs/atlas.md in that repository.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app atlas
   namespace: &namespace infra
 spec:
+  suspend: true
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
-  path: ./kubernetes/apps/infra/atlas/app
-  # Substitution fills config.json (configmap.yaml) with the secondary zone
-  # for the in-cluster copy; the generated ConfigMaps carry the
-  # substitute: disabled annotation, so the page and state.json stay as
-  # committed (they contain ${...} tokens and JavaScript template literals).
+  path: ./atlas/app
+  # Substitution fills config.json with the zones and the Postgres address for
+  # the in-cluster copy; the generated ConfigMaps carry substitute: disabled.
   postBuild:
     substituteFrom:
       - name: cluster-secrets
@@ -23,22 +27,22 @@ spec:
   retryInterval: 2m
   sourceRef:
     kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+    name: home-ops-working
+    namespace: infra
   targetNamespace: *namespace
   timeout: 5m
   wait: false
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-# The live-facts collector (CronJob atlas-live). Staged: the CronJob ships
-# suspended until the GitHub token exists in 1Password (see docs/atlas.md).
-# No postBuild here on purpose: live.sh is full of shell ${VAR}s.
+# The CronJob that collects live facts and pushes live.json to the private
+# repository. No postBuild on purpose: live.sh is full of shell ${VAR}s.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app atlas-live
   namespace: &namespace infra
 spec:
+  suspend: true
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -46,13 +50,13 @@ spec:
     - name: external-secrets
       namespace: external-secrets
   interval: 1h
-  path: ./kubernetes/apps/infra/atlas/cronjob
+  path: ./atlas/cronjob
   prune: true
   retryInterval: 2m
   sourceRef:
     kind: GitRepository
-    name: flux-system
-    namespace: flux-system
+    name: home-ops-working
+    namespace: infra
   targetNamespace: *namespace
   timeout: 5m
   wait: false

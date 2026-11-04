@@ -1,5 +1,14 @@
 # ⛵ Cluster Template
 
+> [!NOTE]
+> **Docs, runbooks and tooling live outside this repository**, in the private
+> companion repo [`tturnerdev/home-ops-working-and-docs`](https://github.com/tturnerdev/home-ops-working-and-docs),
+> cloned next to this one as `~/dev/home-ops-working-and-docs`: the dario,
+> Renovate, Tailscale, CRD and upgrade runbooks, the troubleshooting notes, the
+> agent prompts, the changelog, and the Home-Ops Atlas page with its generator
+> and live-facts CronJob. This repository holds the cluster manifests only;
+> `kubernetes/apps/infra/atlas/` is the Flux pointer at that repo.
+
 Welcome to my minimalist template for deploying a single Kubernetes cluster. The goal of this project is to make it easier for people interested in using Kubernetes to deploy a cluster at home on bare-metal or VMs. This template closely mirrors my personal [home-ops](https://github.com/onedr0p/home-ops) repository. At a high level this project makes use of [makejinja](https://github.com/mirkolenz/makejinja) to read in configuration files ([cluster.yaml](./cluster.sample.yaml) & [nodes.yaml](./nodes.sample.yaml)). Makejinja will render out templates that will allow you to install a Kubernetes cluster with the features mentioned below.
 
 ## ✨ Features

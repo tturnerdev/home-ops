@@ -56,7 +56,7 @@ spec:
               #   curl -s -X POST -H "authorization: Bearer $T" https://dario.${SECRET_DOMAIN}/admin/login/complete -d '{"alias":"main","code":"<code>"}'
               # The pool hot-reloads; /health flips from 503 degraded to 200 ok.
               # Anthropic ends every grant ~28 days in, so this is a monthly
-              # chore: `task dario:login`. Runbook: docs/dario.md
+              # chore: `task dario:login`. Runbook: docs/dario.md in home-ops-working-and-docs
               DARIO_ADMIN: "1"
               # No `claude` binary in the image: use the baked Claude Code wire
               # template instead of trying to spawn one for live capture.

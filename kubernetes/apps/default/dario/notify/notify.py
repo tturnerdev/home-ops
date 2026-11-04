@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Daily dario check, run by the dario-notify CronJob. Runbook: docs/dario.md
+"""Daily dario check, run by the dario-notify CronJob. Runbook: docs/dario.md in home-ops-working-and-docs
 
 Anthropic ends a Claude seat's refresh token ~28 days after the browser grant
 that minted it, however often it refreshes, and only a person can approve a

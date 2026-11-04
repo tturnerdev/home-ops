@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/gitrepository_v1.json
+# The private companion repository (runbooks, notes, the Atlas). Flux reads it
+# with a fine-grained token limited to that repository (Contents: read and
+# write; the atlas-live CronJob pushes with the same token), kept in the
+# 1Password item "atlas" as github_token. Suspended until the token exists.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: home-ops-working
+spec:
+  suspend: true
+  interval: 10m
+  url: https://github.com/tturnerdev/home-ops-working-and-docs
+  ref:
+    branch: main
+  secretRef:
+    name: atlas-git-secret
+  # Only the Atlas directory is applied from it; keep the artifact small
+  ignore: |
+    /*
+    !/atlas/
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/external-secrets.io/externalsecret_v1.json
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: atlas-git
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: staging
+  target:
+    name: atlas-git-secret
+    template:
+      data:
+        username: x-access-token
+        password: "{{ .github_token }}"
+  dataFrom:
+    - extract:
+        key: atlas

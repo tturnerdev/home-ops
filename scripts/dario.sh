@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Operator helpers for dario's headless admin API. Runbook: docs/dario.md
+# Operator helpers for dario's headless admin API.
+# Runbook: docs/dario.md in the private home-ops-working-and-docs repository
 #
 #   dario.sh status                    /health, plus each Claude seat's grant age
 #   dario.sh login [alias]             start a re-grant, then paste the code the
@@ -61,9 +62,9 @@ function status() {
     if jq -e '.accounts | any(.grant_level != "ok")' <<<"${accounts}" >/dev/null; then
         log warn "Re-grant needed: task dario:login [SEAT=<seat>]"
     elif [[ "${health}" != 200 ]] && jq -e '.accounts | length > 0 and all(.status == "rejected")' <<<"${accounts}" >/dev/null; then
-        log warn "Rate-limited: dario resumes by itself at the reset time (docs/dario.md, \"When it's rate-limited\")"
+        log warn "Rate-limited: dario resumes by itself at the reset time (docs/dario.md in home-ops-working-and-docs, \"When it's rate-limited\")"
     elif [[ "${health}" != 200 ]]; then
-        log warn "dario isn't serving; see docs/dario.md"
+        log warn "dario isn't serving; see docs/dario.md in home-ops-working-and-docs"
     fi
 }
 

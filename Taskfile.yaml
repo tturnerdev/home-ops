@@ -19,7 +19,6 @@ env:
   TALOSCONFIG: '{{.TALOSCONFIG}}'
 
 includes:
-  atlas: .taskfiles/atlas
   bootstrap: .taskfiles/bootstrap
   dario: .taskfiles/dario
   talos: .taskfiles/talos

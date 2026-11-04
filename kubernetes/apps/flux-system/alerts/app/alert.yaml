@@ -1,7 +1,8 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/notification.toolkit.fluxcd.io/alert_v1beta3.json
 # Push every failed reconcile to ntfy, chiefly so an auto-merged Renovate
-# update that doesn't deploy gets noticed (docs/renovate.md). eventSources
+# update that doesn't deploy gets noticed (docs/renovate.md in
+# home-ops-working-and-docs). eventSources
 # take no namespace wildcard: a new namespace with Flux objects goes here too.
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
