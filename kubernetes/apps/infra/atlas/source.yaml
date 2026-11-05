@@ -1,9 +1,10 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/gitrepository_v1.json
 # The private companion repository (runbooks, notes, the Atlas). Flux reads it
-# with a fine-grained token limited to that repository (Contents: read and
-# write; the atlas-live CronJob pushes with the same token), kept in the
-# 1Password item "atlas" as github_token. Suspended until the token exists.
+# with a fine-grained token limited to that repository (Contents: read-only is
+# enough; the suspended atlas-live CronJob would need read and write to push),
+# kept in the 1Password item "home-ops-atlas" as github_token. Suspended until
+# the token exists.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -38,4 +39,4 @@ spec:
         password: "{{ .github_token }}"
   dataFrom:
     - extract:
-        key: atlas
+        key: home-ops-atlas
