@@ -3,14 +3,12 @@
 # The private companion repository (runbooks, notes, the Atlas). Flux reads it
 # with a fine-grained token limited to that repository (Contents: read-only is
 # enough; the suspended atlas-live CronJob would need read and write to push),
-# kept in the 1Password item "home-ops-atlas" as github_token. Suspended until
-# the token exists.
+# kept in the 1Password item "home-ops-atlas", field github-token.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
   name: home-ops-working
 spec:
-  suspend: true
   interval: 10m
   url: https://github.com/tturnerdev/home-ops-working-and-docs
   ref:
@@ -36,7 +34,7 @@ spec:
     template:
       data:
         username: x-access-token
-        password: "{{ .github_token }}"
+        password: '{{ index . "github-token" }}'
   dataFrom:
     - extract:
         key: home-ops-atlas

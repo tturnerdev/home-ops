@@ -35,10 +35,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # --sources flux-system: the infra/atlas Kustomizations build from the
+      # private GitRepository home-ops-working, which this checkout cannot
+      # resolve (flux-local would fail on its missing path). The diff job below
+      # already restricts itself the same way.
       - name: Run flux-local test
         uses: docker://ghcr.io/allenporter/flux-local:v8.4.0
         with:
-          args: test --enable-helm --all-namespaces --path /github/workspace/kubernetes/flux/cluster -v
+          args: test --enable-helm --all-namespaces --sources flux-system --path /github/workspace/kubernetes/flux/cluster -v
 
   diff:
     name: Flux Local Diff
