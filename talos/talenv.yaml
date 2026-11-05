@@ -6,6 +6,6 @@ talosVersion: v1.13.12
 # patches/global/machine-install.yaml and task talos:upgrade-node.
 # ghcr.io/siderolabs/installer stopped at 1.13; installer-base carries 1.14+.
 # renovate: datasource=docker depName=ghcr.io/siderolabs/installer-base
-talosInstallerVersion: v1.14.4
+talosInstallerVersion: v1.14.5
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
 kubernetesVersion: v1.36.5
