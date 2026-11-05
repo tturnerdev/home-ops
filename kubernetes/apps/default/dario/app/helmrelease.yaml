@@ -40,7 +40,7 @@ spec:
               # 400 claude_code_version_too_old below CC 2.1.280). Renovate
               # merges minor/patch releases daily (.renovaterc.json5).
               repository: ghcr.io/askalf/dario
-              tag: v6.20.3@sha256:a25aafcddc4d71f134ff994e9954c7c4ad84b20065365460d5a9c6454c57d55a
+              tag: v6.21.0@sha256:2ebbc9b7efdbcaf87f918f06ec40db8e54d7f844ab220ed680c5948bcab6ab01
               pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
