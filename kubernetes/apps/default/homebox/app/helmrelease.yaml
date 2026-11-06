@@ -54,6 +54,8 @@ spec:
             envFrom:
               - secretRef:
                   name: homebox
+              - secretRef:
+                  name: homebox-secret
             resources:
               requests:
                 cpu: 100m
