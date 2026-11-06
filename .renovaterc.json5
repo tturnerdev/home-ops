@@ -386,6 +386,17 @@
       // Mutable weekly dev-stream tag on an unstable v17 branch. 04-create-site runs 'bench migrate' on every start, so a digest bump is a one-way schema migration. Bump by hand, after a backup.
       enabled: false,
     },
+    {
+      description: 'Homebox nightly - manual, backup-gated upgrades only',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/sysadminsmedia/homebox',
+      ],
+      // Digest-pinned floating nightly-rootless tag, chosen on purpose for the unreleased label template system (#1161): every digest bump is a Recreate rollout that can carry one-way goose migrations. Overrides the list-B auto-merge for this image only (postgres-init in the same folder still updates). Bump by hand, after a backup; return to a release tag once one ships the templates.
+      enabled: false,
+    },
   ],
   customManagers: [
     {
