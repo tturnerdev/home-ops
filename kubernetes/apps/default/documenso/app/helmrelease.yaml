@@ -46,7 +46,7 @@ spec:
             # built from atrelixtech/atrelix-sign; digest-pinned for reproducibility
             image:
               repository: ghcr.io/atrelixtech/atrelix-sign
-              tag: v2.17.0-atrelix@sha256:879c7d647caff3b1f4f1d8e1ffcb4f6197f710a84624c27e07d0f8a82c8816a2
+              tag: v2.17.0-atrelix@sha256:9f720f3026bafca94d184d4cf618d47b48dda7492e5bf85b35dcb3f40068c04c
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
@@ -63,6 +63,10 @@ spec:
               # "true" closes registration; flip to "false" (domain allowlist above
               # still restricts signups) when onboarding new users
               NEXT_PUBLIC_DISABLE_SIGNUP: "true"
+              # AI detection via the Anthropic-compatible dario gateway.
+              # Server root WITHOUT /v1 (the app appends it); the API key is
+              # ANTHROPIC_API_KEY in documenso-ext-secret
+              ANTHROPIC_BASE_URL: "https://dario.${SECRET_DOMAIN}"
             envFrom:
               - secretRef:
                   name: documenso-app-secret
