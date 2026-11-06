@@ -37,9 +37,13 @@ spec:
                   name: homebox-initdb
         containers:
           homebox:
+            # nightly (upstream main) pinned by digest: the label template system
+            # (sysadminsmedia/homebox#1161, merged 2026-10-31) is not in a tagged
+            # release yet. Renovate's list-B rule rolls the digest; go back to a
+            # release tag once one ships it.
             image:
               repository: ghcr.io/sysadminsmedia/homebox
-              tag: 0.27.1-rootless
+              tag: nightly-rootless@sha256:aa24ef2500cedf24b77bf2dc430ad96cd049e9a9d14992220d35a0e629e61a8b
               # pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
