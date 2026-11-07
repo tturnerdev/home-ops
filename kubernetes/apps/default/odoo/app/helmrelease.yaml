@@ -70,7 +70,7 @@ spec:
           init-db-role:
             image:
               repository: docker.io/library/postgres
-              tag: "17.11-alpine"
+              tag: "18.6-alpine"
               pullPolicy: IfNotPresent
             # Bare $VAR on purpose: Flux postBuild substitutes the braced form and
             # would blank these. Verified with `flux envsubst`: bare $VAR and
