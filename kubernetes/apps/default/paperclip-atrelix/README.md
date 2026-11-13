@@ -12,9 +12,9 @@ this pod.
 |---|---|---|
 | Server + UI | `Deployment/paperclip-atrelix`, image `ghcr.io/paperclipai/paperclip` (stable channel, digest-pinned) | One replica, `Recreate`. Local adapters (`claude_local`, `codex_local`, `opencode_local`, `gemini_local`) spawn their CLIs, which ship in the image, as child processes in the same container |
 | Postgres | shared CNPG cluster `postgres`, database `paperclip_atrelix` | Role and database created by the `postgres-init` initContainer. Migrations auto-apply at start. Needs `pg_trgm` and `fuzzystrmatch`; both are trusted extensions, so the owning role creates them itself. Covered by the cluster's daily `ScheduledBackup`; Paperclip's own dumps are off (`PAPERCLIP_DB_BACKUP_ENABLED=false`) |
-| Data | `PVC/paperclip-atrelix-data` (20Gi `ceph-block`) at `/paperclip` (= `PAPERCLIP_HOME` = `$HOME`) | Agent workspaces, attachments (`local_disk` storage), run logs, `instances/default/config.json`, CLI logins (`~/.claude`, `~/.codex`). **Not backed up** |
+| Data | `PVC/paperclip-atrelix-data` (20Gi `ceph-block`) at `/paperclip` (= `PAPERCLIP_HOME` = `$HOME`) | Agent workspaces, attachments (`local_disk` storage), run logs, `instances/default/config.json`, CLI state (`~/.claude`, `~/.codex`), pre-upgrade database dumps (`backups/`). **Not backed up** |
 | Secrets | `ExternalSecret/paperclip-atrelix` → `paperclip-atrelix-ext-secret` | 1Password items `paperclip-atrelix` (below) and `cloudnative-pg` (superuser, init container only) |
-| Ingress | class `internal`; LAN DNS: unifi-dns CNAME → `internal.${SECRET_DOMAIN}` | Not on cloudflared. TLS from cert-manager over DNS-01 (the `dnsNames` solver in the ClusterIssuer) |
+| Route | `HTTPRoute` on `envoy-internal` (namespace `network`, listener `https`); LAN DNS: unifi-dns A record → envoy-internal; VPN clients resolve it through k8s-gateway | Not on cloudflared. TLS: the secondary-domain wildcard from `cert-manager/tls` |
 
 ### 1Password item `paperclip-atrelix` (vault `Home-Ops Default`)
 
@@ -40,8 +40,10 @@ Hex values keep the password usable verbatim in postgres-init's SQL and in
    invites from then on. Starting over on a fresh database means removing the
    flag again until the claim is done.
 3. **Apps → Connections**: sign in to the Claude and Codex subscriptions, or
-   add API keys. Logins land on the data volume and in the database (encrypted
-   with the master key).
+   add API keys. Credentials are stored in the database, encrypted with the
+   master key; each sign-in's temporary home on the data volume is deleted
+   once it completes. Connect Claude on 2026.1106.0 or later (see "Claude
+   subscription tokens" below).
 
 ## Decisions and gotchas
 
@@ -58,21 +60,35 @@ Hex values keep the password usable verbatim in postgres-init's SQL and in
   loopback, and kubelet sends the pod IP.
 - **Liveness is TCP.** `/api/health` returns 503 while Postgres is unreachable;
   restarting on that would kill in-flight agent runs during a CNPG failover.
-- **Claude sign-in behind nginx** needs `CLAUDE_LOGIN_TRUSTED_PROXIES` (the pod
-  CIDR). Paperclip's setup-token login sends its confidential responses only
-  over direct TLS or from an allowlisted TLS-terminating proxy; `TRUST_PROXY`
-  doesn't count.
-- **TLS over DNS-01.** The internal ingress's default certificate covers only
-  `*.${SECRET_DOMAIN}`, and this zone's HTTP-01 solver needs a tunnel route. The
-  cert-manager Cloudflare token (`kubernetes`) therefore has DNS:Edit and
-  Zone:Read on this zone as well, and the ClusterIssuer pins only this host to
-  DNS-01. Other secondary-domain hosts keep HTTP-01.
+- **Claude subscription tokens.** Through 2026.1012.0 the Claude sign-in ran
+  `claude auth login` and stored only the short-lived access token, dropping
+  the refresh token, so the connection died when that token expired (runs fail
+  with `401 OAuth access token has expired`). From 2026.1106.0 the sign-in runs
+  `claude setup-token` in the browser and stores that long-lived token. It has
+  only the `user:inference` scope, so the usage panel shows no quota for it.
+  Reconnect any Claude connection made on an older version.
+- **Claude sign-in behind envoy** needs `CLAUDE_LOGIN_TRUSTED_PROXIES` (the pod
+  CIDR, which holds the envoy-internal pods). Paperclip's setup-token login
+  sends its confidential responses only over direct TLS or from an allowlisted
+  TLS-terminating proxy; `TRUST_PROXY` doesn't count.
+- **TLS.** envoy-internal's https listener serves the `*.${SECRET_DOMAIN_2}`
+  wildcard, issued over DNS-01 with the cert-manager Cloudflare token
+  (`kubernetes`), which has DNS:Edit and Zone:Read on both zones. There is no
+  per-host certificate.
 - **Harmless startup noise.** The banner's `Agent JWT: missing (run npx
   paperclipai onboard)` only checks `PAPERCLIP_AGENT_JWT_SECRET`; agent JWTs
-  are signed with the `BETTER_AUTH_SECRET` fallback instead. postgres-init
-  16.2 logs `database_init_file: command not found` from a bug in its script;
-  it still finishes.
-- **Upgrades.** Bump tag and digest together (stable tags look like
-  `2026.1012.0`; the digest is the multi-arch index). Migrations apply on
-  start; read the release notes for breaking changes first. A downgrade after
-  migrations ran needs a database restore.
+  are signed with the `BETTER_AUTH_SECRET` fallback instead.
+- **Upgrades.** Read the release notes for breaking changes, then dump the
+  database onto the data volume. Restoring the CNPG cluster backup instead
+  would roll back every app's database.
+
+  ```sh
+  PRIMARY=$(kubectl -n database get pods -l cnpg.io/cluster=postgres,cnpg.io/instanceRole=primary -o name)
+  kubectl -n database exec "$PRIMARY" -c postgres -- pg_dump -Fc -d paperclip_atrelix \
+    | kubectl -n default exec -i deploy/paperclip-atrelix -c app -- \
+        sh -c 'umask 077; mkdir -p /paperclip/backups; cat > /paperclip/backups/paperclip_atrelix-pre-<version>.dump'
+  ```
+
+  Bump tag and digest together (stable tags look like `2026.1106.0`; the
+  digest is the multi-arch index). Migrations apply on start. A downgrade after
+  migrations ran needs that dump restored.

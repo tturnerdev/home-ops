@@ -7,8 +7,8 @@ metadata:
   namespace: default
 spec:
   interval: 30m
-  # The first install applies Paperclip's whole migration history (370 files
-  # at 2026.1012.0) before the pod turns Ready; keep Helm's wait above the
+  # A first install applies Paperclip's whole migration history (several
+  # hundred files) before the pod turns Ready; keep Helm's wait above the
   # startup probe's 10-minute window
   timeout: 15m
   chartRef:
@@ -51,13 +51,13 @@ spec:
               # this container. Stable channel (vYYYY.MDD.P release tags);
               # digest pins the multi-arch index.
               repository: ghcr.io/paperclipai/paperclip
-              tag: 2026.1012.0@sha256:1661b3dd3fdf7a9b59542d1ced464c3faf9dc8309798b4d15a9923ed32795307
+              tag: 2026.1106.0@sha256:d6584f05cf57a4b26c117eb083725f18c1fe69ddafa7d16c9f8cce83f6fa17da
               pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
               # Login required. "private" also enables the browser "Claim this
               # instance" first-admin flow, which is only safe because the
-              # ingress below is internal-only.
+              # route below is internal-only.
               PAPERCLIP_DEPLOYMENT_MODE: authenticated
               PAPERCLIP_DEPLOYMENT_EXPOSURE: private
               # Canonical URL: auth base URL, invite links, and the private
@@ -72,11 +72,11 @@ spec:
               # Paperclip's own periodic dumps onto the data volume
               PAPERCLIP_DB_BACKUP_ENABLED: "false"
               PAPERCLIP_TELEMETRY_DISABLED: "1"
-              # ingress-nginx is the only proxy in front; its pod IPs move, so
+              # envoy-internal is the only proxy in front; its pod IPs move, so
               # trust the pod CIDR. TRUST_PROXY gives per-client rate-limit
-              # budgets. The Claude subscription sign-in (Apps -> Connections)
-              # ignores it and only returns its confidential responses over
-              # direct TLS or from a CLAUDE_LOGIN_TRUSTED_PROXIES peer.
+              # budgets. Claude's setup-token sign-in ignores it and only
+              # returns its confidential responses over direct TLS or from a
+              # CLAUDE_LOGIN_TRUSTED_PROXIES peer.
               TRUST_PROXY: &podCidr 10.42.0.0/16
               CLAUDE_LOGIN_TRUSTED_PROXIES: *podCidr
               # Local agents inherit this container's environment (the adapters
