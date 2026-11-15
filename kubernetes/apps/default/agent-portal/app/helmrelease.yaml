@@ -1,0 +1,187 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: agent-portal
+  namespace: default
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      agent-portal:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 17.6
+              pullPolicy: IfNotPresent
+            envFrom:
+              - secretRef:
+                  name: &secret agent-portal-ext-secret
+        containers:
+          app:
+            image:
+              # https://github.com/atrelixtech/atrelix-support-portal — the Atrelix
+              # Agent Portal: which computers run Atrelix Support, and whether they
+              # are online. Private package, built by that repository's Image
+              # workflow on the Linux build runner; the workflow's summary prints
+              # the digest to pin here.
+              repository: ghcr.io/atrelixtech/atrelix-support-portal
+              tag: 0.1.0@sha256:b3eebf30b882437929e2f1584f37dec07cc02b608a8765d40841b61872b20356
+              pullPolicy: IfNotPresent
+            env:
+              TZ: America/Los_Angeles
+              # The URL people use: the session cookie is marked Secure for https
+              PORTAL_BASE_URL: "https://agent-portal.${SECRET_DOMAIN_2}"
+              # Devices check in on the update relay's hostname (route "checkin"
+              # below). On that hostname the portal itself answers 404 for
+              # everything but /api/v1/sync, whatever the route lets through.
+              PORTAL_DEVICE_HOSTS: "agent.${SECRET_DOMAIN_2}"
+              # Everything else is served on this hostname only. Any other name
+              # (the pod's own address, which the probes below ask) gets
+              # GET /api/v1/health and nothing else: add a name here before
+              # people or scripts use it.
+              PORTAL_MANAGEMENT_HOSTS: "agent-portal.${SECRET_DOMAIN_2}"
+              # Where the real client address is, per hostname, because different
+              # proxies are in front. Internal: Envoy appends the address it saw.
+              # Public: Cloudflare names the visitor; what Envoy appends there is
+              # the tunnel pod, so it is only the fallback. A header that no proxy
+              # on that path sets itself must not be listed: the client writes it.
+              PORTAL_CLIENT_IP_HEADER: "x-forwarded-for"
+              PORTAL_DEVICE_CLIENT_IP_HEADER: "cf-connecting-ip,x-forwarded-for"
+              PORTAL_DATABASE_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: *secret
+                    key: PORTAL_DATABASE_URL
+              PORTAL_SECRET_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: *secret
+                    key: PORTAL_SECRET_KEY
+              PORTAL_ADMIN_EMAIL:
+                valueFrom:
+                  secretKeyRef:
+                    name: *secret
+                    key: PORTAL_ADMIN_EMAIL
+              PORTAL_ADMIN_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: *secret
+                    key: PORTAL_ADMIN_PASSWORD
+            probes:
+              # /api/v1/health answers 200 even while Postgres is unreachable
+              # (status "degraded"), so a CNPG failover does not restart the pod
+              # and drop every device's live channel.
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: &port 8720
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: *port
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  # Migrations run before the server starts listening
+                  failureThreshold: 36
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 20m
+                memory: 192Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      # The portal never calls the Kubernetes API
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        # The image's `portal` user
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: agent-portal
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        # INTERNAL ONLY: the web UI and the management API. Whoever signs in
+        # here sees every client computer's inventory; AI agents and techs reach
+        # it over the LAN or the tailnet.
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Atrelix"
+          gethomepage.dev/name: "Agent Portal"
+          gethomepage.dev/icon: "mdi-monitor-multiple"
+          gethomepage.dev/description: "Computers running Atrelix Support"
+        hostnames:
+          - "agent-portal.${SECRET_DOMAIN_2}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+      checkin:
+        # PUBLIC, device check-in only. agent.<domain> is the update relay's
+        # hostname (a Cloudflare Worker): Cloudflare sends /api/* to the tunnel
+        # (a Workers route without a Worker) and everything else to the Worker.
+        # See ../README.md for the Cloudflare side.
+        annotations:
+          # No DNS record from either controller. Public DNS for this hostname
+          # is the hand-made proxied CNAME to the tunnel. On the LAN it must
+          # keep resolving publicly too: a UniFi record would send LAN computers
+          # here for /updates, which only the Worker serves, and they would
+          # stop updating.
+          external-dns.kubernetes.io/controller: none
+        hostnames:
+          - "agent.${SECRET_DOMAIN_2}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/v1/sync
+            backendRefs:
+              - identifier: app
+                port: *port

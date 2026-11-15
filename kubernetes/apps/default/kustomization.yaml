@@ -26,6 +26,7 @@ resources:
   - ./homarr/ks.yaml
   - ./photoprism/ks.yaml
   - ./paperclip-atrelix/ks.yaml
+  - ./agent-portal/ks.yaml
   - ./rustdesk/ks.yaml
   - ./odoo/ks.yaml
   - ./erpnext/ks.yaml
