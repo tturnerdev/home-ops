@@ -27,28 +27,38 @@ installed client depends on. The hostname is split at Cloudflare, by path:
 
 1. **1Password item `agent-portal`** in "Home-Ops Default" with `agent_portal_postgres_user`,
    `agent_portal_postgres_password`, `agent_portal_secret_key`, `agent_portal_admin_email`,
-   `agent_portal_admin_password` (created 2026-11-14).
+   `agent_portal_admin_password`. Every one of the five needs a value: a field that exists and
+   is empty syncs without an error, and the pod then stops in `Init:CrashLoopBackOff` (`init-db`
+   logs `INIT_POSTGRES_PASS: unset`). That repository's `docs/deploy.md` (the first deployment,
+   step 3) says how to see it and what to do once the fields are filled.
 2. **The image**: private package `ghcr.io/atrelixtech/atrelix-support-portal`, pushed by that
    repository's Image workflow. `ghcr-pull` must be able to read it; a pod stuck in
    `ImagePullBackOff` with a 401 or 403 means it cannot (Package settings > Manage access).
-3. **Cloudflare, by hand, in this order**:
-   1. Workers Routes > Add route: `agent.<domain 2>/api/*`, Worker: none.
-   2. DNS: replace the two placeholder records of `agent` (A `192.0.2.1`, AAAA `100::`) with one
-      proxied CNAME to the tunnel, the same target `sign` has. A CNAME cannot sit next to A/AAAA
-      records, so this is a delete and an add; do it at a quiet hour.
-   3. Check at once: `curl https://agent.<domain 2>/health` and `/updates/latest.json` still answer
+3. **Cloudflare**, done on 2026-11-16. For whoever has to repeat it, in this order (that
+   repository's `docs/deploy.md`, the first deployment, steps 4 to 8, has the calls and the
+   reasons):
+   1. DNS: `agent` is one proxied CNAME to the tunnel, the same target `sign` has. It replaced two
+      placeholder records (A `192.0.2.1`, AAAA `100::`) without the name ever being without a
+      record: delete the AAAA, then overwrite the A record in place as the CNAME. A CNAME cannot
+      sit next to an A or AAAA record, which is why the AAAA goes first.
+   2. Check at once: `curl https://agent.<domain 2>/health` and `/updates/latest.json` still answer
       from the Worker. If not, put the two placeholder records back.
-   4. Leave request body buffering at its default for this hostname, and add the rate limiting
-      rule for `/api/v1/sync`. Both are in that repository's `docs/deploy.md` (the first
-      deployment, step 8), with the reasons.
+   3. Workers Routes: `agent.<domain 2>/api/*` with Worker: none. Only then do those paths skip
+      the Worker; until then it answers them by itself, with 404. The route comes after the DNS
+      change because computers that already check in would otherwise be sent to the placeholder.
+   4. Request body buffering is left at its default for this hostname, and the zone's one rate
+      limiting rule is on `/api/v1/sync`.
 
 ## Checking a deployment
 
 ```sh
 # From the LAN: the portal itself
 curl https://agent-portal.<domain 2>/api/v1/health
-# From outside: check-in is reachable (401 without a device token), nothing else is
-curl -i -X POST https://agent.<domain 2>/api/v1/sync            # 401
+# The public path: check-in is reachable (401 without a device token), nothing else is. The name
+# resolves publicly on the LAN too, so this goes through Cloudflare from anywhere. The Agent Portal
+# reads the body before it asks for the token: a POST without a body answers 400, not 401.
+curl -i -X POST -H 'content-type: application/json' -d '{"state":{"hostname":"PROBE"}}' \
+  https://agent.<domain 2>/api/v1/sync                          # 401
 curl -i https://agent.<domain 2>/api/v1/devices                 # 404
 curl -i -X DELETE https://agent.<domain 2>/api/v1/devices       # 404 as well, never 405 or 401
 curl -i https://agent.<domain 2>/updates/latest.json            # the Worker, as before
