@@ -24,7 +24,7 @@ spec:
     podAntiAffinityType: required
   # Pinned: CNPG only rolls the pods when the spec changes, so the floating
   # 17-standard-trixie tag sat on its first pull (17.6) for months.
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.12-standard-trixie
   storage:
     storageClass: topolvm-thin-provisioner
     size: 40Gi
