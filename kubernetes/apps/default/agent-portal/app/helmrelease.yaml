@@ -44,7 +44,7 @@ spec:
               # workflow on the Linux build runner; the workflow's summary prints
               # the digest to pin here.
               repository: ghcr.io/atrelixtech/atrelix-support-portal
-              tag: 0.2.0@sha256:ae59a25610ce4e460273cc2248240ec86d4acceacb42f02d9e30f48e09d0932d
+              tag: 0.2.1@sha256:1153c57e645552c1dd7e1cfc576c69d1f3f2fce9a0d030ca8f83ba3ff34495b6
               pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
