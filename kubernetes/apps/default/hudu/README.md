@@ -1,6 +1,6 @@
 # Hudu
 
-IT documentation platform (Hudu 2.48.0, self-hosted) deployed with Hudu's
+IT documentation platform (Hudu 2.50.1, self-hosted) deployed with Hudu's
 official Helm chart at `docs.${SECRET_DOMAIN_2}`. It took over from the
 docker-compose instance on lab1 (10.13.37.20) on 2026-10-08; the "Migration
 from lab1" section below records how, and doubles as the restore runbook.
@@ -9,10 +9,10 @@ from lab1" section below records how, and doubles as the restore runbook.
 
 | Piece | Where | Notes |
 |---|---|---|
-| Chart | `OCIRepository/hudu` → `oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart` 0.3.6 | ECR Public, anonymous pulls. Image `hududocker/hudu:2.48.0` pinned in the HelmRelease |
+| Chart | `OCIRepository/hudu` → `oci://public.ecr.aws/q4n0g0t7/hudu-helm-chart` 0.3.10 | ECR Public, anonymous pulls. Image `hududocker/hudu:2.50.1` pinned in the HelmRelease |
 | Web / worker | `Deployment/hudu-web`, `Deployment/hudu-worker` | `fullnameOverride: hudu`. The worker must stay at 1 replica (it owns Sidekiq's cron scheduler; the chart refuses more) |
 | Migrations | `Job/hudu-migrate` (Helm hook, `post-install,pre-upgrade`) | Runs `rails db:prepare`. The completed Job stays around until the next upgrade, so its logs are inspectable |
-| Postgres | shared CNPG cluster `postgres` (PG 17.6), database `hudu_production`, role `hudu` | Created by `Job/hudu-db-init`, which also creates the extensions `vector`, `pg_trgm`, `unaccent`, `fuzzystrmatch` as superuser. Covered by the cluster's daily `ScheduledBackup` (02:00 → Ceph RGW) like every other app DB |
+| Postgres | shared CNPG cluster `postgres` (PG 17), database `hudu_production`, role `hudu` | Created by `Job/hudu-db-init`, which also creates the extensions `vector`, `pg_trgm`, `unaccent`, `fuzzystrmatch` as superuser. Covered by the cluster's daily `ScheduledBackup` (02:00 → Ceph RGW) like every other app DB |
 | Redis | shared Dragonfly (`dragonfly.database.svc.cluster.local:6379`, db 0) | Sidekiq 7 + Rails cache. Dragonfly runs in emulated cluster mode (db 0 only); Sidekiq keys don't collide with the Bull/BullMQ apps already on it |
 | Uploads | the existing MinIO bucket of the lab1 instance (`https://minio.${SECRET_DOMAIN_2}`, path-style) | Hudu hands browsers **presigned S3 URLs** (`AUTHENTICATE_UPLOADS` only applies to local-filesystem storage), so the object store must be reachable from LAN and WAN — the in-cluster Ceph RGW is not. Sharing the bucket with lab1 is safe: every key carries a random hash, nothing is overwritten |
 | Secrets | `Secret/hudu-app-secret` (sops) and `ExternalSecret/hudu` → `hudu-ext-secret` | See below |
@@ -48,7 +48,7 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   + pgvector 0.8 a hard requirement from Core v2.46. The code disagrees:
   `db/migrate/20260722000003_create_vector_embeddings.rb` skips the semantic
   search table when pgvector is missing, and lab1 runs 2.46.1 on plain
-  PostgreSQL 17.2 with no pgvector at all. The shared CNPG cluster is 17.6
+  PostgreSQL 17.2 with no pgvector at all. The shared CNPG cluster is 17.x
   *with* pgvector 0.8.0 (the `standard` CNPG image ships it), so the
   `vector_embeddings` table and its HNSW index are created normally — verified
   in the migration rehearsal below. The 2.47 and 2.48 release notes repeat
@@ -56,6 +56,11 @@ Reloader (`commonAnnotations`) restarts web/worker when the Secret changes.
   (inet/decimal columns, backfills, concurrent indexes, the client-portal →
   portal-user conversion) are plain PostgreSQL and nothing in the code checks
   the server version, so it runs on 17.6 as well (upgraded 2026-10-22).
+  2.50.1 (2026-11-19, the Ruby 3.4.13 security release) is the same story on
+  17.11: seven more migrations, all additive (three columns and a partial
+  index; the rest are no-ops on this database), the same set of environment
+  variables and still no version check. It was rehearsed first against a
+  restored `pg_dump` in a throwaway PostgreSQL 17.11 container.
   Before each upgrade, diff the new image's `db/migrate` versions against
   `select version from schema_migrations` and read what's missing: Hudu ships
   backdated migrations (7 of those 11 predate the old image's newest), so
