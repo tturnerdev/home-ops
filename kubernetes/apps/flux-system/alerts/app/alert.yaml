@@ -4,7 +4,7 @@
 # update that doesn't deploy gets noticed (docs/renovate.md in
 # home-ops-working-and-docs). eventSources
 # take no namespace wildcard: a new namespace with Flux objects goes here too.
-apiVersion: notification.toolkit.fluxcd.io/v1beta3
+apiVersion: notification.toolkit.fluxcd.io/v1
 kind: Alert
 metadata:
   name: ntfy
