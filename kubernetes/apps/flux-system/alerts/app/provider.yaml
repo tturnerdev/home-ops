@@ -4,7 +4,7 @@
 # raw event JSON, and the ntfy template headers in the secret turn that into a
 # titled notification. The secret also keeps the public ntfy URL out of this
 # public repo.
-apiVersion: notification.toolkit.fluxcd.io/v1beta3
+apiVersion: notification.toolkit.fluxcd.io/v1
 kind: Provider
 metadata:
   name: ntfy
