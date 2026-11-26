@@ -1,0 +1,85 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "Agent Box"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - containers/agent-box/**
+      - .github/workflows/agent-box.yaml
+  pull_request:
+    branches: ["main"]
+    paths:
+      - containers/agent-box/**
+      - .github/workflows/agent-box.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Agent Box
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/agent-box
+          # YYYY.MM.DD-<short sha> on every build; latest only from the default branch.
+          tags: |
+            type=raw,value={{date 'YYYY.MM.DD' tz='UTC'}}-{{sha}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=agent-box
+            org.opencontainers.image.description=Long-lived agent box: Herdr Core terminals and Claude Code, reached over SSH
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: containers/agent-box
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=agent-box
+          cache-to: type=gha,scope=agent-box,mode=max
+
+      - name: Summary
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+              echo "### Agent Box"
+              echo
+              echo "Digest: \`${DIGEST}\`"
+              echo
+              echo "Tags:"
+              echo '```'
+              echo "${TAGS}"
+              echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
