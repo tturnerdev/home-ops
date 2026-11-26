@@ -1,0 +1,16 @@
+---
+# The box's /home: the agent user's home directory with the Herdr Core and
+# Claude Code binaries and their state, cloned repositories, the SSH host key
+# and CLI logins. Not backed up.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: herdr-home
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: ceph-block

@@ -1,0 +1,155 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: herdr
+  namespace: default
+spec:
+  interval: 30m
+  # Room for a cold pull of the image. A timed-out upgrade is remediated
+  # (rolled back and retried), and every rollback or retry is another restart.
+  timeout: 15m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      herdr:
+        # "Agent box": sshd plus Herdr Core, which keeps coding-agent sessions
+        # alive between SSH connections. Every session lives in this one pod,
+        # so any restart (rollout, crash, eviction, node drain) ends all of
+        # them. Every pod-template change restarts it: the image, env,
+        # resources, or an app-template bump that changes what it renders.
+        #
+        # One replica, Recreate: the home volume is RWO, and Herdr itself
+        # allows only one instance per home directory.
+        #
+        # No reloader.stakater.com/auto, on purpose: a Secret change must not
+        # restart the pod. The authorized-keys Secret is mounted as a directory
+        # (no subPath), so kubelet refreshes the file in place and the image
+        # picks up the new keys without a restart.
+        replicas: 1
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # Built from containers/agent-box in this repo. Digest-pinned;
+              # a new tag or digest is a restart, so bump deliberately.
+              repository: ghcr.io/tturnerdev/agent-box
+              tag: 2026.11.26-9cabeb4@sha256:5e4fad60bfe13e8e06990f5356ae3368f1f87dd002393ed404df4b3eecf47931
+              pullPolicy: IfNotPresent
+            env:
+              TZ: America/Los_Angeles
+            # Stops Herdr Core and sshd cleanly (up to ~20s), well inside the
+            # 90s grace period below.
+            lifecycle:
+              preStop:
+                exec:
+                  command: ["/usr/local/bin/agent-box-stop"]
+            probes:
+              # Readiness only. A failed liveness check would restart the
+              # container and end every session; the image supervises sshd and
+              # Herdr Core itself. Liveness and startup are off by default in
+              # app-template 5.x; disabled explicitly so no chart change can
+              # add them.
+              liveness:
+                enabled: false
+              startup:
+                enabled: false
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 2222
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            # The image needs a writable root filesystem; it needs no
+            # capabilities and no privilege escalation.
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 200m
+                # Well above idle use on purpose: kubelet evicts pods that
+                # exceed their request first when a node runs short of
+                # memory, and an eviction ends every session
+                memory: 4Gi
+              limits:
+                # Several agent sessions plus builds; nodes have 32 GiB. At
+                # this limit the OOM killer takes the whole container (cgroup
+                # v2 group kill), i.e. every session. No CPU limit.
+                memory: 16Gi
+    defaultPodOptions:
+      # Agents in this box get no Kubernetes API token (the chart default,
+      # pinned so a default change cannot flip it)
+      automountServiceAccountToken: false
+      # The box's name in Herdr clients and the shell prompt
+      hostname: herdr
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        # The image runs entirely as 1000:1000. fsGroup makes the volume root
+        # group-writable, which the image relies on to create /home/agent on
+        # a fresh volume; OnRootMismatch skips the recursive chown on restarts.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: herdr
+        type: LoadBalancer
+        annotations:
+          # Own LB IP (Cilium LB-IPAM + L2 announcement): SSH is raw TCP,
+          # which neither the Envoy Gateways nor the cloudflared tunnel carry.
+          lbipam.cilium.io/ips: 10.13.38.94
+          # Same mechanism as postgres-lb: only k8s-gateway reads this (VPN
+          # clients via Tailscale split DNS). Neither external-dns instance has
+          # the service source, so nothing is published publicly and the UniFi
+          # resolver gets no record either. Not a DNSEndpoint like rustdesk's:
+          # on this domain the Cloudflare instance would publish it.
+          external-dns.kubernetes.io/hostname: herdr.${SECRET_DOMAIN}
+        # Any node can answer for the VIP, wherever the pod runs
+        externalTrafficPolicy: Cluster
+        ports:
+          # Clients use the standard port; sshd runs unprivileged on 2222
+          ssh:
+            port: 22
+            targetPort: *port
+            protocol: TCP
+    persistence:
+      home:
+        # All of /home rather than /home/agent: the image creates the agent's
+        # home inside it, and everything there (Herdr Core and Claude Code,
+        # their state, repositories, host key, logins) must outlive the pod.
+        # If the image ever declares a Dockerfile VOLUME below /home, mount
+        # that exact path as well: containerd covers an unmounted VOLUME path
+        # with a throwaway directory that hides the PVC underneath.
+        existingClaim: herdr-home
+        globalMounts:
+          - path: /home
+      authorized-keys:
+        # Directory mount, no subPath, so key changes reach the running pod;
+        # the image copies authorized_keys into place itself
+        type: secret
+        name: herdr-authorized-keys
+        defaultMode: 292 # 0444 — parser-proof decimal (octal literals vary across kustomize/helm)
+        globalMounts:
+          - path: /etc/agent-box
+            readOnly: true

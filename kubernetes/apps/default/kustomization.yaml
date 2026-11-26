@@ -32,3 +32,4 @@ resources:
   - ./erpnext/ks.yaml
   - ./shlink/ks.yaml
   - ./shlink-web-client/ks.yaml
+  - ./herdr/ks.yaml
