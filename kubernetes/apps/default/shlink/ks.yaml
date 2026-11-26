@@ -25,7 +25,7 @@ spec:
   dependsOn:
     - name: external-secrets
       namespace: external-secrets
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: cloudnative-pg-cluster
+      namespace: database
   interval: 30m
   timeout: 5m

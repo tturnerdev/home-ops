@@ -24,22 +24,28 @@ spec:
   values:
     controllers:
       shlink:
+        # All state is in PostgreSQL, so the new pod can come up before the old
+        # one stops: short links keep redirecting through image updates
+        strategy: RollingUpdate
+        rollingUpdate:
+          unavailable: 0
+          surge: 1
+        annotations:
+          reloader.stakater.com/auto: "true"
         initContainers:
           init-db:
             image:
-              repository: ghcr.io/cloudnative-pg/postgresql
-              tag: 18.6
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 17.6
+              pullPolicy: IfNotPresent
             envFrom:
               - secretRef:
-                  name: shlink-secret
-            command:
-              - sh
-              - -c
-              - |
-                until pg_isready -h postgres-rw.database.svc.cluster.local -U shlink; do
-                  echo "Waiting for PostgreSQL to be ready..."
-                  sleep 5
-                done
+                  name: shlink-init-secret
+            securityContext: &securityContext
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
         containers:
           app:
             image:
@@ -47,35 +53,43 @@ spec:
               tag: 5.1.9
               pullPolicy: IfNotPresent
             env:
-              TZ: "America/Los_Angeles"
-              DEFAULT_DOMAIN: "link.${SECRET_DOMAIN}"
+              TIMEZONE: "America/Los_Angeles"
+              # Short links are served on the third domain (an apex name)
+              DEFAULT_DOMAIN: "${SECRET_DOMAIN_3}"
               IS_HTTPS_ENABLED: "true"
-              PORT: "8080"
-              ENABLE_PERIODIC_VISIT_LOCATE: "true"
-              AUTO_RESOLVE_TITLES: "true"
-              DEFAULT_SHORT_CODES_LENGTH: "5"
+              # The bare domain, without a short code, forwards to the company
+              # site instead of showing Shlink's 404 page. Unknown short codes
+              # still get the 404.
+              DEFAULT_BASE_URL_REDIRECT: "https://${SECRET_DOMAIN_2}"
               DB_DRIVER: postgres
               DB_HOST: postgres-rw.database.svc.cluster.local
               DB_PORT: "5432"
               DB_NAME: shlink
               DB_USER: shlink
-              REDIS_SERVERS: "redis.database.svc.cluster.local:6379"
-              SHORT_DOMAIN_SCHEMA: https
-              SHORT_DOMAIN_HOST: "link.${SECRET_DOMAIN}"
+              # RoadRunner starts one worker of each kind per CPU core when these
+              # are unset, far more than a handful of redirects needs
+              WEB_WORKER_NUM: "2"
+              TASK_WORKER_NUM: "1"
             envFrom:
+              # DB_PASSWORD, INITIAL_API_KEY (1Password)
               - secretRef:
                   name: shlink-secret
+              # GEOLITE_LICENSE_KEY (sops)
+              - secretRef:
+                  name: shlink-geolite-secret
             probes:
-              liveness:
+              # Shlink migrates the database and downloads the GeoLite file
+              # before it opens the port
+              startup:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /rest/health
+                  tcpSocket:
                     port: 8080
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                  timeoutSeconds: 10
+                  periodSeconds: 5
+                  failureThreshold: 60
+              # /rest/health also checks the database, so it only gates traffic;
+              # a database outage must not restart the pod
               readiness:
                 enabled: true
                 custom: true
@@ -83,45 +97,81 @@ spec:
                   httpGet:
                     path: /rest/health
                     port: 8080
-                  initialDelaySeconds: 15
                   periodSeconds: 10
                   timeoutSeconds: 5
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 8080
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+            securityContext: *securityContext
             resources:
               requests:
-                cpu: 100m
-                memory: 256Mi
+                cpu: 20m
+                memory: 128Mi
               limits:
                 memory: 512Mi
+    defaultPodOptions:
+      securityContext:
+        # uid of the image's own user; also given explicitly because the
+        # postgres-init image names its user (nobody), which runAsNonRoot
+        # cannot verify
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
     service:
       app:
         controller: shlink
         ports:
           http:
             port: 8080
-    ingress:
+    route:
+      # Public: the short links themselves.
+      # Public DNS: a manual proxied record in that zone ->
+      # <tunnel-id>.cfargotunnel.com (external-dns only manages the primary
+      # domain), plus the matching hostname rule in the cloudflared config.
       app:
-        enabled: true
-        className: internal
-        annotations:
-          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
-        hosts:
-          - host: "link.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
-          - host: "link-admin.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+        hostnames:
+          - "${SECRET_DOMAIN_3}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
+      # Internal: the REST API under the web client's hostname (see
+      # ../../shlink-web-client), so the admin UI talks to it same-origin and
+      # never depends on public DNS
+      api:
+        hostnames:
+          - "shlink.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /rest
+            backendRefs:
+              - identifier: app
+                port: 8080
     persistence:
+      # Only caches, locks and the GeoLite file, all rebuilt at start; the
+      # entrypoint creates the sub-directories itself
       data:
-        enabled: true
-        existingClaim: shlink
+        type: emptyDir
         globalMounts:
           - path: /etc/shlink/data
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

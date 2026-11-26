@@ -24,6 +24,9 @@ spec:
   values:
     controllers:
       shlink-web-client:
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -32,31 +35,62 @@ spec:
               pullPolicy: IfNotPresent
             env:
               TZ: "America/Los_Angeles"
+              # With URL and API key set, the image writes them to
+              # /servers.json, which it serves to anyone who can open the
+              # page. That is why this app is on the internal gateway only:
+              # never attach it to envoy-external.
+              # The URL is this app's own hostname; the shlink release routes
+              # /rest on it to the server.
+              SHLINK_SERVER_NAME: "Atrelix Links"
               SHLINK_SERVER_URL: "https://shlink.${SECRET_DOMAIN}"
-              SHLINK_SERVER_NAME: "Shlink"
+              SHLINK_SERVER_API_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: shlink-secret
+                    key: INITIAL_API_KEY
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
             resources:
               requests:
-                cpu: 10m
-                memory: 50Mi
+                cpu: 5m
+                memory: 32Mi
               limits:
-                memory: 256Mi
+                memory: 128Mi
+    defaultPodOptions:
+      securityContext:
+        # the image's nginx user
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: {type: RuntimeDefault}
     service:
       app:
         controller: shlink-web-client
         ports:
           http:
             port: 8080
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
         annotations:
-          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
-        hosts:
-          - host: "shlink-admin.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Atrelix"
+          gethomepage.dev/name: "Shlink"
+          gethomepage.dev/icon: "shlink.svg"
+          gethomepage.dev/description: "Short links"
+        hostnames:
+          - "shlink.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080

@@ -22,8 +22,10 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
+  # Same namespace as this Kustomization once the parent kustomization's
+  # namespace transformer has run, so no namespace here. Needs shlink first
+  # for shlink-secret (the API key).
   dependsOn:
     - name: shlink
-      namespace: flux-system
   interval: 30m
   timeout: 5m
