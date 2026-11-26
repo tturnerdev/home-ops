@@ -33,4 +33,7 @@ ingress:
   # apps/default/agent-portal/README.md)
   - hostname: "agent.${SECRET_DOMAIN_2}"
     service: *svc
+  # Short links (Shlink) on the third domain, served at its apex
+  - hostname: "${SECRET_DOMAIN_3}"
+    service: *svc
   - service: http_status:404
