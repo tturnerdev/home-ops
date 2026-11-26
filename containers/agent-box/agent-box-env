@@ -1,0 +1,28 @@
+#!/bin/bash
+# agent-box-env CMD [ARG...]: run CMD in the environment Herdr Core runs with.
+#
+# The core's environment becomes the environment of every terminal it starts,
+# so it is built from scratch here instead of inherited: no SSH_* variables,
+# no Kubernetes service variables, no secrets. XDG_RUNTIME_DIR stays unset:
+# Herdr derives its socket path from it, core and clients must agree, and
+# without it the socket lives in ~/.local/state/herdr-core/default/.
+#
+# Everything that starts or talks to the core goes through this: the
+# entrypoint, agent-box-stop and agent-launch (so even a core that one of them
+# happens to start gets this environment).
+set -u
+
+home=/home/agent
+vars=(
+    "HOME=$home"
+    "USER=agent"
+    "LOGNAME=agent"
+    "SHELL=/bin/bash"
+    "LANG=C.UTF-8"
+    "PATH=$home/.local/bin:$home/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+)
+if [ -n "${TZ:-}" ]; then
+    vars+=("TZ=$TZ")
+fi
+
+exec env -i "${vars[@]}" "$@"

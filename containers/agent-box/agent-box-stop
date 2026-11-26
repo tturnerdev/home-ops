@@ -1,0 +1,54 @@
+#!/bin/bash
+# agent-box-stop: stop Herdr Core the clean way. The pod's preStop hook runs
+# it, and so does the entrypoint when it gets SIGTERM. For the next 2 minutes
+# the entrypoint restarts neither the core nor sshd.
+#
+# `hc server stop` parks the terminals started with --keep, so the next core
+# start brings them back as shells in their last folder; a bare SIGTERM to the
+# core is only a handover. It can take ~20 s at worst, so the wait is bounded.
+# This script never fails: a stop hook that fails changes nothing for the
+# better.
+set -u
+
+readonly HC=/home/agent/.local/bin/herdr-core
+readonly LIMIT=${AGENT_BOX_STOP_TIMEOUT:-25}
+
+# From a preStop hook, stdout and stderr go nowhere; tini's stderr is the
+# container log.
+if [ -w /proc/1/fd/2 ]; then
+    exec 2>>/proc/1/fd/2
+fi
+log() { printf 'agent-box-stop: %s\n' "$*" >&2; }
+
+# Keeps the entrypoint from starting a new core or sshd meanwhile.
+touch /run/agent-box/stopping 2>/dev/null
+
+# No new SSH logins from here on: a Herdr client redials within a second of the
+# core going away, and its `herdr-core connect` would start a new core. Open
+# sessions stay; readiness (TCP 2222) fails, as it should for a stopping pod.
+pid=$(cat /run/agent-box/sshd.pid 2>/dev/null)
+if [ -n "$pid" ] && tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q 'sshd: /usr/sbin/sshd'; then
+    kill -TERM "$pid" 2>/dev/null && log "sshd stopped accepting connections"
+fi
+
+if [ ! -x "$HC" ]; then
+    log "no $HC, nothing to stop"
+    exit 0
+fi
+
+started=$SECONDS
+out=$(agent-box-env timeout -k 5 "$LIMIT" "$HC" server stop --json 2>&1)
+rc=$?
+took=$((SECONDS - started))
+case $rc in
+    0)
+        if [ "$(jq -r '.stopped' <<<"$out" 2>/dev/null)" = false ]; then
+            log "no core was running"
+        else
+            log "Herdr Core stopped (${took}s)"
+        fi
+        ;;
+    124 | 137) log "hc server stop did not finish within ${LIMIT}s; giving up" ;;
+    *) log "hc server stop failed (exit $rc, ${took}s): $out" ;;
+esac
+exit 0

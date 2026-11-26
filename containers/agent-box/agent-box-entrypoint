@@ -1,0 +1,313 @@
+#!/bin/bash
+# agent-box-entrypoint: prepare the home volume, then supervise sshd and
+# Herdr Core. Runs as uid 1000 under tini (PID 1); see README.md.
+#
+# This script, not herdr-core, is the container's main process: the core exits
+# on `hc server restart`, `hc update` and `hc machine update` (a separate holder
+# process keeps the programs and starts a new core). Any `hc` call also starts
+# a missing core, including a client redialing over SSH, which gives it that
+# SSH session's login environment. So this loop keeps a dead core coming back
+# started by us, with agent-box-env's environment: it holds a local connection
+# to the core (the watcher), which ends the moment the core exits, and then
+# starts a new one at once; a core that came up with another environment
+# anyway is restarted with ours (`hc server restart --fresh`, programs keep
+# running). Every 30 s it also re-checks sshd, the core and the managed keys.
+set -uo pipefail
+
+readonly AGENT_UID=1000
+readonly SEED=/opt/agent-box/herdr-core
+readonly SSHD_CONFIG=/usr/local/etc/agent-box/sshd_config
+readonly MANAGED_KEYS_SRC=/etc/agent-box/authorized_keys
+readonly RUN_DIR=/run/agent-box
+readonly LOOP_SECONDS=30
+readonly FRESH_EVERY=600
+
+export HOME=/home/agent
+readonly HC=$HOME/.local/bin/herdr-core
+readonly HOST_KEY=$HOME/.config/agent-box/ssh_host_ed25519_key
+readonly MANAGED_KEYS=$HOME/.ssh/authorized_keys.managed
+readonly STATE_DIR=$HOME/.local/state/agent-box
+
+sshd_pid=""
+sshd_started=0
+core_pid=""
+watcher_pid=""
+watcher_started=0
+watcher_hold_until=0
+last_fresh=-$FRESH_EVERY
+
+log() { printf 'agent-box: %s\n' "$*" >&2; }
+die() {
+    log "fatal: $*"
+    exit 1
+}
+
+# A sleep that signals interrupt: bash runs traps only between commands.
+nap() {
+    sleep "$1" &
+    wait "$!"
+}
+
+# agent-box-stop (the preStop hook, or shutdown below) marks a stop in
+# progress; starting the core or sshd again would undo it. The mark expires
+# after 2 minutes, in case the container lives on.
+stopping() {
+    [ -n "$(find "$RUN_DIR/stopping" -mmin -2 2>/dev/null)" ]
+}
+
+shutdown() {
+    trap '' TERM INT
+    log "$1 received: stopping Herdr Core and sshd"
+    if [ -n "$watcher_pid" ]; then
+        kill "$watcher_pid" 2>/dev/null
+    fi
+    /usr/local/bin/agent-box-stop
+    if [ -n "$sshd_pid" ]; then
+        kill -TERM "$sshd_pid" 2>/dev/null
+        wait "$sshd_pid" 2>/dev/null
+    fi
+    log "stopped"
+    exit 0
+}
+trap 'shutdown SIGTERM' TERM
+trap 'shutdown SIGINT' INT
+
+prepare_home() {
+    # In the pod /home is a volume whose root is root:1000 mode 2775 (fsGroup)
+    # and empty on first start; without a volume the image's /home/agent is used.
+    if [ ! -d "$HOME" ]; then
+        mkdir "$HOME" 2>/dev/null ||
+            die "cannot create $HOME: /home must be writable by gid 1000 (mount the volume with fsGroup: 1000)"
+        chmod 00750 "$HOME"
+        log "created $HOME"
+    fi
+    [ -O "$HOME" ] || die "$HOME is not owned by uid $AGENT_UID"
+
+    # Only what is missing: files the user changed or deleted on purpose in a
+    # skeleton directory are not brought back over their versions.
+    cp -R --no-preserve=ownership --update=none /etc/skel/. "$HOME/" ||
+        log "warning: could not copy /etc/skel into $HOME"
+    mkdir -p "$HOME/.local/bin" "$STATE_DIR" "$HOME/work" "$HOME/.config"
+    local d
+    for d in .ssh .config/agent-box .claude; do
+        [ -d "$HOME/$d" ] || mkdir -m 0700 "$HOME/$d"
+    done
+    if [ ! -e "$HOME/.ssh/authorized_keys" ]; then
+        install -m 0600 /dev/null "$HOME/.ssh/authorized_keys"
+    fi
+
+    # A Kubernetes fsGroup ownership pass (fsGroupChangePolicy: Always) makes
+    # every file group-writable on each mount. sshd ignores host keys that
+    # others can read and, with StrictModes, refuses a group-writable home,
+    # ~/.ssh or authorized_keys; the ssh client refuses such private keys.
+    # Tighten permission bits only, never contents.
+    chmod go-w "$HOME"
+    chmod -R go-rwx "$HOME/.ssh" "$HOME/.config/agent-box"
+}
+
+seed_herdr_core() {
+    if [ ! -e "$HC" ]; then
+        local tmp
+        if tmp=$(mktemp "$HOME/.local/bin/.herdr-core.seed.XXXXXX") &&
+            cp "$SEED" "$tmp" && chmod 0755 "$tmp" && mv -f "$tmp" "$HC"; then
+            log "seeded $HC from the image ($("$HC" --version 2>/dev/null))"
+        else
+            rm -f "${tmp:-}"
+            log "error: cannot seed $HC from $SEED"
+            return 1
+        fi
+    fi
+    # Like Herdr's own installer: an hc link only where no hc exists at all.
+    if [ ! -e "$HOME/.local/bin/hc" ] && [ ! -L "$HOME/.local/bin/hc" ] &&
+        ! agent-box-env sh -c 'command -v hc' >/dev/null 2>&1; then
+        ln -s herdr-core "$HOME/.local/bin/hc"
+    fi
+}
+
+ensure_host_key() {
+    # Generated once into the volume, so the host identity survives restarts.
+    if [ ! -s "$HOST_KEY" ]; then
+        rm -f "$HOST_KEY" "$HOST_KEY.pub"
+        ssh-keygen -q -t ed25519 -N '' -C agent-box -f "$HOST_KEY" </dev/null ||
+            die "cannot generate the SSH host key"
+        log "generated a new SSH host key"
+    elif [ ! -s "$HOST_KEY.pub" ]; then
+        ssh-keygen -y -f "$HOST_KEY" >"$HOST_KEY.pub" ||
+            die "cannot read the SSH host key $HOST_KEY"
+    fi
+    chmod 0600 "$HOST_KEY"
+    log "SSH host key: $(ssh-keygen -l -f "$HOST_KEY.pub" 2>/dev/null)"
+}
+
+seed_claude_settings() {
+    local f=$HOME/.claude/settings.json
+    if [ ! -e "$f" ]; then
+        printf '{"remoteControlAtStartup": true}\n' >"$f" && chmod 0600 "$f"
+        log "created $f"
+    fi
+}
+
+# The pod mounts a Secret as /etc/agent-box. Its files are group/world-readable
+# symlinks, which StrictModes rejects, so sshd reads a private copy instead.
+# If the source disappears the last copy stays; ~/.ssh/authorized_keys is the
+# user's own file and is never written here.
+sync_managed_keys() {
+    [ -f "$MANAGED_KEYS_SRC" ] && [ -r "$MANAGED_KEYS_SRC" ] || return 0
+    cmp -s "$MANAGED_KEYS_SRC" "$MANAGED_KEYS" && return 0
+    local tmp
+    tmp=$(mktemp "$HOME/.ssh/.authorized_keys.managed.XXXXXX") || return 0
+    if cat "$MANAGED_KEYS_SRC" >"$tmp" && chmod 0600 "$tmp" && mv -f "$tmp" "$MANAGED_KEYS"; then
+        log "updated ~/.ssh/authorized_keys.managed from $MANAGED_KEYS_SRC ($(grep -c -E '^[[:space:]]*[^#[:space:]]' "$MANAGED_KEYS") key lines)"
+    else
+        rm -f "$tmp"
+        log "warning: cannot update $MANAGED_KEYS"
+    fi
+}
+
+start_sshd() {
+    env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 ${TZ:+"TZ=$TZ"} \
+        /usr/sbin/sshd -D -e -f "$SSHD_CONFIG" &
+    sshd_pid=$!
+    sshd_started=$SECONDS
+    log "sshd started on port 2222 (pid $sshd_pid)"
+}
+
+ensure_sshd() {
+    if [ -n "$sshd_pid" ]; then
+        kill -0 "$sshd_pid" 2>/dev/null && return 0
+        wait "$sshd_pid" 2>/dev/null
+        local rc=$?
+        sshd_pid=""
+        stopping && return 0
+        log "sshd exited with status $rc; restarting it"
+        if ((SECONDS - sshd_started < 10)); then
+            nap 10
+        fi
+    fi
+    stopping || start_sshd
+}
+
+# The watcher: a local event subscription (to a document name nobody uses, so
+# only heartbeats flow) that ends the moment the core exits and so wakes the
+# loop. A local start beats a client redialing over SSH.
+start_watcher() {
+    ((SECONDS >= watcher_hold_until)) || return 0
+    agent-box-env "$HC" events --doc agent-box-watchdog >/dev/null 2>&1 </dev/null &
+    watcher_pid=$!
+    watcher_started=$SECONDS
+}
+
+reap_watcher() {
+    [ -n "$watcher_pid" ] || return 0
+    kill -0 "$watcher_pid" 2>/dev/null && return 0
+    wait "$watcher_pid" 2>/dev/null
+    watcher_pid=""
+    # One that keeps ending at once must not spin the loop: wait a pass.
+    if ((SECONDS - watcher_started < 10)); then
+        watcher_hold_until=$((SECONDS + LOOP_SECONDS))
+    fi
+}
+
+# What programs get from the core (hc exec) must be agent-box-env's environment:
+# all of its variables with its values, nothing else but PWD and Herdr's own
+# HC_* variables. Unknown (the call failed) counts as ours. Sets env_diff to
+# the names (never the values) of the variables that differ.
+env_diff=""
+core_env_is_ours() {
+    local expected actual missing foreign
+    env_diff=""
+    expected=$(agent-box-env env | LC_ALL=C sort)
+    actual=$(agent-box-env timeout -k 5 20 "$HC" exec env 2>/dev/null | LC_ALL=C sort) || return 0
+    [ -n "$actual" ] || return 0
+    missing=$(LC_ALL=C comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))
+    foreign=$(LC_ALL=C comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") |
+        grep -v -E '^(PWD|HC_[A-Z0-9_]*)=')
+    env_diff=$(printf '%s\n%s\n' "$missing" "$foreign" | cut -d= -f1 | grep . | sort -u | tr '\n' ' ')
+    [ -z "$env_diff" ]
+}
+
+# `hc server start` once, then the cheap `hc server status` on every pass and
+# whenever the watcher ends: either one starts a missing core, with
+# agent-box-env's environment.
+check_core() {
+    local action=${1:-status} out rc pid
+    stopping && return 0
+    seed_herdr_core || return 0
+    out=$(agent-box-env timeout -k 5 20 "$HC" server "$action" --json 2>"$RUN_DIR/hc-server.err")
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        log "warning: hc server $action failed (exit $rc): $(tr '\n' ' ' <"$RUN_DIR/hc-server.err")"
+        return 0
+    fi
+    pid=$(jq -r '.pid // empty' <<<"$out" 2>/dev/null)
+    if [ -n "$pid" ] && [ "$pid" != "$core_pid" ]; then
+        log "Herdr Core running: $(jq -r '"hc \(.version), pid \(.pid), id \(.core.id[0:8]), \(.live) live terminal(s)"' <<<"$out")"
+        core_pid=$pid
+        if ! core_env_is_ours; then
+            if ((SECONDS - last_fresh >= FRESH_EVERY)); then
+                last_fresh=$SECONDS
+                log "Herdr Core $pid runs with another environment (differs in: ${env_diff% }; an SSH client started it?): restarting it with agent-box-env's, programs keep running"
+                agent-box-env timeout -k 5 30 "$HC" server restart --fresh --json >/dev/null 2>"$RUN_DIR/hc-server.err" ||
+                    log "warning: hc server restart --fresh failed: $(tr '\n' ' ' <"$RUN_DIR/hc-server.err")"
+            else
+                log "warning: Herdr Core $pid still runs with another environment; next correction in $((FRESH_EVERY - (SECONDS - last_fresh)))s"
+            fi
+        fi
+    fi
+    if [ -z "$watcher_pid" ]; then
+        start_watcher
+    fi
+}
+
+# Claude Code installs itself under $HOME (~/.local/bin/claude) and updates
+# itself there; a failed install is retried on the next container start.
+install_claude() {
+    [ -e "$HOME/.local/bin/claude" ] && return 0
+    log "Claude Code is not installed: running its installer in the background (log: ~/.local/state/agent-box/claude-install.log)"
+    (
+        {
+            printf -- '--- %s installing Claude Code\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            agent-box-env bash -o pipefail -c 'curl -fsSL https://claude.ai/install.sh | bash'
+            printf -- '--- exit status %s\n' "$?"
+        } >>"$STATE_DIR/claude-install.log" 2>&1 </dev/null
+        if [ -e "$HOME/.local/bin/claude" ]; then
+            log "Claude Code installed: $(agent-box-env "$HOME/.local/bin/claude" --version 2>/dev/null </dev/null | head -n 1)"
+        else
+            log "warning: Claude Code install failed (see ~/.local/state/agent-box/claude-install.log); retrying on the next container start"
+        fi
+    ) &
+}
+
+main() {
+    [ "$(id -u)" = "$AGENT_UID" ] || die "must run as uid $AGENT_UID, not $(id -u)"
+    mkdir -p "$RUN_DIR" 2>/dev/null
+    rm -f "$RUN_DIR/stopping"
+    prepare_home
+    seed_herdr_core
+    ensure_host_key
+    seed_claude_settings
+    sync_managed_keys
+    # The core's working directory is the default for terminals started over its API.
+    cd "$HOME" || die "cannot enter $HOME"
+    # The core before sshd: once sshd listens the pod is ready, and a client
+    # finding no core would start one with its SSH session's environment.
+    check_core start
+    start_sshd
+    install_claude
+
+    local sleeper
+    while :; do
+        sleep "$LOOP_SECONDS" &
+        sleeper=$!
+        # Back early when sshd exits or the watcher ends (the core exited).
+        wait -n "$sleeper" ${sshd_pid:+"$sshd_pid"} ${watcher_pid:+"$watcher_pid"} 2>/dev/null
+        kill "$sleeper" 2>/dev/null
+        wait "$sleeper" 2>/dev/null
+        reap_watcher
+        check_core
+        ensure_sshd
+        sync_managed_keys
+    done
+}
+
+main "$@"

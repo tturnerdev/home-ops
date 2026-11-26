@@ -1,0 +1,134 @@
+#!/bin/bash
+# agent-launch: start Claude Code on a task in a new background Herdr
+# terminal that is kept across restarts. The one command a phone shortcut
+# runs over SSH:
+#
+#   ssh agent@<box> agent-launch "fix the flaky test in repo x"
+set -euo pipefail
+export LC_ALL=C
+
+# Absolute paths: a non-interactive SSH session's PATH has no ~/.local/bin.
+readonly HC=/home/agent/.local/bin/herdr-core
+readonly WORK=/home/agent/work
+readonly MAX_TRIES=9
+
+usage() {
+    cat <<'EOF'
+usage: agent-launch [-d DIR] [-n NAME] [--] PROMPT...
+       ... | agent-launch [-d DIR] [-n NAME]
+
+Starts Claude Code with PROMPT (all words joined into one argument) in a new
+background Herdr terminal, kept across restarts (hc run --keep), and prints
+its name.
+
+  -d DIR   working directory (default: ~/work, created if missing)
+  -n NAME  terminal name, 1-32 of a-z 0-9 - _ (default: from the prompt
+           plus the time, e.g. fix-the-flaky-test-1432)
+
+With no PROMPT and stdin not a terminal, the prompt is read from stdin: that
+way no shell on either side of ssh rewrites quotes, $ or backticks in it.
+EOF
+}
+
+die() {
+    local code=$1
+    shift
+    printf 'agent-launch: %s\n' "$*" >&2
+    exit "$code"
+}
+
+# First words of the prompt as a name: lowercase a-z 0-9 joined by "-".
+slug() {
+    local text=${1,,} out="" word
+    text=${text//[^a-z0-9]/ }
+    for word in $text; do
+        out=${out:+$out-}$word
+        if [ "${#out}" -ge 16 ]; then
+            break
+        fi
+    done
+    out=${out:0:20}
+    out=${out%-}
+    printf '%s' "${out:-agent}"
+}
+
+dir="" name=""
+while [ $# -gt 0 ]; do
+    case $1 in
+        -d)
+            [ $# -ge 2 ] || die 2 "-d needs a directory"
+            dir=$2
+            shift 2
+            ;;
+        -n)
+            [ $# -ge 2 ] || die 2 "-n needs a name"
+            name=$2
+            shift 2
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -?*) die 2 "unknown option $1 (put -- before a prompt that starts with -)" ;;
+        *) break ;;
+    esac
+done
+
+prompt="$*"
+if [ -z "$prompt" ] && [ ! -t 0 ]; then
+    prompt=$(cat)
+fi
+if [ -z "${prompt//[[:space:]]/}" ]; then
+    usage >&2
+    exit 2
+fi
+
+if [ -n "$name" ] && ! [[ $name =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]]; then
+    die 2 "bad name '$name': use 1-32 of a-z 0-9 - _, starting with a letter or digit"
+fi
+
+if [ -z "$dir" ]; then
+    dir=$WORK
+    mkdir -p "$dir"
+fi
+[ -d "$dir" ] || die 1 "no such directory: $dir"
+dir=$(cd "$dir" && pwd -P)
+
+[ -x "$HC" ] || die 1 "herdr-core is not installed at $HC (the container entrypoint seeds it at start)"
+agent-box-env sh -c 'command -v claude' >/dev/null 2>&1 ||
+    die 1 "claude is not installed yet (see ~/.local/state/agent-box/claude-install.log)"
+
+err=$(mktemp)
+trap 'rm -f "$err"' EXIT
+
+base=$(slug "$prompt")
+stamp=$(date +%H%M)
+for ((try = 1; try <= MAX_TRIES; try++)); do
+    if [ -n "$name" ]; then
+        n=$name
+    elif [ "$try" -eq 1 ]; then
+        n=$base-$stamp
+    else
+        n=$base-$stamp-$try
+    fi
+    rc=0
+    out=$(agent-box-env "$HC" run --json --bg --keep --no-parent --name "$n" --cwd "$dir" \
+        -- claude "$prompt" 2>"$err") || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        address=$(jq -r '.address // empty' <<<"$out" 2>/dev/null || true)
+        printf 'started %s (%s) in %s; attach: hc attach %s\n' "$n" "${address:-?}" "$dir" "$n"
+        exit 0
+    fi
+    error=$(grep '^{' "$err" | tail -n 1 || true)
+    kind=$(jq -r '.error.kind // empty' <<<"$error" 2>/dev/null || true)
+    if [ "$kind" = name_taken ] && [ -z "$name" ]; then
+        continue
+    fi
+    message=$(jq -r '.error | .message + (if .hint then " (" + .hint + ")" else "" end)' <<<"$error" 2>/dev/null || true)
+    die "$rc" "hc run failed: ${message:-$(tr '\n' ' ' <"$err")}"
+done
+die 1 "no free terminal name after $MAX_TRIES tries ($base-$stamp-*)"

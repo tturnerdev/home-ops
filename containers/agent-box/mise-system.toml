@@ -1,0 +1,10 @@
+# Installed as /etc/mise/config.toml: system-wide mise settings for the agent
+# box. Tools, shims and per-user config stay under $HOME (~/.local/share/mise,
+# ~/.config/mise). Not named mise.toml here, so a mise run in this checkout
+# does not take it for a project config.
+[settings]
+# mise is a root-owned binary pinned by the image: `mise self-update` cannot
+# replace it, so the "newer version available" warning is only noise.
+disable_update_warning = true
+# No download statistics to mise-versions after each tool install.
+use_versions_host_track = false

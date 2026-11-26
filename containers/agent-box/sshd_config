@@ -1,0 +1,42 @@
+# sshd for the agent box. Runs as the unprivileged agent user (uid 1000);
+# agent-box-entrypoint starts it with -D -e (foreground, logs to stderr, so
+# they land in the container log).
+
+Port 2222
+AddressFamily any
+# Generated once into the home volume, so the host identity survives restarts.
+HostKey /home/agent/.config/agent-box/ssh_host_ed25519_key
+PidFile /run/agent-box/sshd.pid
+LogLevel INFO
+
+# Keys only. authorized_keys is the user's own file; authorized_keys.managed is
+# the entrypoint's private copy of the Secret mounted at /etc/agent-box.
+AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys.managed
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+# Unprivileged sshd: no PAM, so also no systemd login session and no
+# XDG_RUNTIME_DIR (Herdr derives its socket path from that variable).
+UsePAM no
+PermitRootLogin no
+AllowUsers agent
+StrictModes yes
+PermitUserEnvironment no
+
+# Herdr speaks its protocol over a non-interactive session's stdio: nothing
+# else may reach stdout.
+PrintMotd no
+PrintLastLog no
+Banner none
+
+ClientAliveInterval 30
+ClientAliveCountMax 4
+
+# Claude Code runs here as the same user: a forwarded agent would be usable by
+# every process in the box while the connection lasts.
+AllowAgentForwarding no
+X11Forwarding no
+SetEnv LANG=C.UTF-8
+
+Subsystem sftp internal-sftp
