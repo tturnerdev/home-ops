@@ -20,7 +20,7 @@ built to make restarts unnecessary for anything but OS updates.
 | User | uid/gid 1000 (`agent`), `allowPrivilegeEscalation: false`, all capabilities dropped. Nothing needs root. The root filesystem stays writable. |
 | Volume | A persistent volume at `/home` (not `/home/agent`). With `fsGroup: 1000` its root is `root:1000`, mode `2775`. It may be empty on first start. |
 | SSH keys | Optional: a Secret mounted as the directory `/etc/agent-box` with the key `authorized_keys` |
-| Port | sshd on TCP 2222. Readiness: a TCP check on 2222. |
+| Port | sshd on TCP 2222. Readiness: exec `/usr/local/bin/agent-box-ready` (see [Readiness](#readiness)). |
 | Stop | preStop hook `/usr/local/bin/agent-box-stop`; it takes at most ~30 s |
 | Environment | `TZ` is honoured. Nothing else is needed. |
 
@@ -163,6 +163,16 @@ prompt on stdin, where nothing rewrites it:
 printf '%s' "$PROMPT" | ssh -p 2222 agent@<box> agent-launch -d ~/work/repo-x
 ```
 
+## Readiness
+
+The pod's readiness probe runs `/usr/local/bin/agent-box-ready`. It exits 0
+when sshd listens on TCP 2222 and no stop is in progress, and otherwise exits
+1 with a one-line reason. A stop is in progress while agent-box-stop's mark
+`/run/agent-box/stopping` is younger than 2 minutes, the same rule the
+supervisor follows. The script reads the socket table (`ss`) instead of
+connecting, because a TCP probe makes sshd log `Connection closed by ...` on
+every check. It needs no capabilities and takes a few milliseconds.
+
 ## Stopping
 
 `agent-box-stop` runs `hc server stop`, bounded to 25 s
@@ -188,6 +198,7 @@ to restart the core.
 | `Dockerfile` | the image, `linux/amd64`; built by `.github/workflows/agent-box.yaml` |
 | `agent-box-entrypoint` | `/usr/local/bin/`: home setup and supervisor |
 | `agent-box-env` | `/usr/local/bin/`: the core's (terminals') environment |
+| `agent-box-ready` | `/usr/local/bin/`: readiness check (exec probe) |
 | `agent-box-stop` | `/usr/local/bin/`: clean stop, preStop hook |
 | `agent-launch` | `/usr/local/bin/`: start Claude Code on a prompt |
 | `sshd_config` | `/usr/local/etc/agent-box/sshd_config` |

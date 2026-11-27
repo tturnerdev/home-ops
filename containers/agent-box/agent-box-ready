@@ -1,0 +1,25 @@
+#!/bin/bash
+# agent-box-ready: the pod's readiness check (an exec probe). Ready means sshd
+# listens on TCP 2222 and no stop is in progress. It reads the socket table
+# instead of connecting: sshd logs every connection, so a TCP probe every 10 s
+# would fill the log. Prints nothing when ready, one line when not. Needs no
+# capabilities.
+set -u
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+# agent-box-stop's mark; like the supervisor, ignore it after 2 minutes.
+readonly MARK=/run/agent-box/stopping
+if [ -e "$MARK" ] && [ -n "$(find "$MARK" -mmin -2 2>/dev/null)" ]; then
+    echo "not ready: the box is stopping"
+    exit 1
+fi
+
+if ! listening=$(ss -H -l -t -n 'sport = :2222' 2>&1); then
+    echo "not ready: cannot read the socket table: $listening"
+    exit 1
+fi
+if [ -z "$listening" ]; then
+    echo "not ready: sshd is not listening on port 2222"
+    exit 1
+fi
+exit 0

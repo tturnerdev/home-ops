@@ -25,7 +25,8 @@ touch /run/agent-box/stopping 2>/dev/null
 
 # No new SSH logins from here on: a Herdr client redials within a second of the
 # core going away, and its `herdr-core connect` would start a new core. Open
-# sessions stay; readiness (TCP 2222) fails, as it should for a stopping pod.
+# sessions stay; readiness (agent-box-ready) fails, as it should for a
+# stopping pod.
 pid=$(cat /run/agent-box/sshd.pid 2>/dev/null)
 if [ -n "$pid" ] && tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q 'sshd: /usr/sbin/sshd'; then
     kill -TERM "$pid" 2>/dev/null && log "sshd stopped accepting connections"
