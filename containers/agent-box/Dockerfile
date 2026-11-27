@@ -116,7 +116,10 @@ COPY --from=fetch --chmod=0755 /fetch/mise/bin/mise /usr/local/bin/mise
 COPY --from=fetch --chmod=0644 /fetch/mise/LICENSE /usr/share/doc/mise/LICENSE
 COPY --chmod=0644 mise-system.toml /etc/mise/config.toml
 
-COPY --chmod=0755 agent-box-entrypoint agent-box-env agent-box-ready agent-box-stop agent-launch /usr/local/bin/
+COPY --chmod=0755 agent-box-entrypoint agent-box-env agent-box-ready agent-box-stop agent-launch agent-service /usr/local/bin/
+# Service templates: not enabled until `agent-service enable NAME` copies one
+# into ~/.config/agent-box/services.
+COPY --chmod=0755 services/remote-control /usr/local/share/agent-box/services/
 COPY --chmod=0644 sshd_config /usr/local/etc/agent-box/sshd_config
 COPY --chmod=0644 profile.sh /etc/profile.d/agent-box.sh
 

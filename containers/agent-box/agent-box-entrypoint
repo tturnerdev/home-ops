@@ -11,7 +11,9 @@
 # to the core (the watcher), which ends the moment the core exits, and then
 # starts a new one at once; a core that came up with another environment
 # anyway is restarted with ours (`hc server restart --fresh`, programs keep
-# running). Every 30 s it also re-checks sshd, the core and the managed keys.
+# running). Every 30 s it also re-checks sshd, the core and the managed keys,
+# and keeps the services in ~/.config/agent-box/services running (see
+# supervise_services).
 set -uo pipefail
 
 readonly AGENT_UID=1000
@@ -27,6 +29,17 @@ readonly HC=$HOME/.local/bin/herdr-core
 readonly HOST_KEY=$HOME/.config/agent-box/ssh_host_ed25519_key
 readonly MANAGED_KEYS=$HOME/.ssh/authorized_keys.managed
 readonly STATE_DIR=$HOME/.local/state/agent-box
+readonly SERVICES_DIR=$HOME/.config/agent-box/services
+readonly SERVICES_STATE=$STATE_DIR/services
+readonly SERVICES_RUN=$RUN_DIR/services
+# Service backoff, in seconds: the least time between two starts; a run that
+# ends sooner than QUICK is a quick failure; after MAX_QUICK of them in a row,
+# one start per SLOW; a run longer than HEALTHY clears the count.
+readonly SERVICE_GAP=60
+readonly SERVICE_QUICK=120
+readonly SERVICE_MAX_QUICK=3
+readonly SERVICE_SLOW=900
+readonly SERVICE_HEALTHY=600
 
 sshd_pid=""
 sshd_started=0
@@ -35,6 +48,10 @@ watcher_pid=""
 watcher_started=0
 watcher_hold_until=0
 last_fresh=-$FRESH_EVERY
+core_up=0
+# Per service: its last start (epoch ms) and its quick failures in a row. Per
+# finished terminal whose end was already logged: 1 (until it is removed).
+declare -A svc_started=() svc_quick=() svc_logged=()
 
 log() { printf 'agent-box: %s\n' "$*" >&2; }
 die() {
@@ -89,7 +106,7 @@ prepare_home() {
         log "warning: could not copy /etc/skel into $HOME"
     mkdir -p "$HOME/.local/bin" "$STATE_DIR" "$HOME/work" "$HOME/.config"
     local d
-    for d in .ssh .config/agent-box .claude; do
+    for d in .ssh .config/agent-box .config/agent-box/services .claude .local/state/agent-box/services; do
         [ -d "$HOME/$d" ] || mkdir -m 0700 "$HOME/$d"
     done
     if [ ! -e "$HOME/.ssh/authorized_keys" ]; then
@@ -231,6 +248,7 @@ core_env_is_ours() {
 # agent-box-env's environment.
 check_core() {
     local action=${1:-status} out rc pid
+    core_up=0
     stopping && return 0
     seed_herdr_core || return 0
     out=$(agent-box-env timeout -k 5 20 "$HC" server "$action" --json 2>"$RUN_DIR/hc-server.err")
@@ -240,6 +258,9 @@ check_core() {
         return 0
     fi
     pid=$(jq -r '.pid // empty' <<<"$out" 2>/dev/null)
+    if [ -n "$pid" ]; then
+        core_up=1
+    fi
     if [ -n "$pid" ] && [ "$pid" != "$core_pid" ]; then
         log "Herdr Core running: $(jq -r '"hc \(.version), pid \(.pid), id \(.core.id[0:8]), \(.live) live terminal(s)"' <<<"$out")"
         core_pid=$pid
@@ -257,6 +278,183 @@ check_core() {
     if [ -z "$watcher_pid" ]; then
         start_watcher
     fi
+}
+
+# Services: a service is an executable regular file in
+# ~/.config/agent-box/services/ named like a terminal (1-32 of a-z 0-9 - _);
+# anything else there is ignored. Each pass starts every service without a
+# live terminal of its name in a new background terminal of that name, in ~
+# with agent-box-env's environment. Never with --keep: after a restart a kept
+# terminal comes back as a shell that holds the name. Only live terminals hold
+# a name, but finished ones still answer to it, so each service run that ended
+# is logged, its last screen and exit go to
+# ~/.local/state/agent-box/services/NAME.last.log, and its terminal is removed.
+# A file without its exec bit is left alone, and so is its terminal.
+# The backoff (see SERVICE_*) lives in memory. A program that exits on its own
+# (or a start that fails) within SERVICE_QUICK counts as a quick failure; a
+# run ended by hc kill or by a core stop does not. agent-service asks for a
+# fresh count with /run/agent-box/services/NAME.restart and reads the next
+# start time from NAME.next there.
+
+service_enabled() {
+    [[ ${1##*/} =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]] && [ -f "$1" ] && [ ! -L "$1" ] && [ -x "$1" ]
+}
+
+# 75 -> 1m15s
+human_secs() {
+    local s=$1
+    if ((s < 60)); then
+        printf '%ds' "$s"
+    elif ((s < 3600)); then
+        printf '%dm%02ds' $((s / 60)) $((s % 60))
+    else
+        printf '%dh%02dm' $((s / 3600)) $((s % 3600 / 60))
+    fi
+}
+
+# Logs MESSAGE about service NAME after a quick failure, with the backoff.
+log_quick_failure() {
+    local count=${svc_quick[$1]:-0}
+    if ((count < SERVICE_MAX_QUICK)); then
+        log "$2: quick failure $count of $SERVICE_MAX_QUICK"
+    else
+        log "warning: $2: $count quick failures in a row, retrying every $((SERVICE_SLOW / 60)) minutes${3:-}"
+    fi
+}
+
+# Service NAME's run in finished terminal ADDR: log and count its end once,
+# keep its last screen, then remove the terminal.
+service_ended() {
+    local n=$1 addr=$2 info code reason signal created finished ms=-1 how tmp first=""
+    if [ -z "${svc_logged[$addr]:-}" ]; then
+        info=$(agent-box-env timeout -k 5 20 "$HC" get "$addr" --json 2>/dev/null) || return 0
+        read -r code reason signal created finished < <(jq -r \
+            '[.exit_code, .reason, .signal, .created_ms, .finished_ms] | map(. // "-" | tostring) | join(" ")' \
+            <<<"$info" 2>/dev/null)
+        case ${reason:--} in
+            exited | signaled)
+                if [ "${code:--}" != - ]; then
+                    how="exited with code $code"
+                else
+                    how="died of signal ${signal:--}"
+                fi
+                ;;
+            killed) how="was ended by hc kill" ;;
+            *) how="ended (${reason:--})" ;;
+        esac
+        if [[ ${created:-} =~ ^[0-9]+$ && ${finished:-} =~ ^[0-9]+$ ]]; then
+            ms=$((finished - created))
+            how+=" after $(human_secs $((ms / 1000)))"
+        fi
+
+        if [ -d "$SERVICES_STATE" ] || { mkdir -p "$STATE_DIR" && mkdir -m 0700 "$SERVICES_STATE"; }; then
+            tmp=$(mktemp "$SERVICES_STATE/.$n.last.log.XXXXXX") && {
+                printf '%s (%s) %s\n' "$n" "$addr" "$how"
+                printf 'command:  %s\n' "$(jq -r '.argv | join(" ")' <<<"$info" 2>/dev/null)"
+                if [ "$ms" -ge 0 ]; then
+                    printf 'started:  %(%Y-%m-%dT%H:%M:%S%z)T\n' $((created / 1000))
+                    printf 'finished: %(%Y-%m-%dT%H:%M:%S%z)T\n' $((finished / 1000))
+                fi
+                printf -- '--- last screen\n'
+                agent-box-env timeout -k 5 20 "$HC" read "$addr" --lines 100 2>&1 | tail -c 65536
+            } >"$tmp" && mv -f "$tmp" "$SERVICES_STATE/$n.last.log"
+            rm -f "${tmp:-}"
+        fi
+
+        if ((ms >= 0 && ms < SERVICE_QUICK * 1000)) && [[ $reason == exited || $reason == signaled ]]; then
+            svc_quick[$n]=$((${svc_quick[$n]:-0} + 1))
+            log_quick_failure "$n" "service $n ($addr) $how" \
+                " (last screen: ~/.local/state/agent-box/services/$n.last.log)"
+        else
+            if ((ms > SERVICE_HEALTHY * 1000)); then
+                svc_quick[$n]=0
+            fi
+            log "service $n ($addr) $how"
+        fi
+        svc_logged[$addr]=1
+        first=1
+    fi
+    if agent-box-env timeout -k 5 20 "$HC" rm "$addr" --json >/dev/null 2>"$RUN_DIR/hc-service.err"; then
+        unset 'svc_logged[$addr]'
+    elif [ -n "$first" ]; then
+        log "warning: service $n: cannot remove finished terminal $addr (retrying every pass): $(tr '\n' ' ' <"$RUN_DIR/hc-service.err")"
+    fi
+}
+
+# Starts service NAME, unless its backoff says not yet.
+service_start() {
+    local n=$1 f=$SERVICES_DIR/$1 last=${svc_started[$1]:-} wait=$SERVICE_GAP now out rc addr err kind message
+    if ((${svc_quick[$n]:-0} >= SERVICE_MAX_QUICK)); then
+        wait=$SERVICE_SLOW
+    fi
+    now=$((${EPOCHREALTIME//[!0-9]/} / 1000))
+    if [ -n "$last" ] && ((now - last < wait * 1000)); then
+        # For agent-service ls: the earliest next start, in epoch seconds.
+        printf '%s\n' $(((last + wait * 1000 + 999) / 1000)) 2>/dev/null >"$SERVICES_RUN/$n.next"
+        return 0
+    fi
+    # A stop or `agent-service disable` may have come in during this pass.
+    stopping && return 0
+    service_enabled "$f" || return 0
+    svc_started[$n]=$now
+    out=$(agent-box-env timeout -k 5 20 "$HC" run --json --bg --no-parent --name "$n" --cwd "$HOME" -- "$f" 2>"$RUN_DIR/hc-service.err")
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+        addr=$(jq -r '.address // empty' <<<"$out" 2>/dev/null)
+        rm -f "$SERVICES_RUN/$n.next"
+        # For agent-service ls: when and where it last started.
+        printf '%(%Y-%m-%dT%H:%M:%S%z)T %s\n' -1 "${addr:-?}" 2>/dev/null >"$SERVICES_STATE/$n.started"
+        log "service $n started (${addr:-?})"
+        return 0
+    fi
+    err=$(grep '^{' "$RUN_DIR/hc-service.err" | tail -n 1)
+    kind=$(jq -r '.error.kind // empty' <<<"$err" 2>/dev/null)
+    # Someone else started one since this pass listed the terminals.
+    if [ "$kind" = name_taken ]; then
+        return 0
+    fi
+    message=$(jq -r '.error.message // empty' <<<"$err" 2>/dev/null)
+    svc_quick[$n]=$((${svc_quick[$n]:-0} + 1))
+    log_quick_failure "$n" "service $n could not start (exit $rc): ${message:-$(tr '\n' ' ' <"$RUN_DIR/hc-service.err")}"
+}
+
+# One pass over the services; only while the core is up and no stop is in
+# progress (any hc call would start a missing core).
+supervise_services() {
+    local list name addr state f n
+    local -A live=() finished=()
+    ((core_up)) || return 0
+    stopping && return 0
+    if ! list=$(agent-box-env timeout -k 5 20 "$HC" ls --all --json 2>"$RUN_DIR/hc-service.err"); then
+        log "warning: services: hc ls failed: $(tr '\n' ' ' <"$RUN_DIR/hc-service.err")"
+        return 0
+    fi
+    # This machine's named terminals (a connected machine's addresses are
+    # machine/t7), oldest first.
+    while read -r name addr state; do
+        if [ "$state" = live ]; then
+            live[$name]=$addr
+        else
+            finished[$name]+="$addr "
+        fi
+    done < <(jq -r '.terminals[] | select(.name != null and (.address | contains("/") | not))
+        | "\(.name) \(.address) \(.state)"' <<<"$list" 2>/dev/null)
+    for f in "$SERVICES_DIR"/*; do
+        service_enabled "$f" || continue
+        n=${f##*/}
+        if [ -e "$SERVICES_RUN/$n.restart" ]; then
+            rm -f "$SERVICES_RUN/$n.restart"
+            svc_quick[$n]=0
+        fi
+        for addr in ${finished[$n]:-}; do
+            service_ended "$n" "$addr"
+        done
+        if [ -z "${live[$n]:-}" ]; then
+            service_start "$n"
+        elif [ -e "$SERVICES_RUN/$n.next" ]; then
+            rm -f "$SERVICES_RUN/$n.next"
+        fi
+    done
 }
 
 # Claude Code installs itself under $HOME (~/.local/bin/claude) and updates
@@ -282,6 +480,9 @@ main() {
     [ "$(id -u)" = "$AGENT_UID" ] || die "must run as uid $AGENT_UID, not $(id -u)"
     mkdir -p "$RUN_DIR" 2>/dev/null
     rm -f "$RUN_DIR/stopping"
+    # Service requests and hints from an earlier run of this container are void.
+    rm -rf "$SERVICES_RUN"
+    mkdir -m 0700 "$SERVICES_RUN" 2>/dev/null
     prepare_home
     seed_herdr_core
     ensure_host_key
@@ -292,6 +493,7 @@ main() {
     # The core before sshd: once sshd listens the pod is ready, and a client
     # finding no core would start one with its SSH session's environment.
     check_core start
+    supervise_services
     start_sshd
     install_claude
 
@@ -305,6 +507,7 @@ main() {
         wait "$sleeper" 2>/dev/null
         reap_watcher
         check_core
+        supervise_services
         ensure_sshd
         sync_managed_keys
     done

@@ -1,0 +1,266 @@
+#!/bin/bash
+# agent-service: list and switch the agent box's services, the executable
+# files in ~/.config/agent-box/services/ that the container's supervisor keeps
+# running, each in a Herdr terminal named after its file. Works as a one-line
+# SSH command:
+#
+#   ssh agent@<box> agent-service enable remote-control
+set -uo pipefail
+export LC_ALL=C
+
+# Absolute paths: a non-interactive SSH session's PATH has no ~/.local/bin.
+readonly HC=/home/agent/.local/bin/herdr-core
+readonly SERVICES=/home/agent/.config/agent-box/services
+readonly STATE=/home/agent/.local/state/agent-box/services
+readonly TEMPLATES=/usr/local/share/agent-box/services
+readonly REQUESTS=/run/agent-box/services
+
+usage() {
+    cat <<'EOF'
+usage: agent-service ls
+       agent-service enable|disable|restart NAME
+
+A service is an executable file in ~/.config/agent-box/services/. Every 30 s
+the container's supervisor starts each service that is not running, in a
+Herdr terminal named after the file (watch it: hc attach NAME).
+
+  ls       each service: enabled or disabled, its terminal, its last start
+  enable   make NAME executable; with no such file, install the image's
+           template NAME (from /usr/local/share/agent-box/services/)
+  disable  clear NAME's exec bit and end its terminal; it stays stopped
+  restart  end NAME's terminal; the supervisor starts it again and forgets
+           its earlier quick failures
+EOF
+}
+
+die() {
+    local code=$1
+    shift
+    printf 'agent-service: %s\n' "$*" >&2
+    exit "$code"
+}
+
+# Through agent-box-env, so that a core this happens to start gets the box's
+# environment.
+herdr() {
+    /usr/local/bin/agent-box-env timeout -k 5 20 "$HC" "$@"
+}
+
+# The address of NAME's live terminal on this machine; nothing if none.
+live_terminal() {
+    local list
+    list=$(herdr ls --json 2>/dev/null) || return 1
+    jq -r --arg n "$1" 'first(.terminals[]
+        | select(.name == $n and .state == "live" and (.address | contains("/") | not))
+        | .address) // empty' <<<"$list"
+}
+
+# The supervisor clears NAME's count of quick failures on its next pass (and
+# so its 15-minute wait, which the hint file .next would still show).
+request_fresh_count() {
+    mkdir -p "$REQUESTS" 2>/dev/null && : >"$REQUESTS/$1.restart"
+    rm -f "$REQUESTS/$1.next"
+}
+
+# How a finished terminal ended, from its exit_code, reason and signal.
+ended_how() {
+    case $2 in
+        exited | signaled)
+            if [ "$1" != - ]; then
+                printf 'exit code %s' "$1"
+            else
+                printf 'signal %s' "$3"
+            fi
+            ;;
+        killed) printf 'ended by hc kill' ;;
+        *) printf '%s' "$2" ;;
+    esac
+}
+
+templates() {
+    local f out=""
+    for f in "$TEMPLATES"/*; do
+        if [ -f "$f" ]; then
+            out+="${out:+, }${f##*/}"
+        fi
+    done
+    printf '%s' "${out:-none}"
+}
+
+# 75 -> 1m15s
+human_secs() {
+    local s=$1
+    if ((s < 60)); then
+        printf '%ds' "$s"
+    elif ((s < 3600)); then
+        printf '%dm%02ds' $((s / 60)) $((s % 60))
+    else
+        printf '%dh%02dm' $((s / 3600)) $((s % 3600 / 60))
+    fi
+}
+
+cmd_ls() {
+    local list f n line info pid prog addr state code reason signal started next last ok=1
+    local -A live=() finished=() names=()
+    if [ -x "$HC" ] && list=$(herdr ls --all --json 2>/dev/null); then
+        while read -r n addr state code reason signal; do
+            if [ "$state" = live ]; then
+                live[$n]=$addr
+            else
+                finished[$n]="$addr $code $reason $signal"
+            fi
+        done < <(jq -r '.terminals[] | select(.name != null and (.address | contains("/") | not))
+            | [.name, .address, .state, .exit_code // "-", .reason // "-", .signal // "-"]
+            | map(tostring) | join(" ")' <<<"$list")
+    else
+        ok=0
+    fi
+
+    for f in "$SERVICES"/* "$TEMPLATES"/*; do
+        if [ -e "$f" ] || [ -L "$f" ]; then
+            names[${f##*/}]=1
+        fi
+    done
+    if [ "${#names[@]}" -eq 0 ]; then
+        echo "no services: put an executable file in $SERVICES"
+        return 0
+    fi
+
+    while read -r n; do
+        f=$SERVICES/$n
+        if [ ! -e "$f" ] && [ ! -L "$f" ]; then
+            echo "$n: not installed (a template: agent-service enable $n)"
+            continue
+        elif ! [[ $n =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]]; then
+            echo "$n: ignored, not a service name (1-32 of a-z 0-9 - _, starting with a letter or digit)"
+            continue
+        elif [ -L "$f" ]; then
+            echo "$n: ignored, a symbolic link (a service must be a regular file)"
+            continue
+        elif [ ! -f "$f" ]; then
+            echo "$n: ignored, not a regular file"
+            continue
+        fi
+
+        if [ -x "$f" ]; then
+            line="$n: enabled"
+        else
+            line="$n: disabled"
+        fi
+        if ((!ok)); then
+            line+=", terminal unknown (Herdr Core did not answer)"
+        elif [ -n "${live[$n]:-}" ]; then
+            info=$(herdr get "${live[$n]}" --json 2>/dev/null)
+            pid=$(jq -r '.pid // empty' <<<"$info" 2>/dev/null)
+            prog=$(jq -r '.argv[0] // empty' <<<"$info" 2>/dev/null)
+            line+=", live in ${live[$n]}${pid:+ (pid $pid)}"
+            # A terminal of that name that someone else started (a kept one
+            # comes back from a restart as a shell) keeps the service out.
+            if [ -n "$prog" ] && [ "$prog" != "$f" ]; then
+                line+=" but running $prog, not the service"
+            fi
+        elif [ -n "${finished[$n]:-}" ]; then
+            read -r addr code reason signal <<<"${finished[$n]}"
+            line+=", finished in $addr ($(ended_how "$code" "$reason" "$signal"))"
+        else
+            line+=", no terminal"
+        fi
+        if [ -r "$STATE/$n.started" ] && read -r started _ <"$STATE/$n.started"; then
+            line+=", last start $started"
+        fi
+        if [ -x "$f" ] && [ -z "${live[$n]:-}" ] && [ -r "$REQUESTS/$n.next" ] &&
+            read -r next <"$REQUESTS/$n.next" && [[ $next =~ ^[0-9]+$ ]] && ((next > EPOCHSECONDS)); then
+            line+=", next start in $(human_secs $((next - EPOCHSECONDS))) (backoff)"
+        fi
+        # The supervisor's record of the last run it saw end ("NAME (t3) exited
+        # with code 1 after 0s"), unless a terminal shows a newer one.
+        if [ -z "${live[$n]:-}${finished[$n]:-}" ] && [ -r "$STATE/$n.last.log" ] &&
+            read -r last <"$STATE/$n.last.log"; then
+            last=${last#"$n ("}
+            line+=", last run in ${last%%)*}: ${last#*) }"
+        fi
+        echo "$line"
+    done < <(printf '%s\n' "${!names[@]}" | sort)
+}
+
+cmd_enable() {
+    local n=$1 f=$SERVICES/$1 tmp addr installed=""
+    if [ -L "$f" ] || { [ -e "$f" ] && [ ! -f "$f" ]; }; then
+        die 1 "$f is not a regular file, which a service must be"
+    elif [ -f "$f" ]; then
+        chmod +x "$f" || die 1 "cannot make $f executable"
+    elif [ -f "$TEMPLATES/$n" ]; then
+        [ -d "$SERVICES" ] || mkdir -m 0700 "$SERVICES" || die 1 "cannot create $SERVICES"
+        # Written under a name the supervisor ignores, then linked into place:
+        # it never sees a partial file, and a file that appeared meanwhile is
+        # not replaced (ln fails).
+        tmp=$(mktemp "$SERVICES/.$n.XXXXXX") || die 1 "cannot write in $SERVICES"
+        if ! { cat "$TEMPLATES/$n" >"$tmp" && chmod 0755 "$tmp" && ln "$tmp" "$f"; } 2>/dev/null; then
+            rm -f "$tmp"
+            die 1 "cannot install $TEMPLATES/$n as $f"
+        fi
+        rm -f "$tmp"
+        installed=" (installed from $TEMPLATES/$n)"
+    else
+        die 1 "no service $n: create the executable file $f, or enable a template ($(templates))"
+    fi
+    request_fresh_count "$n"
+    if addr=$(live_terminal "$n") && [ -n "$addr" ]; then
+        echo "$n is enabled and running in $addr (attach: hc attach $n)"
+    else
+        echo "enabled $n$installed: the supervisor starts it within 90 s (attach: hc attach $n)"
+    fi
+}
+
+cmd_disable() {
+    local n=$1 f=$SERVICES/$1 addr err
+    { [ -f "$f" ] && [ ! -L "$f" ]; } || die 1 "no service $n (no file $f)"
+    # The exec bit first: from then on the supervisor leaves the service
+    # alone, so it does not start it again once the terminal is gone.
+    chmod a-x "$f" || die 1 "cannot clear the exec bit of $f"
+    addr=$(live_terminal "$n") || die 1 "disabled $n, but cannot list its terminal (is Herdr Core up?)"
+    if [ -z "$addr" ]; then
+        echo "disabled $n (it was not running)"
+        return 0
+    fi
+    err=$(herdr kill "$addr" --json 2>&1 >/dev/null) || die 1 "disabled $n, but hc kill $addr failed: $err"
+    echo "disabled $n and ended its terminal $addr"
+}
+
+cmd_restart() {
+    local n=$1 f=$SERVICES/$1 addr err
+    { [ -f "$f" ] && [ ! -L "$f" ]; } || die 1 "no service $n (no file $f)"
+    [ -x "$f" ] || die 1 "$n is disabled (agent-service enable $n)"
+    request_fresh_count "$n"
+    addr=$(live_terminal "$n") || die 1 "cannot list $n's terminal (is Herdr Core up?)"
+    if [ -z "$addr" ]; then
+        echo "$n is not running: the supervisor starts it within 90 s"
+        return 0
+    fi
+    err=$(herdr kill "$addr" --json 2>&1 >/dev/null) || die 1 "hc kill $addr failed: $err"
+    echo "ended $n ($addr): the supervisor starts it again within 90 s"
+}
+
+if [ $# -eq 0 ]; then
+    usage >&2
+    exit 2
+fi
+cmd=$1
+shift
+case $cmd in
+    ls | list)
+        [ $# -eq 0 ] || die 2 "ls takes no arguments"
+        cmd_ls
+        ;;
+    enable | disable | restart)
+        [ $# -eq 1 ] || die 2 "usage: agent-service $cmd NAME"
+        [[ $1 =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]] ||
+            die 2 "bad name '$1': use 1-32 of a-z 0-9 - _, starting with a letter or digit"
+        "cmd_$cmd" "$1"
+        ;;
+    -h | --help | help) usage ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac

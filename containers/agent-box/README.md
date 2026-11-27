@@ -38,9 +38,10 @@ Without a volume (`docker run`) the image's own `/home/agent` is used.
 `agent-box-entrypoint` does the following:
 
 1. It creates `/home/agent` (mode 0750) if it is missing and copies missing
-   files from `/etc/skel`. It creates `~/.ssh` (0700), `~/.local/bin` and
-   `~/work`, and removes group/other write bits from `~`, `~/.ssh` and the
-   host key. A Kubernetes fsGroup pass adds those bits, and sshd refuses them.
+   files from `/etc/skel`. It creates `~/.ssh` and
+   `~/.config/agent-box/services` (0700), `~/.local/bin` and `~/work`, and
+   removes group/other write bits from `~`, `~/.ssh` and the host key. A
+   Kubernetes fsGroup pass adds those bits, and sshd refuses them.
 2. It copies the seed `/opt/agent-box/herdr-core` to `~/.local/bin/herdr-core`
    (plus an `hc` link), but only if no herdr-core is there yet.
 3. It generates an ed25519 SSH host key, once, into
@@ -49,17 +50,18 @@ Without a volume (`docker run`) the image's own `/home/agent` is used.
    if that file does not exist.
 5. It copies the managed keys (see below).
 6. It starts Herdr Core (`hc server start`) in `~` with a clean environment,
-   then starts sshd. The core starts first so that no client can start it.
+   then the [services](#services), then sshd. The core starts first so that
+   no client can start it.
 7. If `~/.local/bin/claude` is missing, it runs the official Claude Code
    installer in the background, logging to
    `~/.local/state/agent-box/claude-install.log`. A failed install is retried
    on the next start.
 
 After that the entrypoint supervises. It restarts sshd if sshd exits, and
-re-syncs the managed keys every 30 s. Herdr Core is never the main process,
-because it exits on `hc server restart`, `hc update` and `hc machine update`.
-Herdr's holder process keeps the programs running and starts a new core within
-about 3 s.
+every 30 s it keeps the services running and re-syncs the managed keys. Herdr
+Core is never the main process, because it exits on `hc server restart`,
+`hc update` and `hc machine update`. Herdr's holder process keeps the programs
+running and starts a new core within about 3 s.
 
 Herdr's own client calls also start a missing core. Over SSH, that core would
 pick up the SSH session's login environment. To prevent that, the entrypoint
@@ -108,7 +110,7 @@ because Herdr speaks its protocol over their stdio.
   version" warning and its download statistics.
 - **OS packages**: rebuild the image and roll the pod. The stop is clean:
   terminals started with `--keep` come back as shells in their last folder,
-  and all other programs end.
+  the services start again, and all other programs end.
 
 ## SSH keys
 
@@ -163,6 +165,84 @@ prompt on stdin, where nothing rewrites it:
 printf '%s' "$PROMPT" | ssh -p 2222 agent@<box> agent-launch -d ~/work/repo-x
 ```
 
+## Services
+
+A service is a long-running program that the supervisor keeps alive in a
+named Herdr terminal. The main use is Claude Code's Remote Control server
+(see [below](#remote-control)), which ends with every pod restart and after
+about 10 minutes without network.
+
+- A service is an executable regular file in `~/.config/agent-box/services/`
+  (a script needs its `#!` line) whose name is 1-32 of `a-z 0-9 - _`,
+  starting with a letter or digit. The file name is the terminal's name.
+  Everything else in that directory is ignored: other names (`run.sh`),
+  directories, symbolic links.
+- Right after the container starts and then every 30 s, the supervisor starts
+  each service that has no live terminal of its name, as
+  `hc run --bg --name NAME -- ~/.config/agent-box/services/NAME`, in `~`,
+  with [the terminals' environment](#the-terminals-environment). To watch or
+  answer it: `hc attach NAME` (`ctrl+\` detaches).
+- Service terminals are not kept (`--keep`): after a restart the supervisor
+  starts the program again, where a kept terminal would come back as a shell
+  holding the name.
+- When a run ends, the supervisor logs its exit code (or why it ended), saves
+  its last screen to `~/.local/state/agent-box/services/NAME.last.log` and
+  removes the finished terminal, so finished terminals do not pile up under
+  the name.
+- A file without its exec bit is left alone: the supervisor neither starts
+  it nor ends a terminal that still runs it.
+
+The supervisor waits at least 60 s between two starts of a service. A run
+that ends on its own within 120 s, or a start that fails, is a quick failure.
+After 3 quick failures in a row the supervisor starts the service only every
+15 minutes and logs a warning. A run that lasts more than 10 minutes clears
+the count, and so do `agent-service enable` and `agent-service restart`. A
+run ended by `hc kill` or by a stop of Herdr Core is not a failure. The
+supervisor keeps these counts in memory, so they start over with the
+container.
+
+### agent-service
+
+`agent-service` lists and switches services. It lives in `/usr/local/bin`,
+so a one-line SSH command finds it:
+
+```console
+$ ssh -p 2222 agent@<box> agent-service ls
+remote-control: enabled, live in t7 (pid 4211), last start 2026-11-26T09:12:40-0800
+web: disabled, finished in t5 (ended by hc kill), last start 2026-11-26T08:58:10-0800
+```
+
+| Command | Effect |
+| --- | --- |
+| `agent-service ls` | Each service: enabled or disabled, its terminal (live with its pid, finished, or none), its last start, a pending backoff, and how its last run ended. Also lists the image's templates that are not installed and the files that are ignored. |
+| `agent-service enable NAME` | Makes the file executable. If there is no such file, installs the image's template of that name (mode 0755). The supervisor starts it within 90 s. |
+| `agent-service disable NAME` | Clears the exec bit, then ends the service's terminal (`hc kill`). It stays stopped. |
+| `agent-service restart NAME` | Ends the service's terminal. The supervisor starts it again within 90 s. |
+
+`enable` and `restart` also clear the quick-failure count. Errors exit
+non-zero with a one-line message.
+
+### Remote Control
+
+The image ships one service template, not enabled:
+`/usr/local/share/agent-box/services/remote-control`. It runs
+`claude remote-control --spawn same-dir --no-create-session-in-dir` in
+`~/work`. The box then appears as a device in the Claude app and on
+claude.ai/code, sessions started from there work in `~/work`, and no session
+exists until one is asked for. Remote Control needs a claude.ai
+subscription.
+
+1. Sign in to Claude Code once, in a shell on the box: `claude auth login`
+   (or `claude`, then `/login`).
+2. Enable the service: `agent-service enable remote-control`.
+3. The first run asks once to enable Remote Control and to trust `~/work`:
+   run `hc attach remote-control`, answer, and detach with `ctrl+\`.
+
+Signed out, `claude remote-control` exits at once ("You must be logged in to
+use Remote Control"), so a service enabled before signing in soon waits 15
+minutes between tries. `agent-service restart remote-control` ends that
+wait.
+
 ## Readiness
 
 The pod's readiness probe runs `/usr/local/bin/agent-box-ready`. It exits 0
@@ -201,6 +281,8 @@ to restart the core.
 | `agent-box-ready` | `/usr/local/bin/`: readiness check (exec probe) |
 | `agent-box-stop` | `/usr/local/bin/`: clean stop, preStop hook |
 | `agent-launch` | `/usr/local/bin/`: start Claude Code on a prompt |
+| `agent-service` | `/usr/local/bin/`: list and switch services |
+| `services/remote-control` | `/usr/local/share/agent-box/services/`: service template |
 | `sshd_config` | `/usr/local/etc/agent-box/sshd_config` |
 | `profile.sh` | `/etc/profile.d/agent-box.sh` |
 | `mise-system.toml` | `/etc/mise/config.toml` |
@@ -216,6 +298,8 @@ after every apt step.
   the preStop hook.
 - `~/.local/state/herdr-core/default/core.log` and `holder.log`: Herdr itself.
 - `~/.local/state/agent-box/claude-install.log`: the Claude Code installer.
+- `agent-service ls`, and `~/.local/state/agent-box/services/NAME.last.log`:
+  how a service's last run ended, with its last screen.
 - A key is refused: sshd logs why. Check the modes of `~`, `~/.ssh` and the key
   files; none may be group- or world-writable.
 

@@ -1,0 +1,15 @@
+#!/bin/bash
+# agent-box service template: Claude Code's Remote Control server, which makes
+# this box a device in the Claude app and on claude.ai/code. Sign in to Claude
+# Code first, then run `agent-service enable remote-control`.
+# The first run asks once to enable Remote Control and to trust ~/work: answer in the terminal (hc attach remote-control).
+set -u
+
+if ! command -v claude >/dev/null 2>&1; then
+    echo "remote-control: claude is not installed yet (see ~/.local/state/agent-box/claude-install.log)" >&2
+    exit 1
+fi
+cd "$HOME/work" || exit 1
+# Sessions started from the app run in ~/work itself, and none is created
+# before one is asked for.
+exec claude remote-control --spawn same-dir --no-create-session-in-dir
