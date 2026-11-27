@@ -1,0 +1,33 @@
+---
+# Photos and videos. ceph-block is named explicitly: the cluster has two
+# default storage classes. Never pruned, so taking the app out of git cannot
+# delete the family's media (ceph-block reclaims on delete).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: famlin-uploads
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: ceph-block
+---
+# Generated secrets directory; JWT_SECRET comes from secret.sops.yaml, so
+# this stays almost empty.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: famlin-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: ceph-block

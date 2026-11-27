@@ -397,6 +397,17 @@
       // Digest-pinned floating nightly-rootless tag, chosen on purpose for the unreleased label template system (#1161): every digest bump is a Recreate rollout that can carry one-way goose migrations. Overrides the list-B auto-merge for this image only (postgres-init in the same folder still updates). Bump by hand, after a backup; return to a release tag once one ships the templates.
       enabled: false,
     },
+    {
+      description: 'Famlin - PRs only, backup before merging',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'ghcr.io/timvanonckelen/famlin',
+      ],
+      // List A (PRs) like any app outside list B; this rule only makes it explicit and keeps it so if the folder ever joins list B. Famlin is pre-1.0 and migrates its database one way at every start (an older image refuses to run against a newer schema), so a bad release cannot be undone by reverting the PR, only by restoring a backup. Run a Famlin backup before merging (kubernetes/apps/default/famlin/README.md).
+      automerge: false,
+    },
   ],
   customManagers: [
     {
