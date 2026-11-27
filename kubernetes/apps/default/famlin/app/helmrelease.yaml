@@ -162,7 +162,7 @@ spec:
           gethomepage.dev/icon: "mdi-human-male-female-child"
           gethomepage.dev/description: "Family photos and updates"
         hostnames:
-          - "family.${SECRET_DOMAIN}"
+          - "fam.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-external
             namespace: network

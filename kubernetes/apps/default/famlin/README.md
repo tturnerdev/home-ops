@@ -7,9 +7,15 @@ chat. One Node.js container serves the family web app at `/`, the admin UI at
 cluster (PostgreSQL 17), created by the usual `postgres-init` initContainer.
 
 Once the first-run setup is done (below), its route,
-`family.${SECRET_DOMAIN}` on `envoy-external`, serves the internet through
+`fam.${SECRET_DOMAIN}` on `envoy-external`, serves the internet through
 the Cloudflare tunnel and the home network straight from the gateway
 (split-horizon DNS), so one address works everywhere.
+
+Changing the hostname takes two steps: the route here, and **Server settings →
+Public URL** in `/admin`, set to the new address once it answers. Email links
+use that setting, and so does Sign in with Apple, which rejects any login
+whose nonce names a different host. Existing invite tokens stay valid; only
+the host in their links changes.
 
 ## Storage
 
@@ -42,7 +48,7 @@ That is why the app first ships **without** a route:
 3. Leave invitations and the mobile-app QR code for later. Famlin builds
    those links from the address in the browser, which is `localhost` at this
    point.
-4. Add the route. Then, from `https://family.${SECRET_DOMAIN}/admin`, set
+4. Add the route. Then, from `https://fam.${SECRET_DOMAIN}/admin`, set
    **Server settings → Public URL** to that address (emails only carry links
    when it is set) and create the invitations.
 
