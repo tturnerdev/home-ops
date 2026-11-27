@@ -149,6 +149,37 @@ spec:
         ports:
           http:
             port: 3000
+    route:
+      # Public: cloudflared's wildcard rule for the primary domain already
+      # sends this name to envoy-external, and on the LAN it resolves
+      # straight to the gateway, so one hostname serves both. Added only
+      # after the first-run admin setup (../README.md).
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/name: "Famlin"
+          gethomepage.dev/icon: "mdi-human-male-female-child"
+          gethomepage.dev/description: "Family photos and updates"
+        hostnames:
+          - "family.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 3000
+            # Envoy's default route timeout (15s for the whole response) is
+            # already lifted for every route by the gateway-wide
+            # BackendTrafficPolicy (requestTimeout: 0s, in
+            # network/envoy-gateway). A route's own timeout takes precedence
+            # over that policy, so any finite value here would add a cap; 0s
+            # keeps multi-GB video downloads and long upload processing
+            # unlimited even if the gateway default changes.
+            timeouts:
+              request: 0s
     persistence:
       # Only the app container mounts the family's data; init-db needs none
       # of it
