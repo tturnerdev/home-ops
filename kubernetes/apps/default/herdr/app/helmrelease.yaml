@@ -48,7 +48,7 @@ spec:
               # Built from containers/agent-box in this repo. Digest-pinned;
               # a new tag or digest is a restart, so bump deliberately.
               repository: ghcr.io/tturnerdev/agent-box
-              tag: 2026.11.26-9cabeb4@sha256:5e4fad60bfe13e8e06990f5356ae3368f1f87dd002393ed404df4b3eecf47931
+              tag: 2026.11.27-d961a5c@sha256:44cb523a02dd5b229e2b3af2378dc0f6df45d2dff9b6be5ddbaaa7cce8756ad5
               pullPolicy: IfNotPresent
             env:
               TZ: America/Los_Angeles
@@ -72,8 +72,10 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  tcpSocket:
-                    port: &port 2222
+                  # Reads the socket table instead of connecting: a TCP probe
+                  # made sshd log a dropped connection every 10 s
+                  exec:
+                    command: ["/usr/local/bin/agent-box-ready"]
                   periodSeconds: 10
                   timeoutSeconds: 5
                   failureThreshold: 3
@@ -131,7 +133,7 @@ spec:
           # Clients use the standard port; sshd runs unprivileged on 2222
           ssh:
             port: 22
-            targetPort: *port
+            targetPort: 2222
             protocol: TCP
     persistence:
       home:
