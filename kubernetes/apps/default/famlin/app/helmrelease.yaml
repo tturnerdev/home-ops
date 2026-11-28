@@ -63,7 +63,7 @@ spec:
             # never merges them. Back up before bumping (see ../README.md).
             image:
               repository: ghcr.io/timvanonckelen/famlin
-              tag: 0.10.0@sha256:6eb02a0d39545a8617d1513d1903636c949142c145364c24d148b1063281c571
+              tag: 0.10.1@sha256:7f16a4c15645b6def436c6128c9ae48f9b9cf95a4702544f21fab10444ceffb8
               pullPolicy: IfNotPresent
             env:
               # Scheduled backups run at a local hour
